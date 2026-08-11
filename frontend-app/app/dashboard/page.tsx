@@ -1,11 +1,13 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
 export default function DashboardPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -17,50 +19,48 @@ export default function DashboardPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        router.replace("/login");
         return;
       }
 
       setEmail(user.email ?? "");
     }
 
-    loadUser();
-  }, [router, supabase]);
+    void loadUser();
+  }, [router]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.replace("/login");
+    router.refresh();
   }
 
   return (
     <main className="min-h-screen bg-slate-100 p-10">
-      <div className="max-w-5xl mx-auto">
-
-        <div className="flex justify-between items-center mb-10">
-
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-10 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold">
-              🐾 PAWS
-            </h1>
+            <h1 className="text-4xl font-bold">🐾 PAWS</h1>
 
-            <p className="text-gray-600 mt-2">
+            <p className="mt-2 text-gray-600">
               Bienvenido {email}
             </p>
           </div>
 
           <button
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg"
+            className="rounded-lg bg-red-600 px-5 py-3 text-white transition hover:bg-red-700"
           >
             Cerrar sesión
           </button>
-
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
-
-          <div className="bg-white rounded-xl shadow p-8">
-            <h2 className="font-bold text-xl mb-3">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div
+            onClick={() => router.push("/pets")}
+            className="cursor-pointer rounded-xl bg-white p-8 shadow transition hover:shadow-lg"
+          >
+            <h2 className="mb-3 text-xl font-bold">
               🐶 Mascotas
             </h2>
 
@@ -69,8 +69,11 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-8">
-            <h2 className="font-bold text-xl mb-3">
+          <div
+            onClick={() => router.push("/training")}
+            className="cursor-pointer rounded-xl bg-white p-8 shadow transition hover:shadow-lg"
+          >
+            <h2 className="mb-3 text-xl font-bold">
               🏋️ Entrenamientos
             </h2>
 
@@ -79,8 +82,11 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-8">
-            <h2 className="font-bold text-xl mb-3">
+          <div
+            onClick={() => router.push("/ai")}
+            className="cursor-pointer rounded-xl bg-white p-8 shadow transition hover:shadow-lg"
+          >
+            <h2 className="mb-3 text-xl font-bold">
               🤖 IA
             </h2>
 
@@ -88,9 +94,7 @@ export default function DashboardPage() {
               Recomendaciones inteligentes.
             </p>
           </div>
-
         </div>
-
       </div>
     </main>
   );

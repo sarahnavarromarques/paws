@@ -1,92 +1,121 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
 
 type Props = {
   petId: number;
 };
 
 export default function AddTrainingForm({ petId }: Props) {
+  const router = useRouter();
+
+  const [saving, setSaving] = useState(false);
+
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [duration, setDuration] = useState("");
   const [notes, setNotes] = useState("");
 
   async function handleSave() {
-    if (!title) {
+    if (!title.trim()) {
       alert("Introduce un título.");
       return;
     }
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("Usuario no autenticado.");
+      return;
+    }
+
+    setSaving(true);
+
     const { error } = await supabase
-      .from("training_sessions")
-      .insert([
-        {
-          pet_id: petId,
-          title,
-          date,
-          duration,
-          notes,
-        },
-      ]);
+      .from("trainings")
+      .insert({
+        user_id: user.id,
+        pet_id: petId,
+        title: title.trim(),
+        date,
+        time: time || null,
+        duration: duration ? Number(duration) : null,
+        notes: notes.trim() || null,
+      });
+
+    setSaving(false);
 
     if (error) {
       alert(error.message);
       return;
     }
 
-    alert("Entrenamiento guardado.");
-
     setTitle("");
     setDate("");
+    setTime("");
     setDuration("");
     setNotes("");
 
-    location.reload();
+    router.refresh();
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow p-8 mb-8 border">
+    <div className="rounded-2xl border bg-white p-8 shadow">
 
-      <h2 className="text-3xl font-bold mb-6">
-        ➕ Nuevo entrenamiento
+      <h2 className="mb-6 text-3xl font-bold">
+        Nuevo entrenamiento
       </h2>
 
       <input
-        className="w-full border rounded-lg p-3 mb-4"
+        className="mb-4 w-full rounded-lg border p-3"
         placeholder="Título"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
       />
 
       <input
-        className="w-full border rounded-lg p-3 mb-4"
-        placeholder="Fecha"
+        type="date"
+        className="mb-4 w-full rounded-lg border p-3"
         value={date}
         onChange={(e) => setDate(e.target.value)}
       />
 
       <input
-        className="w-full border rounded-lg p-3 mb-4"
-        placeholder="Duración"
+        type="time"
+        className="mb-4 w-full rounded-lg border p-3"
+        value={time}
+        onChange={(e) => setTime(e.target.value)}
+      />
+
+      <input
+        type="number"
+        className="mb-4 w-full rounded-lg border p-3"
+        placeholder="Duración (minutos)"
         value={duration}
         onChange={(e) => setDuration(e.target.value)}
       />
 
       <textarea
-        className="w-full border rounded-lg p-3 mb-6"
-        rows={4}
-        placeholder="Notas del entrenamiento"
+        rows={5}
+        className="mb-6 w-full rounded-lg border p-3"
+        placeholder="Notas"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
 
       <button
         onClick={handleSave}
-        className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700"
+        disabled={saving}
+        className="rounded-xl bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:opacity-50"
       >
-        Guardar entrenamiento
+        {saving ? "Guardando..." : "Guardar entrenamiento"}
       </button>
 
     </div>

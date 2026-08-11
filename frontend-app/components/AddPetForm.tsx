@@ -1,28 +1,73 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 
-export default function AddPetForm() {
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
+type AddPetFormProps = {
+  onAddPet?: () => Promise<void> | void;
+};
+
+export default function AddPetForm({ onAddPet }: AddPetFormProps) {
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [age, setAge] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+
+  const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!name || !breed || !age) {
+    if (!name.trim() || !breed.trim() || !age.trim()) {
       alert("Completa todos los campos.");
       return;
     }
 
-    const { error } = await supabase
-      .from("pets")
-      .insert([
-        {
-          name,
-          breed,
-          age,
-        },
-      ]);
+    setSaving(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("No hay usuario autenticado.");
+      setSaving(false);
+      return;
+    }
+
+    let photoUrl: string | null = null;
+
+    if (photo) {
+      const extension = photo.name.split(".").pop();
+      const fileName = `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("pet-photos")
+        .upload(fileName, photo);
+
+      if (uploadError) {
+        alert(uploadError.message);
+        setSaving(false);
+        return;
+      }
+
+      const { data } = supabase.storage
+        .from("pet-photos")
+        .getPublicUrl(fileName);
+
+      photoUrl = data.publicUrl;
+    }
+
+    const { error } = await supabase.from("pets").insert({
+      user_id: user.id,
+      name: name.trim(),
+      breed: breed.trim(),
+      age: age.trim(),
+      photo: photoUrl,
+    });
+
+    setSaving(false);
 
     if (error) {
       alert(error.message);
@@ -32,45 +77,55 @@ export default function AddPetForm() {
     setName("");
     setBreed("");
     setAge("");
+    setPhoto(null);
 
-    window.location.reload();
+    await onAddPet?.();
   }
 
   return (
-    <div className="bg-white rounded-xl shadow p-6 mb-8">
-
-      <h2 className="text-2xl font-bold mb-6">
+    <div className="mb-8 rounded-2xl bg-white p-6 shadow-lg">
+      <h2 className="mb-6 text-2xl font-bold">
         Nueva mascota
       </h2>
 
       <input
-        className="w-full border rounded-lg p-3 mb-4"
+        className="mb-4 w-full rounded-lg border p-3"
         placeholder="Nombre"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
 
       <input
-        className="w-full border rounded-lg p-3 mb-4"
+        className="mb-4 w-full rounded-lg border p-3"
         placeholder="Raza"
         value={breed}
         onChange={(e) => setBreed(e.target.value)}
       />
 
       <input
-        className="w-full border rounded-lg p-3 mb-6"
+        className="mb-4 w-full rounded-lg border p-3"
         placeholder="Edad"
         value={age}
         onChange={(e) => setAge(e.target.value)}
       />
 
+      <input
+        type="file"
+        accept="image/*"
+        className="mb-6"
+        onChange={(e) => {
+          const file = e.target.files?.[0] ?? null;
+          setPhoto(file);
+        }}
+      />
+
       <button
         onClick={handleSave}
-        className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700"
+        disabled={saving}
+        className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
       >
-        Guardar mascota
+        {saving ? "Guardando..." : "Guardar mascota"}
       </button>
-
     </div>
   );
 }
