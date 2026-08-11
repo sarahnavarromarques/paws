@@ -236,7 +236,10 @@ export default async function PetProfile({ params }: PageProps) {
       </p>
     </div>
 
-    <TrainingActions id={training.id} />
+    <TrainingActions
+  id={training.id}
+  status={training.status}
+/>
   </div>
 ))}
 
