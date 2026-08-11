@@ -7,9 +7,10 @@ const supabase = createClient();
 
 type Props = {
   id: number;
+  status: string;
 };
 
-export default function TrainingActions({ id }: Props) {
+export default function TrainingActions({ id, status }: Props) {
   const router = useRouter();
 
   async function completeTraining() {
@@ -42,16 +43,16 @@ export default function TrainingActions({ id }: Props) {
     }
 
     router.refresh();
-  }
-
-  return (
+  }  return (
     <div className="flex flex-col gap-2">
-      <button
-        onClick={completeTraining}
-        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-      >
-        ✓ Completar
-      </button>
+      {status !== "completed" && (
+        <button
+          onClick={completeTraining}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+        >
+          ✓ Completar
+        </button>
+      )}
 
       <button
         onClick={deleteTraining}
