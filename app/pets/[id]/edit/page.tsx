@@ -9,8 +9,40 @@ import type { Database } from "@/lib/supabase/database.types";
 
 const supabase = createClient();
 
-type Pet = Database["public"]["Tables"]["pets"]["Row"];
-type PetUpdate = Database["public"]["Tables"]["pets"]["Update"];
+type PetUpdate =
+  Database["public"]["Tables"]["pets"]["Update"];
+
+const BREEDS = [
+  "Mestizo",
+  "Labrador Retriever",
+  "Golden Retriever",
+  "Pastor Alemán",
+  "Bulldog Francés",
+  "Bulldog Inglés",
+  "Beagle",
+  "Caniche",
+  "Chihuahua",
+  "Yorkshire Terrier",
+  "Pomerania",
+  "Border Collie",
+  "Boxer",
+  "Rottweiler",
+  "Husky Siberiano",
+  "Dálmata",
+  "Cocker Spaniel",
+  "Shih Tzu",
+  "Teckel",
+  "Bichón Maltés",
+  "Bichón Frisé",
+  "Jack Russell Terrier",
+  "American Staffordshire Terrier",
+  "Pitbull",
+  "Doberman",
+  "Gran Danés",
+  "San Bernardo",
+  "Akita Inu",
+  "Shiba Inu",
+];
 
 export default function EditPetPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,10 +50,11 @@ export default function EditPetPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
-  const [age, setAge] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [sex, setSex] = useState("");
   const [weight, setWeight] = useState("");
   const [color, setColor] = useState("");
@@ -30,7 +63,7 @@ export default function EditPetPage() {
 
   useEffect(() => {
     void loadPet();
-  }, []);
+  }, [id]);
 
   async function loadPet() {
     const {
@@ -56,7 +89,7 @@ export default function EditPetPage() {
 
     setName(data.name ?? "");
     setBreed(data.breed ?? "");
-    setAge(data.age ?? "");
+    setBirthDate(data.birth_date ?? "");
     setSex(data.sex ?? "");
     setWeight(data.weight ?? "");
     setColor(data.color ?? "");
@@ -66,28 +99,47 @@ export default function EditPetPage() {
     setLoading(false);
   }
 
-  async function uploadPhoto(e: ChangeEvent<HTMLInputElement>) {
+  async function uploadPhoto(
+    e: ChangeEvent<HTMLInputElement>
+  ) {
     const file = e.target.files?.[0];
 
     if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Selecciona una imagen.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("La imagen no puede superar los 5 MB.");
+      return;
+    }
+
+    setUploading(true);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setUploading(false);
       alert("No hay usuario autenticado.");
       return;
     }
 
-    const extension = file.name.split(".").pop();
-    const fileName = `${user.id}/${crypto.randomUUID()}.${extension}`;
+    const extension =
+      file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+
+    const fileName =
+      `${user.id}/${crypto.randomUUID()}.${extension}`;
 
     const { error } = await supabase.storage
       .from("pet-photos")
       .upload(fileName, file);
 
     if (error) {
+      setUploading(false);
       alert(error.message);
       return;
     }
@@ -97,11 +149,17 @@ export default function EditPetPage() {
       .getPublicUrl(fileName);
 
     setPhoto(data.publicUrl);
+    setUploading(false);
   }
 
   async function savePet() {
     if (!name.trim()) {
       alert("Introduce un nombre.");
+      return;
+    }
+
+    if (!birthDate) {
+      alert("Introduce la fecha de nacimiento.");
       return;
     }
 
@@ -117,13 +175,10 @@ export default function EditPetPage() {
       return;
     }
 
-    console.log("USER:", user.id);
-    console.log("PET:", id);
-
     const update: PetUpdate = {
       name: name.trim(),
-      breed: breed.trim() || null,
-      age: age.trim() || null,
+      breed: breed || null,
+      birth_date: birthDate,
       sex: sex.trim() || null,
       weight: weight.trim() || null,
       color: color.trim() || null,
@@ -131,39 +186,35 @@ export default function EditPetPage() {
       photo: photo || null,
     };
 
-    console.log(update);
-
     const { data, error } = await supabase
-  .from("pets")
-  .update(update)
-  .eq("id", Number(id))
-  .select();
-
-console.log("ERROR:", error);
-console.log("DATA:", data);
+      .from("pets")
+      .update(update)
+      .eq("id", Number(id))
+      .eq("user_id", user.id)
+      .select();
 
     setSaving(false);
 
     if (error) {
-      console.error(error);
       alert(error.message);
       return;
     }
 
     if (!data || data.length === 0) {
       alert("No se ha actualizado ninguna mascota.");
-      console.error("UPDATE 0 FILAS");
       return;
     }
 
     router.replace(`/pets/${id}`);
     router.refresh();
-  }  
-  
+  }
+
   async function deletePet() {
-    if (!confirm("¿Seguro que quieres eliminar esta mascota?")) {
-      return;
-    }
+    const confirmed = confirm(
+      "¿Seguro que quieres eliminar esta mascota? También se eliminarán sus entrenamientos."
+    );
+
+    if (!confirmed) return;
 
     const {
       data: { user },
@@ -171,6 +222,17 @@ console.log("DATA:", data);
 
     if (!user) {
       router.replace("/login");
+      return;
+    }
+
+    const { error: trainingError } = await supabase
+      .from("trainings")
+      .delete()
+      .eq("pet_id", Number(id))
+      .eq("user_id", user.id);
+
+    if (trainingError) {
+      alert(trainingError.message);
       return;
     }
 
@@ -190,101 +252,252 @@ console.log("DATA:", data);
   }
 
   if (loading) {
-    return <main className="p-10">Cargando...</main>;
+    return (
+      <main className="min-h-screen bg-slate-100 p-10">
+        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 shadow-xl">
+          <p className="text-slate-500">
+            Cargando mascota...
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-10">
-      <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 shadow-xl">
-        <h1 className="mb-8 text-4xl font-bold">
-          Editar mascota
-        </h1>
+    <main className="min-h-screen bg-slate-100 p-6 md:p-10">
+      <div className="mx-auto max-w-3xl">
 
-        {photo && (
-          <Image
-            src={photo}
-            alt={name}
-            width={160}
-            height={160}
-            className="mx-auto mb-8 h-40 w-40 rounded-full border-4 border-blue-500 object-cover"
-          />
-        )}
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Nombre"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Raza"
-          value={breed}
-          onChange={(e) => setBreed(e.target.value)}
-        />
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Edad"
-          value={age}
-          onChange={(e) => setAge(e.target.value)}
-        />
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Sexo"
-          value={sex}
-          onChange={(e) => setSex(e.target.value)}
-        />
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Peso"
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-        />
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-        />
-
-        <input
-          className="mb-4 w-full rounded-xl border p-3"
-          placeholder="Objetivo"
-          value={objective}
-          onChange={(e) => setObjective(e.target.value)}
-        />
-
-        <label className="mb-2 block font-semibold">
-          Cambiar foto
-        </label>
-
-        <input
-          type="file"
-          accept="image/*"
-          onChange={uploadPhoto}
-          className="mb-8"
-        />
-
-        <div className="flex gap-4">
+        <div className="mb-6 flex flex-wrap gap-3">
           <button
-            onClick={savePet}
-            disabled={saving}
-            className="rounded-xl bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:opacity-50"
+            onClick={() => router.back()}
+            className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            {saving ? "Guardando..." : "Guardar cambios"}
+            ← Volver
           </button>
+        </div>
 
-          <button
-            onClick={deletePet}
-            className="rounded-xl bg-red-600 px-6 py-3 text-white hover:bg-red-700"
-          >
-            Eliminar mascota
-          </button>
+        <div className="rounded-3xl bg-white p-6 shadow-xl md:p-10">
+
+          <h1 className="mb-2 text-4xl font-bold">
+            Editar mascota
+          </h1>
+
+          <p className="mb-8 text-slate-500">
+            Actualiza la información de tu mascota.
+          </p>
+
+          {/* FOTO */}
+
+          <div className="mb-8 text-center">
+
+            {photo ? (
+              <Image
+                src={photo}
+                alt={name}
+                width={160}
+                height={160}
+                className="mx-auto mb-5 h-40 w-40 rounded-full border-4 border-blue-500 object-cover"
+              />
+            ) : (
+              <div className="mx-auto mb-5 flex h-40 w-40 items-center justify-center rounded-full bg-slate-200 text-6xl">
+                🐶
+              </div>
+            )}
+
+            <label className="block font-semibold">
+              Cambiar foto
+            </label>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={uploadPhoto}
+              disabled={uploading}
+              className="mx-auto mt-3 block max-w-full"
+            />
+
+            {uploading && (
+              <p className="mt-2 text-sm text-blue-600">
+                Subiendo imagen...
+              </p>
+            )}
+          </div>
+
+          {/* CAMPOS */}
+
+          <div className="space-y-5">
+
+            {/* NOMBRE */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Nombre
+              </label>
+
+              <input
+                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Nombre"
+                value={name}
+                onChange={(e) =>
+                  setName(e.target.value)
+                }
+              />
+            </div>
+
+            {/* RAZA */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Raza
+              </label>
+
+              <select
+                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                value={breed}
+                onChange={(e) =>
+                  setBreed(e.target.value)
+                }
+              >
+                <option value="">
+                  Selecciona una raza
+                </option>
+
+                {BREEDS.map((item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* FECHA DE NACIMIENTO */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Fecha de nacimiento
+              </label>
+
+              <input
+                type="date"
+                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                value={birthDate}
+                onChange={(e) =>
+                  setBirthDate(e.target.value)
+                }
+              />
+
+              <p className="mt-2 text-sm text-slate-500">
+                La edad se calculará automáticamente a partir de esta fecha.
+              </p>
+            </div>
+
+            {/* SEXO */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Sexo
+              </label>
+
+              <input
+                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Sexo"
+                value={sex}
+                onChange={(e) =>
+                  setSex(e.target.value)
+                }
+              />
+            </div>
+
+            {/* PESO */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Peso
+              </label>
+
+              <input
+                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Peso"
+                value={weight}
+                onChange={(e) =>
+                  setWeight(e.target.value)
+                }
+              />
+            </div>
+
+            {/* COLOR */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Color
+              </label>
+
+              <input
+                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Color"
+                value={color}
+                onChange={(e) =>
+                  setColor(e.target.value)
+                }
+              />
+            </div>
+
+            {/* OBJETIVO */}
+
+            <div>
+              <label className="mb-2 block font-semibold">
+                Objetivo
+              </label>
+
+              <textarea
+                className="min-h-28 w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Objetivo de entrenamiento"
+                value={objective}
+                onChange={(e) =>
+                  setObjective(e.target.value)
+                }
+              />
+            </div>
+
+          </div>
+
+          {/* BOTONES */}
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+
+            <button
+              onClick={savePet}
+              disabled={saving || uploading}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving
+                ? "Guardando..."
+                : "Guardar cambios"}
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(`/pets/${id}`)
+              }
+              disabled={saving}
+              className="rounded-xl bg-slate-200 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={deletePet}
+              disabled={saving || uploading}
+              className="rounded-xl bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              🗑 Eliminar mascota
+            </button>
+
+          </div>
+
         </div>
       </div>
     </main>
