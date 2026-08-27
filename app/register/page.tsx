@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
@@ -37,11 +38,7 @@ export default function RegisterPage() {
       return;
     }
 
-    alert(
-      "Cuenta creada correctamente. Revisa tu correo para confirmar tu dirección de email."
-    );
-
-    router.replace("/login");
+    router.replace("/dashboard");
     router.refresh();
   }
 
@@ -80,6 +77,16 @@ export default function RegisterPage() {
         >
           {loading ? "Creando cuenta..." : "Crear cuenta"}
         </button>
+
+        <p className="mt-6 text-center text-sm text-slate-500">
+          ¿Ya tienes cuenta?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-blue-600 hover:underline"
+          >
+            Inicia sesión
+          </Link>
+        </p>
       </form>
     </main>
   );
