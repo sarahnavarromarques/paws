@@ -485,18 +485,7 @@ export default function DashboardPage() {
               </p>
             </Link>
 
-            <Link
-              href="/ai"
-              className="rounded-2xl bg-white p-8 shadow transition hover:shadow-lg"
-            >
-              <h2 className="mb-3 text-2xl font-bold">
-                🤖 IA
-              </h2>
 
-              <p className="text-slate-600">
-                Habla con la IA de PAWS.
-              </p>
-            </Link>
 
           </div>
         </section>
