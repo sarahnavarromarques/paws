@@ -141,7 +141,10 @@ export default function EditTrainingPage() {
     setSaving(false);
 
     if (error) {
-      alert(error.message);
+      console.error("Error guardando entrenamiento:", error);
+      alert(
+        "No se han podido guardar los cambios. Inténtalo de nuevo."
+      );
       return;
     }
 
@@ -179,7 +182,10 @@ export default function EditTrainingPage() {
     setSaving(false);
 
     if (error) {
-      alert(error.message);
+      console.error("Error eliminando entrenamiento:", error);
+      alert(
+        "No se ha podido eliminar el entrenamiento. Inténtalo de nuevo."
+      );
       return;
     }
 

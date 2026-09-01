@@ -5,6 +5,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import { BREEDS, COLORS, WEIGHTS } from "@/lib/breeds";
 import type { Database } from "@/lib/supabase/database.types";
 
 const supabase = createClient();
@@ -12,37 +13,35 @@ const supabase = createClient();
 type PetUpdate =
   Database["public"]["Tables"]["pets"]["Update"];
 
-const BREEDS = [
-  "Mestizo",
-  "Labrador Retriever",
-  "Golden Retriever",
-  "Pastor Alemán",
-  "Bulldog Francés",
-  "Bulldog Inglés",
-  "Beagle",
-  "Caniche",
-  "Chihuahua",
-  "Yorkshire Terrier",
-  "Pomerania",
-  "Border Collie",
-  "Boxer",
-  "Rottweiler",
-  "Husky Siberiano",
-  "Dálmata",
-  "Cocker Spaniel",
-  "Shih Tzu",
-  "Teckel",
-  "Bichón Maltés",
-  "Bichón Frisé",
-  "Jack Russell Terrier",
-  "American Staffordshire Terrier",
-  "Pitbull",
-  "Doberman",
-  "Gran Danés",
-  "San Bernardo",
-  "Akita Inu",
-  "Shiba Inu",
-];
+const SEXES = ["Macho", "Hembra"];
+
+// Asegura que el valor actual siempre esté en la lista,
+// para que al editar nunca se pierda un dato ya guardado.
+function withCurrent(list: string[], value: string): string[] {
+  if (value && !list.includes(value)) {
+    return [value, ...list];
+  }
+  return list;
+}
+
+// Extrae el número de un peso guardado como "28 kg" -> "28"
+function parseWeight(raw: string | null): string {
+  if (!raw) return "";
+  const match = raw.match(/[\d.,]+/);
+  if (!match) return "";
+  return match[0].replace(",", ".");
+}
+
+// Límites de fecha de nacimiento
+function todayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function minBirthISO() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 30);
+  return d.toISOString().split("T")[0];
+}
 
 export default function EditPetPage() {
   const { id } = useParams<{ id: string }>();
@@ -91,7 +90,7 @@ export default function EditPetPage() {
     setBreed(data.breed ?? "");
     setBirthDate(data.birth_date ?? "");
     setSex(data.sex ?? "");
-    setWeight(data.weight ?? "");
+    setWeight(parseWeight(data.weight));
     setColor(data.color ?? "");
     setObjective(data.objective ?? "");
     setPhoto(data.photo ?? "");
@@ -139,8 +138,11 @@ export default function EditPetPage() {
       .upload(fileName, file);
 
     if (error) {
+      console.error("Error subiendo foto:", error);
       setUploading(false);
-      alert(error.message);
+      alert(
+        "No se ha podido subir la foto. Inténtalo de nuevo o prueba con otra imagen."
+      );
       return;
     }
 
@@ -163,6 +165,18 @@ export default function EditPetPage() {
       return;
     }
 
+    if (birthDate > todayISO()) {
+      alert("La fecha de nacimiento no puede ser futura.");
+      return;
+    }
+
+    if (birthDate < minBirthISO()) {
+      alert(
+        "La fecha de nacimiento no es válida (demasiado antigua)."
+      );
+      return;
+    }
+
     setSaving(true);
 
     const {
@@ -179,9 +193,9 @@ export default function EditPetPage() {
       name: name.trim(),
       breed: breed || null,
       birth_date: birthDate,
-      sex: sex.trim() || null,
-      weight: weight.trim() || null,
-      color: color.trim() || null,
+      sex: sex || null,
+      weight: weight ? `${weight} kg` : null,
+      color: color || null,
       objective: objective.trim() || null,
       photo: photo || null,
     };
@@ -196,7 +210,10 @@ export default function EditPetPage() {
     setSaving(false);
 
     if (error) {
-      alert(error.message);
+      console.error("Error guardando cambios:", error);
+      alert(
+        "No se han podido guardar los cambios. Inténtalo de nuevo."
+      );
       return;
     }
 
@@ -232,7 +249,13 @@ export default function EditPetPage() {
       .eq("user_id", user.id);
 
     if (trainingError) {
-      alert(trainingError.message);
+      console.error(
+        "Error eliminando entrenamientos:",
+        trainingError
+      );
+      alert(
+        "No se ha podido eliminar la mascota. Inténtalo de nuevo."
+      );
       return;
     }
 
@@ -243,7 +266,10 @@ export default function EditPetPage() {
       .eq("user_id", user.id);
 
     if (error) {
-      alert(error.message);
+      console.error("Error eliminando mascota:", error);
+      alert(
+        "No se ha podido eliminar la mascota. Inténtalo de nuevo."
+      );
       return;
     }
 
@@ -262,6 +288,11 @@ export default function EditPetPage() {
       </main>
     );
   }
+
+  const breedOptions = withCurrent(BREEDS, breed);
+  const sexOptions = withCurrent(SEXES, sex);
+  const colorOptions = withCurrent(COLORS, color);
+  const weightOptions = withCurrent(WEIGHTS, weight);
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
@@ -362,11 +393,8 @@ export default function EditPetPage() {
                   Selecciona una raza
                 </option>
 
-                {BREEDS.map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
+                {breedOptions.map((item) => (
+                  <option key={item} value={item}>
                     {item}
                   </option>
                 ))}
@@ -382,6 +410,8 @@ export default function EditPetPage() {
 
               <input
                 type="date"
+                min={minBirthISO()}
+                max={todayISO()}
                 className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 value={birthDate}
                 onChange={(e) =>
@@ -401,14 +431,23 @@ export default function EditPetPage() {
                 Sexo
               </label>
 
-              <input
-                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Sexo"
+              <select
+                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 value={sex}
                 onChange={(e) =>
                   setSex(e.target.value)
                 }
-              />
+              >
+                <option value="">
+                  Selecciona el sexo
+                </option>
+
+                {sexOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* PESO */}
@@ -418,14 +457,23 @@ export default function EditPetPage() {
                 Peso
               </label>
 
-              <input
-                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Peso"
+              <select
+                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 value={weight}
                 onChange={(e) =>
                   setWeight(e.target.value)
                 }
-              />
+              >
+                <option value="">
+                  Selecciona el peso
+                </option>
+
+                {weightOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item} kg
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* COLOR */}
@@ -435,14 +483,23 @@ export default function EditPetPage() {
                 Color
               </label>
 
-              <input
-                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Color"
+              <select
+                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 value={color}
                 onChange={(e) =>
                   setColor(e.target.value)
                 }
-              />
+              >
+                <option value="">
+                  Selecciona un color
+                </option>
+
+                {colorOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* OBJETIVO */}

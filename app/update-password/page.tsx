@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 const supabase = createClient();
 
@@ -43,7 +44,7 @@ export default function UpdatePasswordPage() {
     setLoading(false);
 
     if (error) {
-      alert(error.message);
+      alert(translateAuthError(error.message));
       return;
     }
 

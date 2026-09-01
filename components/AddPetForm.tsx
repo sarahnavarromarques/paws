@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { pipeline, RawImage } from "@huggingface/transformers";
 import { createClient } from "@/lib/supabase/client";
+import { BREEDS, COLORS, WEIGHTS } from "@/lib/breeds";
 
 const supabase = createClient();
 
@@ -16,181 +16,6 @@ const ALLOWED_PHOTO_TYPES = [
   "image/png",
   "image/webp",
 ];
-
-// "Mestizo" primero, resto alfabético, "Otro" al final
-const BREEDS = [
-  "Mestizo",
-  ...[
-    "Affenpinscher",
-    "Airedale Terrier",
-    "Akita Inu",
-    "American Staffordshire Terrier",
-    "Basset Hound",
-    "Beagle",
-    "Bichón Frisé",
-    "Bichón Maltés",
-    "Bobtail",
-    "Border Collie",
-    "Boston Terrier",
-    "Boxer",
-    "Bulldog Francés",
-    "Bulldog Inglés",
-    "Bull Terrier",
-    "Caniche",
-    "Cavalier King Charles Spaniel",
-    "Chihuahua",
-    "Chow Chow",
-    "Cocker Spaniel",
-    "Collie",
-    "Dálmata",
-    "Doberman",
-    "Dogo Argentino",
-    "Dogo de Burdeos",
-    "Fox Terrier",
-    "Galgo Español",
-    "Golden Retriever",
-    "Gran Danés",
-    "Greyhound",
-    "Husky Siberiano",
-    "Jack Russell Terrier",
-    "Labrador Retriever",
-    "Lhasa Apso",
-    "Mastín Español",
-    "Mastín Napolitano",
-    "Pastor Alemán",
-    "Pastor Australiano",
-    "Pastor Belga",
-    "Pastor de Shetland",
-    "Pekinés",
-    "Pinscher Miniatura",
-    "Pitbull",
-    "Pomerania",
-    "Pug / Carlino",
-    "Rhodesian Ridgeback",
-    "Rottweiler",
-    "Samoyedo",
-    "San Bernardo",
-    "Schnauzer",
-    "Setter Irlandés",
-    "Shar Pei",
-    "Shiba Inu",
-    "Shih Tzu",
-    "Teckel",
-    "Terranova",
-    "Weimaraner",
-    "West Highland White Terrier",
-    "Whippet",
-    "Yorkshire Terrier",
-  ].sort((a, b) => a.localeCompare(b, "es")),
-  "Otro",
-];
-
-const COLORS = [
-  ...[
-    "Atigrado",
-    "Beige / Arena",
-    "Bicolor",
-    "Blanco",
-    "Dorado",
-    "Gris",
-    "Manchado",
-    "Marrón",
-    "Negro",
-    "Tricolor",
-  ].sort((a, b) => a.localeCompare(b, "es")),
-  "Otro",
-];
-
-// Desplegable de pesos exactos:
-// 0.5 a 5 kg de 0.5 en 0.5, y 6 a 90 kg de 1 en 1
-const WEIGHTS: string[] = [
-  ...Array.from({ length: 10 }, (_, i) =>
-    ((i + 1) * 0.5).toString()
-  ),
-  ...Array.from({ length: 85 }, (_, i) =>
-    (i + 6).toString()
-  ),
-];
-
-const BREED_ALIASES: Record<string, string> = {
-  chihuahua: "Chihuahua",
-  maltese_dog: "Bichón Maltés",
-  "shih-tzu": "Shih Tzu",
-  yorkshire_terrier: "Yorkshire Terrier",
-  beagle: "Beagle",
-  golden_retriever: "Golden Retriever",
-  labrador_retriever: "Labrador Retriever",
-  german_shepherd: "Pastor Alemán",
-  french_bulldog: "Bulldog Francés",
-  english_bulldog: "Bulldog Inglés",
-  cocker_spaniel: "Cocker Spaniel",
-  american_staffordshire_terrier:
-    "American Staffordshire Terrier",
-  staffordshire_bullterrier:
-    "American Staffordshire Terrier",
-  rottweiler: "Rottweiler",
-  siberian_husky: "Husky Siberiano",
-  boxer: "Boxer",
-  border_collie: "Border Collie",
-  pomeranian: "Pomerania",
-  doberman: "Doberman",
-  great_dane: "Gran Danés",
-  saint_bernard: "San Bernardo",
-  akita: "Akita Inu",
-  akita_inu: "Akita Inu",
-  shiba_inu: "Shiba Inu",
-  dalmatian: "Dálmata",
-  toy_poodle: "Caniche",
-  miniature_poodle: "Caniche",
-  standard_poodle: "Caniche",
-  poodle: "Caniche",
-  dachshund: "Teckel",
-  jack_russell_terrier:
-    "Jack Russell Terrier",
-  pug: "Pug / Carlino",
-  chow: "Chow Chow",
-  chow_chow: "Chow Chow",
-  pekinese: "Pekinés",
-  samoyed: "Samoyedo",
-  newfoundland: "Terranova",
-  weimaraner: "Weimaraner",
-  whippet: "Whippet",
-  basset: "Basset Hound",
-  bull_mastiff: "Mastín Napolitano",
-  shetland_sheepdog: "Pastor de Shetland",
-  collie: "Collie",
-  malinois: "Pastor Belga",
-  groenendael: "Pastor Belga",
-};
-
-let classifierPromise: Promise<any> | null = null;
-
-async function getClassifier() {
-  if (!classifierPromise) {
-    classifierPromise = pipeline(
-      "image-classification",
-      "skyau/dog-breed-classifier-vit",
-      {
-        revision: "refs/pr/3",
-      }
-    );
-  }
-
-  return classifierPromise;
-}
-
-function normalizeLabel(label: string) {
-  return label
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .trim();
-}
-
-function findBreed(label: string) {
-  const normalized = normalizeLabel(label);
-
-  return BREED_ALIASES[normalized] ?? null;
-}
 
 // Límites de fecha de nacimiento
 function todayISO() {
@@ -224,8 +49,6 @@ export default function AddPetForm({
   const [photoError, setPhotoError] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [identifying, setIdentifying] = useState(false);
-  const [aiMessage, setAiMessage] = useState("");
 
   // Aviso visible si la fecha no es válida
   const dateError =
@@ -233,8 +56,6 @@ export default function AddPetForm({
     (birthDate > todayISO() || birthDate < minBirthISO());
 
   function handlePhotoChange(file: File | null) {
-    // Limpiamos estados previos
-    setAiMessage("");
     setPhotoError("");
 
     if (!file) {
@@ -255,78 +76,6 @@ export default function AddPetForm({
     }
 
     setPhoto(file);
-    void identifyBreed(file);
-  }
-
-  async function identifyBreed(file: File) {
-    setIdentifying(true);
-
-    setAiMessage(
-      "🤖 Analizando la foto... La primera vez puede tardar un poco."
-    );
-
-    try {
-      const classifier = await getClassifier();
-
-      const image = await RawImage.fromBlob(file);
-
-      const results = await classifier(image, {
-        top_k: 5,
-      });
-
-      if (!Array.isArray(results) || results.length === 0) {
-        setAiMessage(
-          "🤖 No he podido identificar la raza. Selecciónala manualmente."
-        );
-        return;
-      }
-
-      let detectedBreed: string | null = null;
-      let confidence = 0;
-
-      for (const result of results) {
-        const candidate = findBreed(
-          String(result.label)
-        );
-
-        if (candidate) {
-          detectedBreed = candidate;
-          confidence = Math.round(
-            Number(result.score) * 100
-          );
-          break;
-        }
-      }
-
-      if (!detectedBreed) {
-        setBreed("Mestizo");
-        setCustomBreed("");
-
-        setAiMessage(
-          "🤖 No he encontrado una raza de la lista. He seleccionado Mestizo."
-        );
-
-        return;
-      }
-
-      setBreed(detectedBreed);
-      setCustomBreed("");
-
-      setAiMessage(
-        `🤖 Creo que es ${detectedBreed} (${confidence}%). Puedes cambiarla si no es correcta.`
-      );
-    } catch (error) {
-      console.error(
-        "Error identificando raza:",
-        error
-      );
-
-      setAiMessage(
-        "❌ No se ha podido analizar la foto. Selecciona la raza manualmente."
-      );
-    } finally {
-      setIdentifying(false);
-    }
   }
 
   async function handleSave() {
@@ -388,7 +137,10 @@ export default function AddPetForm({
           .upload(fileName, photo);
 
       if (uploadError) {
-        alert(uploadError.message);
+        console.error("Error subiendo foto:", uploadError);
+        alert(
+          "No se ha podido subir la foto. Inténtalo de nuevo o prueba con otra imagen."
+        );
         setSaving(false);
         return;
       }
@@ -417,7 +169,10 @@ export default function AddPetForm({
     setSaving(false);
 
     if (error) {
-      alert(error.message);
+      console.error("Error guardando mascota:", error);
+      alert(
+        "No se ha podido guardar la mascota. Inténtalo de nuevo."
+      );
       return;
     }
 
@@ -430,17 +185,12 @@ export default function AddPetForm({
     setColor("");
     setPhoto(null);
     setPhotoError("");
-    setAiMessage("");
 
     await onAddPet?.();
   }
 
   return (
-    <div className="mb-8 rounded-2xl bg-white p-6 shadow-lg">
-      <h2 className="mb-6 text-2xl font-bold">
-        Nueva mascota
-      </h2>
-
+    <div>
       <label className="mb-2 block font-semibold">
         Nombre
       </label>
@@ -466,7 +216,6 @@ export default function AddPetForm({
           if (e.target.value !== "Otro") {
             setCustomBreed("");
           }
-          setAiMessage("");
         }}
       >
         <option value="">
@@ -511,7 +260,6 @@ export default function AddPetForm({
         id="pet-photo-input"
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        capture="environment"
         className="hidden"
         onChange={(e) => {
           const file =
@@ -535,12 +283,6 @@ export default function AddPetForm({
       <p className="mb-4 text-sm text-slate-500">
         Formatos admitidos: JPG, PNG o WEBP.
       </p>
-
-      {aiMessage && (
-        <div className="mb-6 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-          {aiMessage}
-        </div>
-      )}
 
       <label className="mb-2 block font-semibold">
         Sexo
@@ -628,14 +370,10 @@ export default function AddPetForm({
 
       <button
         onClick={handleSave}
-        disabled={saving || identifying || dateError}
+        disabled={saving || dateError}
         className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {saving
-          ? "Guardando..."
-          : identifying
-            ? "Analizando foto..."
-            : "Guardar mascota"}
+        {saving ? "Guardando..." : "Guardar mascota"}
       </button>
     </div>
   );

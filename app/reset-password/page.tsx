@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/auth-errors";
 
 const supabase = createClient();
 
@@ -32,7 +33,7 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      alert(error.message);
+      alert(translateAuthError(error.message));
       return;
     }
 

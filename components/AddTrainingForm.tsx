@@ -97,8 +97,11 @@ export default function AddTrainingForm({ petId }: Props) {
       });
 
     if (error) {
+      console.error("Error guardando entrenamiento:", error);
       setSaving(false);
-      alert(error.message);
+      alert(
+        "No se ha podido guardar el entrenamiento. Inténtalo de nuevo."
+      );
       return;
     }
 

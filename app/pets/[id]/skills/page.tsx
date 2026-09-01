@@ -13,6 +13,7 @@ type Skill = {
   name: string;
   category: string | null;
   difficulty: string | null;
+  description: string | null;
 };
 
 type PetSkillRow = {
@@ -41,6 +42,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   Control: "🎯",
   Llamada: "📢",
   Paseo: "🚶",
+  "Obediencia FCI": "🏆",
 };
 
 export default function PetSkillsPage() {
@@ -54,6 +56,7 @@ export default function PetSkillsPage() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [savingSkillId, setSavingSkillId] = useState<number | null>(null);
+  const [openInfoId, setOpenInfoId] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -86,7 +89,7 @@ export default function PetSkillsPage() {
       // Cargar catálogo de habilidades
       const { data: skillsData } = await supabase
         .from("skills")
-        .select("id, name, category, difficulty")
+        .select("id, name, category, difficulty, description")
         .order("id", { ascending: true });
 
       setSkills(skillsData ?? []);
@@ -338,149 +341,198 @@ export default function PetSkillsPage() {
         </header>
 
         {/* FILTROS DE CATEGORÍA */}
-        <div className="mb-8 flex flex-wrap gap-3">
-          {categories.map((category) => {
-            const isActive = category === activeCategory;
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setActiveCategory(category)}
-                className={
-                  isActive
-                    ? "rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
-                    : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                }
-              >
-                {category !== "Todas" && CATEGORY_ICONS[category]
-                  ? `${CATEGORY_ICONS[category]} `
-                  : ""}
-                {category}
-              </button>
-            );
-          })}
-        </div>
+        {skills.length > 0 && (
+          <div className="mb-8 flex flex-wrap gap-3">
+            {categories.map((category) => {
+              const isActive = category === activeCategory;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setActiveCategory(category)}
+                  className={
+                    isActive
+                      ? "rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
+                      : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  }
+                >
+                  {category !== "Todas" && CATEGORY_ICONS[category]
+                    ? `${CATEGORY_ICONS[category]} `
+                    : ""}
+                  {category}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* LISTA DE HABILIDADES */}
-        <div className="grid gap-5 md:grid-cols-2">
-          {filteredSkills.map((skill) => {
-            const difficulty = skill.difficulty ?? "baja";
-            const difficultyStyle =
-              DIFFICULTY_STYLES[difficulty] ??
-              "bg-slate-100 text-slate-700";
-            const icon = skill.category
-              ? CATEGORY_ICONS[skill.category] ?? "🐾"
-              : "🐾";
-            const isActive = isSkillActive(skill.id);
-            const isGoal = isSkillGoal(skill.id);
-            const progress = getProgressForSkill(skill.id);
-            const isSaving = savingSkillId === skill.id;
+        {skills.length === 0 ? (
+          <div className="rounded-2xl bg-white p-10 text-center shadow">
+            <div className="text-5xl">📚</div>
+            <h3 className="mt-4 text-2xl font-bold">
+              Todavía no hay habilidades disponibles
+            </h3>
+            <p className="mt-2 text-slate-500">
+              La biblioteca de habilidades no se ha podido cargar. Inténtalo de nuevo más tarde.
+            </p>
+          </div>
+        ) : filteredSkills.length === 0 ? (
+          <div className="rounded-2xl bg-white p-10 text-center shadow">
+            <p className="text-slate-500">
+              No hay habilidades en esta categoría.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-5 md:grid-cols-2">
+            {filteredSkills.map((skill) => {
+              const difficulty = skill.difficulty ?? "baja";
+              const difficultyStyle =
+                DIFFICULTY_STYLES[difficulty] ??
+                "bg-slate-100 text-slate-700";
+              const icon = skill.category
+                ? CATEGORY_ICONS[skill.category] ?? "🐾"
+                : "🐾";
+              const isActive = isSkillActive(skill.id);
+              const isGoal = isSkillGoal(skill.id);
+              const progress = getProgressForSkill(skill.id);
+              const isSaving = savingSkillId === skill.id;
+              const isInfoOpen = openInfoId === skill.id;
 
-            return (
-              <div
-                key={skill.id}
-                className={`flex flex-col rounded-2xl bg-white p-6 shadow transition ${
-                  isGoal
-                    ? "ring-2 ring-amber-500"
-                    : isActive
-                    ? "ring-2 ring-blue-500"
-                    : ""
-                }`}
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">{icon}</span>
-                    <div>
-                      <h2 className="text-xl font-bold">{skill.name}</h2>
-                      <p className="text-sm text-slate-500">
-                        {skill.category ?? "Sin categoría"}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${difficultyStyle}`}
-                  >
-                    {difficulty}
-                  </span>
-                </div>
-
-                {isGoal && (
-                  <div className="mb-3 rounded-lg bg-amber-500 px-3 py-1 text-center text-sm font-bold text-white">
-                    🎯 Objetivo actual
-                  </div>
-                )}
-
-                {isActive ? (
-                  <div className="mt-1">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-600">
-                        Progreso
-                      </span>
-                      <span className="text-lg font-bold text-blue-600">
-                        {progress}%
-                      </span>
+              return (
+                <div
+                  key={skill.id}
+                  className={`flex flex-col rounded-2xl bg-white p-6 shadow transition ${
+                    isGoal
+                      ? "ring-2 ring-amber-500"
+                      : isActive
+                      ? "ring-2 ring-blue-500"
+                      : ""
+                  }`}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">{icon}</span>
+                      <div>
+                        <h2 className="text-xl font-bold">{skill.name}</h2>
+                        <p className="text-sm text-slate-500">
+                          {skill.category ?? "Sin categoría"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className="h-full bg-blue-600 transition-all"
-                        style={{ width: `${progress}%` }}
+                    <div className="flex items-center gap-2">
+                      {skill.description && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenInfoId(
+                              isInfoOpen ? null : skill.id
+                            )
+                          }
+                          aria-label="Más información"
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
+                            isInfoOpen
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          ℹ
+                        </button>
+                      )}
+
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${difficultyStyle}`}
+                      >
+                        {difficulty}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isInfoOpen && skill.description && (
+                    <div className="mb-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
+                      {skill.description}
+                    </div>
+                  )}
+
+                  {isGoal && (
+                    <div className="mb-3 rounded-lg bg-amber-500 px-3 py-1 text-center text-sm font-bold text-white">
+                      🎯 Objetivo actual
+                    </div>
+                  )}
+
+                  {isActive ? (
+                    <div className="mt-1">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-600">
+                          Progreso
+                        </span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {progress}%
+                        </span>
+                      </div>
+
+                      <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full bg-blue-600 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={progress}
+                        onChange={(event) =>
+                          handleUpdateProgress(
+                            skill.id,
+                            Number(event.target.value)
+                          )
+                        }
+                        className="w-full accent-blue-600"
                       />
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleGoal(skill.id)}
+                        disabled={isSaving}
+                        className={`mt-4 w-full rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
+                          isGoal
+                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                            : "bg-amber-500 text-white hover:bg-amber-600"
+                        }`}
+                      >
+                        {isGoal
+                          ? "Quitar objetivo"
+                          : "🎯 Marcar como objetivo"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSkill(skill.id)}
+                        disabled={isSaving}
+                        className="mt-2 w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                      >
+                        {isSaving ? "Guardando..." : "Quitar habilidad"}
+                      </button>
                     </div>
-
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={5}
-                      value={progress}
-                      onChange={(event) =>
-                        handleUpdateProgress(
-                          skill.id,
-                          Number(event.target.value)
-                        )
-                      }
-                      className="w-full accent-blue-600"
-                    />
-
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => handleToggleGoal(skill.id)}
+                      onClick={() => handleAddSkill(skill.id)}
                       disabled={isSaving}
-                      className={`mt-4 w-full rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
-                        isGoal
-                          ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                          : "bg-amber-500 text-white hover:bg-amber-600"
-                      }`}
+                      className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {isGoal
-                        ? "Quitar objetivo"
-                        : "🎯 Marcar como objetivo"}
+                      {isSaving ? "Añadiendo..." : "+ Añadir a mi mascota"}
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSkill(skill.id)}
-                      disabled={isSaving}
-                      className="mt-2 w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
-                    >
-                      {isSaving ? "Guardando..." : "Quitar habilidad"}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleAddSkill(skill.id)}
-                    disabled={isSaving}
-                    className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {isSaving ? "Añadiendo..." : "+ Añadir a mi mascota"}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       </div>
     </main>
