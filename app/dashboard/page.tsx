@@ -485,7 +485,18 @@ export default function DashboardPage() {
               </p>
             </Link>
 
+            <Link
+              href="/credits"
+              className="rounded-2xl bg-white p-8 shadow transition hover:shadow-lg"
+            >
+              <h2 className="mb-3 text-2xl font-bold">
+                📚 Créditos
+              </h2>
 
+              <p className="text-slate-600">
+                Fuentes y reconocimientos.
+              </p>
+            </Link>
 
           </div>
         </section>
