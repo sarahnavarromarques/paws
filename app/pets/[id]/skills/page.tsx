@@ -14,6 +14,7 @@ type Skill = {
   category: string | null;
   difficulty: string | null;
   description: string | null;
+  user_id: string | null;
 };
 
 type PetSkillRow = {
@@ -45,6 +46,14 @@ const CATEGORY_ICONS: Record<string, string> = {
   "Obediencia FCI": "🏆",
 };
 
+const KNOWN_CATEGORIES = [
+  "Posiciones",
+  "Control",
+  "Llamada",
+  "Paseo",
+  "Obediencia FCI",
+];
+
 export default function PetSkillsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -53,10 +62,18 @@ export default function PetSkillsPage() {
   const [pet, setPet] = useState<Pet | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [petSkills, setPetSkills] = useState<PetSkillRow[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [savingSkillId, setSavingSkillId] = useState<number | null>(null);
   const [openInfoId, setOpenInfoId] = useState<number | null>(null);
+
+  // Crear habilidad
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState(KNOWN_CATEGORIES[0]);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -71,7 +88,8 @@ export default function PetSkillsPage() {
         return;
       }
 
-      // Cargar mascota (y comprobar que pertenece al usuario)
+      setCurrentUserId(user.id);
+
       const { data: petData, error: petError } = await supabase
         .from("pets")
         .select("id, name, photo")
@@ -86,15 +104,13 @@ export default function PetSkillsPage() {
 
       setPet(petData);
 
-      // Cargar catálogo de habilidades
       const { data: skillsData } = await supabase
         .from("skills")
-        .select("id, name, category, difficulty, description")
+        .select("id, name, category, difficulty, description, user_id")
         .order("id", { ascending: true });
 
       setSkills(skillsData ?? []);
 
-      // Cargar progreso de esta mascota
       const { data: petSkillsData } = await supabase
         .from("pet_skills")
         .select(
@@ -187,7 +203,6 @@ export default function PetSkillsPage() {
   }
 
   async function handleUpdateProgress(skillId: number, newValue: number) {
-    // Actualización optimista en UI
     setPetSkills((prev) =>
       prev.map((ps) =>
         ps.skill_id === skillId
@@ -213,7 +228,6 @@ export default function PetSkillsPage() {
   async function handleToggleGoal(skillId: number) {
     const currentlyGoal = isSkillGoal(skillId);
 
-    // Actualización optimista: si marcamos este, desmarcamos los demás.
     setPetSkills((prev) =>
       prev.map((ps) => {
         if (ps.skill_id === skillId) {
@@ -226,7 +240,6 @@ export default function PetSkillsPage() {
     setSavingSkillId(skillId);
 
     if (currentlyGoal) {
-      // Desmarcar objetivo
       const { error } = await supabase
         .from("pet_skills")
         .update({ is_goal: false })
@@ -237,13 +250,11 @@ export default function PetSkillsPage() {
         console.error("Error quitando objetivo:", error);
       }
     } else {
-      // Quitar objetivo de todas las demás
       const { error: clearError } = await supabase
         .from("pet_skills")
         .update({ is_goal: false })
         .eq("pet_id", petId);
 
-      // Marcar esta como objetivo
       const { error: setError } = await supabase
         .from("pet_skills")
         .update({ is_goal: true })
@@ -256,6 +267,84 @@ export default function PetSkillsPage() {
     }
 
     setSavingSkillId(null);
+  }
+
+  async function handleCreateSkill() {
+    setCreateError(null);
+
+    const trimmedName = newName.trim();
+
+    if (!trimmedName) {
+      setCreateError("Escribe un nombre para la habilidad.");
+      return;
+    }
+
+    if (!currentUserId) {
+      setCreateError("Usuario no autenticado.");
+      return;
+    }
+
+    // Comprobar que no tenga ya una habilidad propia con ese nombre
+    const alreadyExists = skills.some(
+      (s) =>
+        s.user_id === currentUserId &&
+        s.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (alreadyExists) {
+      setCreateError("Ya has creado una habilidad con este nombre.");
+      return;
+    }
+
+    setCreating(true);
+
+    // 1) Crear la habilidad como propia del usuario
+    const { data: skillData, error: skillError } = await supabase
+      .from("skills")
+      .insert({
+        name: trimmedName,
+        category: newCategory,
+        user_id: currentUserId,
+      })
+      .select("id, name, category, difficulty, description, user_id")
+      .single();
+
+    if (skillError || !skillData) {
+      console.error("Error creando habilidad:", skillError);
+      setCreateError("No se pudo crear la habilidad. Inténtalo de nuevo.");
+      setCreating(false);
+      return;
+    }
+
+    // 2) Añadirla automáticamente a este perro
+    const { data: petSkillData, error: petSkillError } = await supabase
+      .from("pet_skills")
+      .insert({
+        pet_id: petId,
+        skill_id: skillData.id,
+        manual_progress: 0,
+        auto_progress: 0,
+      })
+      .select(
+        "id, skill_id, manual_progress, auto_progress, is_goal, updated_at"
+      )
+      .single();
+
+    if (petSkillError) {
+      console.error("Error añadiendo habilidad al perro:", petSkillError);
+      // La habilidad se creó igualmente; la reflejamos en el catálogo
+    }
+
+    setSkills((prev) => [...prev, skillData]);
+    if (petSkillData) {
+      setPetSkills((prev) => [...prev, petSkillData]);
+    }
+
+    // Reset
+    setNewName("");
+    setNewCategory(KNOWN_CATEGORIES[0]);
+    setCreateOpen(false);
+    setCreating(false);
   }
 
   const activeSkillsCount = petSkills.length;
@@ -298,6 +387,16 @@ export default function PetSkillsPage() {
           >
             📚 Ver biblioteca completa
           </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateOpen(true);
+              setCreateError(null);
+            }}
+            className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
+          >
+            + Crear habilidad
+          </button>
         </div>
 
         <header className="mb-8 flex flex-col gap-6 rounded-3xl bg-white p-8 shadow md:flex-row md:items-center md:justify-between">
@@ -398,6 +497,7 @@ export default function PetSkillsPage() {
               const progress = getProgressForSkill(skill.id);
               const isSaving = savingSkillId === skill.id;
               const isInfoOpen = openInfoId === skill.id;
+              const isMine = skill.user_id !== null;
 
               return (
                 <div
@@ -414,7 +514,14 @@ export default function PetSkillsPage() {
                     <div className="flex items-center gap-3">
                       <span className="text-3xl">{icon}</span>
                       <div>
-                        <h2 className="text-xl font-bold">{skill.name}</h2>
+                        <h2 className="text-xl font-bold">
+                          {skill.name}
+                          {isMine && (
+                            <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 align-middle">
+                              Mía
+                            </span>
+                          )}
+                        </h2>
                         <p className="text-sm text-slate-500">
                           {skill.category ?? "Sin categoría"}
                         </p>
@@ -535,6 +642,74 @@ export default function PetSkillsPage() {
         )}
 
       </div>
+
+      {/* MODAL CREAR HABILIDAD */}
+      {createOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+            <h3 className="mb-2 text-2xl font-bold">Crear habilidad</h3>
+            <p className="mb-6 text-slate-500">
+              Esta habilidad será solo tuya y se añadirá a {pet?.name}.
+            </p>
+
+            {createError && (
+              <div className="mb-4 rounded-xl bg-amber-100 px-4 py-3 font-semibold text-amber-900">
+                {createError}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="mb-2 block font-semibold">Nombre</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                disabled={creating}
+                placeholder="Ej. Dar la pata cruzada"
+                className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="mb-2 block font-semibold">Categoría</label>
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                disabled={creating}
+                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              >
+                {KNOWN_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleCreateSkill}
+                disabled={creating}
+                className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+              >
+                {creating ? "Creando..." : "Crear habilidad"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setCreateError(null);
+                }}
+                disabled={creating}
+                className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-700 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

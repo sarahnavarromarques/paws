@@ -340,6 +340,13 @@ export default async function PetProfile({
           >
             🎯 Habilidades
           </Link>
+
+          <Link
+            href={`/pets/${pet.id}/groups`}
+            className="rounded-xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700"
+          >
+            📂 Grupos de habilidades
+          </Link>
         </div>
 
         <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
