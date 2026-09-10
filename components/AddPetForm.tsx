@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BREEDS, COLORS, WEIGHTS } from "@/lib/breeds";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const supabase = createClient();
 
@@ -10,14 +11,12 @@ type AddPetFormProps = {
   onAddPet?: () => Promise<void> | void;
 };
 
-// Formatos de imagen permitidos
 const ALLOWED_PHOTO_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
 ];
 
-// Límites de fecha de nacimiento
 function todayISO() {
   return new Date().toISOString().split("T")[0];
 }
@@ -28,7 +27,6 @@ function minBirthISO() {
   return d.toISOString().split("T")[0];
 }
 
-// Convierte "1996-08-30" en "30/08/1996"
 function toSpanishDate(iso: string) {
   const parts = iso.split("-");
   if (parts.length !== 3) return iso;
@@ -50,10 +48,16 @@ export default function AddPetForm({
 
   const [saving, setSaving] = useState(false);
 
-  // Aviso visible si la fecha no es válida
   const dateError =
     birthDate !== "" &&
     (birthDate > todayISO() || birthDate < minBirthISO());
+
+  function handleBreedChange(value: string) {
+    setBreed(value);
+    if (value !== "Otro") {
+      setCustomBreed("");
+    }
+  }
 
   function handlePhotoChange(file: File | null) {
     setPhotoError("");
@@ -63,7 +67,6 @@ export default function AddPetForm({
       return;
     }
 
-    // Comprobación real del tipo de archivo
     const type = file.type.toLowerCase();
     const isAllowed = ALLOWED_PHOTO_TYPES.includes(type);
 
@@ -79,7 +82,6 @@ export default function AddPetForm({
   }
 
   async function handleSave() {
-    // Raza final: si eligió "Otro", usamos lo que escribió
     const finalBreed =
       breed === "Otro" ? customBreed.trim() : breed;
 
@@ -95,7 +97,6 @@ export default function AddPetForm({
       return;
     }
 
-    // Validación de fecha de nacimiento
     if (birthDate > todayISO()) {
       alert(
         "La fecha de nacimiento no puede ser futura."
@@ -189,6 +190,10 @@ export default function AddPetForm({
     await onAddPet?.();
   }
 
+  const breedOptions = BREEDS.includes("Otro")
+    ? BREEDS
+    : [...BREEDS, "Otro"];
+
   return (
     <div>
       <label className="mb-2 block font-semibold">
@@ -208,26 +213,14 @@ export default function AddPetForm({
         Raza
       </label>
 
-      <select
-        className="mb-4 w-full rounded-lg border bg-white p-3"
-        value={breed}
-        onChange={(e) => {
-          setBreed(e.target.value);
-          if (e.target.value !== "Otro") {
-            setCustomBreed("");
-          }
-        }}
-      >
-        <option value="">
-          Selecciona una raza
-        </option>
-
-        {BREEDS.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
+      <div className="mb-4">
+        <SearchableSelect
+          options={breedOptions}
+          value={breed}
+          onChange={handleBreedChange}
+          placeholder="Selecciona una raza"
+        />
+      </div>
 
       {breed === "Otro" && (
         <div className="mb-4">
@@ -304,43 +297,28 @@ export default function AddPetForm({
         Peso (opcional)
       </label>
 
-      <div className="mb-4 flex items-center gap-2">
-        <select
-          className="w-full rounded-lg border bg-white p-3"
+      <div className="mb-4">
+        <SearchableSelect
+          options={WEIGHTS}
           value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-        >
-          <option value="">
-            Selecciona el peso
-          </option>
-
-          {WEIGHTS.map((item) => (
-            <option key={item} value={item}>
-              {item} kg
-            </option>
-          ))}
-        </select>
+          onChange={setWeight}
+          placeholder="Selecciona el peso"
+          renderLabel={(item) => `${item} kg`}
+        />
       </div>
 
       <label className="mb-2 block font-semibold">
         Color (opcional)
       </label>
 
-      <select
-        className="mb-4 w-full rounded-lg border bg-white p-3"
-        value={color}
-        onChange={(e) => setColor(e.target.value)}
-      >
-        <option value="">
-          Selecciona un color
-        </option>
-
-        {COLORS.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
+      <div className="mb-4">
+        <SearchableSelect
+          options={COLORS}
+          value={color}
+          onChange={setColor}
+          placeholder="Selecciona un color"
+        />
+      </div>
 
       <label className="mb-2 block font-semibold">
         Fecha de nacimiento

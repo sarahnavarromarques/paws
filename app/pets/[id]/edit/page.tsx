@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { BREEDS, COLORS, WEIGHTS } from "@/lib/breeds";
 import type { Database } from "@/lib/supabase/database.types";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const supabase = createClient();
 
@@ -15,8 +16,6 @@ type PetUpdate =
 
 const SEXES = ["Macho", "Hembra"];
 
-// Asegura que el valor actual siempre esté en la lista,
-// para que al editar nunca se pierda un dato ya guardado.
 function withCurrent(list: string[], value: string): string[] {
   if (value && !list.includes(value)) {
     return [value, ...list];
@@ -24,7 +23,6 @@ function withCurrent(list: string[], value: string): string[] {
   return list;
 }
 
-// Extrae el número de un peso guardado como "28 kg" -> "28"
 function parseWeight(raw: string | null): string {
   if (!raw) return "";
   const match = raw.match(/[\d.,]+/);
@@ -32,7 +30,6 @@ function parseWeight(raw: string | null): string {
   return match[0].replace(",", ".");
 }
 
-// Límites de fecha de nacimiento
 function todayISO() {
   return new Date().toISOString().split("T")[0];
 }
@@ -382,23 +379,12 @@ export default function EditPetPage() {
                 Raza
               </label>
 
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              <SearchableSelect
+                options={breedOptions}
                 value={breed}
-                onChange={(e) =>
-                  setBreed(e.target.value)
-                }
-              >
-                <option value="">
-                  Selecciona una raza
-                </option>
-
-                {breedOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+                onChange={setBreed}
+                placeholder="Selecciona una raza"
+              />
             </div>
 
             {/* FECHA DE NACIMIENTO */}
@@ -457,23 +443,13 @@ export default function EditPetPage() {
                 Peso
               </label>
 
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              <SearchableSelect
+                options={weightOptions}
                 value={weight}
-                onChange={(e) =>
-                  setWeight(e.target.value)
-                }
-              >
-                <option value="">
-                  Selecciona el peso
-                </option>
-
-                {weightOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item} kg
-                  </option>
-                ))}
-              </select>
+                onChange={setWeight}
+                placeholder="Selecciona el peso"
+                renderLabel={(item) => `${item} kg`}
+              />
             </div>
 
             {/* COLOR */}
@@ -483,23 +459,12 @@ export default function EditPetPage() {
                 Color
               </label>
 
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              <SearchableSelect
+                options={colorOptions}
                 value={color}
-                onChange={(e) =>
-                  setColor(e.target.value)
-                }
-              >
-                <option value="">
-                  Selecciona un color
-                </option>
-
-                {colorOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+                onChange={setColor}
+                placeholder="Selecciona un color"
+              />
             </div>
 
             {/* OBJETIVO */}

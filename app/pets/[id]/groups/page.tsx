@@ -67,6 +67,8 @@ export default function PetGroupsPage() {
 
   const [nameOptions, setNameOptions] = useState<string[]>([]);
   const [nameIndex, setNameIndex] = useState(0);
+  // Cuántos nombres se han mostrado ya (para la lista de vistos)
+  const [revealedCount, setRevealedCount] = useState(1);
   const [namingOpen, setNamingOpen] = useState(false);
   const [namingMode, setNamingMode] = useState<"create" | "rename">("create");
 
@@ -236,18 +238,29 @@ export default function PetGroupsPage() {
 
     setNameOptions(buildNameOptionsFor(selectedIds, null));
     setNameIndex(0);
+    setRevealedCount(1);
     setNamingMode("create");
     setNamingOpen(true);
   }
 
   function handleNextName() {
-    setNameIndex((prev) => (prev + 1) % nameOptions.length);
+    setNameIndex((prev) => {
+      const next = (prev + 1) % nameOptions.length;
+      // Ampliar la lista de vistos si descubrimos uno nuevo
+      setRevealedCount((count) => Math.max(count, next + 1));
+      return next;
+    });
+  }
+
+  function handlePickRevealed(index: number) {
+    setNameIndex(index);
   }
 
   function handleCancelNaming() {
     setNamingOpen(false);
     setNameOptions([]);
     setNameIndex(0);
+    setRevealedCount(1);
   }
 
   async function handleAcceptName() {
@@ -424,6 +437,7 @@ export default function PetGroupsPage() {
 
     setNameOptions(buildNameOptionsFor(selectedIds, editingGroupId));
     setNameIndex(0);
+    setRevealedCount(1);
     setNamingMode("rename");
     setNamingOpen(true);
   }
@@ -459,6 +473,7 @@ export default function PetGroupsPage() {
     setNamingOpen(false);
     setNameOptions([]);
     setNameIndex(0);
+    setRevealedCount(1);
     setSaving(false);
   }
 
@@ -488,6 +503,7 @@ export default function PetGroupsPage() {
     setNamingOpen(false);
     setNameOptions([]);
     setNameIndex(0);
+    setRevealedCount(1);
     setNamingMode("create");
     setSaving(false);
     setWarning(null);
@@ -645,6 +661,7 @@ export default function PetGroupsPage() {
   }
 
   const isEditing = editingGroupId !== null;
+  const revealedNames = nameOptions.slice(0, revealedCount);
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
@@ -871,23 +888,54 @@ export default function PetGroupsPage() {
       {/* MODAL DE NOMBRADO */}
       {namingOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-            <h3 className="mb-2 text-2xl font-bold">
-              {namingMode === "rename"
-                ? "Nuevo nombre del grupo"
-                : "Nombre del grupo"}
-            </h3>
-            <p className="mb-6 text-slate-500">
-              Esta es la sugerencia para tu grupo. Si no te convence, pide otra.
-            </p>
-
-            <div className="mb-6 rounded-2xl bg-slate-100 p-6 text-center">
-              <p className="text-3xl font-extrabold text-slate-900">
-                {nameOptions[nameIndex]}
+          <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-3xl bg-white shadow-xl">
+            <div className="p-8 pb-4">
+              <h3 className="mb-2 text-2xl font-bold">
+                {namingMode === "rename"
+                  ? "Nuevo nombre del grupo"
+                  : "Nombre del grupo"}
+              </h3>
+              <p className="text-slate-500">
+                Esta es la sugerencia para tu grupo. Si no te convence, pide otra
+                o elige una de las anteriores.
               </p>
+
+              <div className="mt-6 rounded-2xl bg-slate-100 p-6 text-center">
+                <p className="text-3xl font-extrabold text-slate-900">
+                  {nameOptions[nameIndex]}
+                </p>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            {/* LISTA DE NOMBRES YA VISTOS */}
+            {revealedNames.length > 1 && (
+              <div className="overflow-y-auto px-8">
+                <p className="mb-2 text-sm font-semibold text-slate-500">
+                  Sugerencias vistas
+                </p>
+                <div className="flex flex-wrap gap-2 pb-2">
+                  {revealedNames.map((name, index) => {
+                    const isCurrent = index === nameIndex;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => handlePickRevealed(index)}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                          isCurrent
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 p-8 pt-4">
               <button
                 type="button"
                 onClick={handleAcceptName}
@@ -922,7 +970,6 @@ export default function PetGroupsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-3xl bg-white shadow-xl">
 
-            {/* CABECERA FIJA CON X */}
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
               <div>
                 <h3 className="text-2xl font-bold">
@@ -942,7 +989,6 @@ export default function PetGroupsPage() {
               </button>
             </div>
 
-            {/* CONTENIDO CON SCROLL */}
             <div className="overflow-y-auto p-6">
               {copyWarning && (
                 <div className="mb-4 rounded-xl bg-amber-100 px-4 py-3 font-semibold text-amber-900">
@@ -1012,7 +1058,6 @@ export default function PetGroupsPage() {
               )}
             </div>
 
-            {/* PIE FIJO */}
             <div className="border-t border-slate-200 p-6">
               <button
                 type="button"

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const supabase = createClient();
 
@@ -23,6 +24,8 @@ type Group = {
   skillIds: number[];
 };
 
+const ALL_GROUPS_VALUE = "all";
+
 export default function AddTrainingForm({ petId }: Props) {
   const router = useRouter();
 
@@ -38,7 +41,7 @@ export default function AddTrainingForm({ petId }: Props) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
 
-  const [groupChoice, setGroupChoice] = useState<string>("all");
+  const [groupChoice, setGroupChoice] = useState<string>(ALL_GROUPS_VALUE);
   const [skillId, setSkillId] = useState<string>("");
 
   useEffect(() => {
@@ -88,7 +91,7 @@ export default function AddTrainingForm({ petId }: Props) {
   }, [petId]);
 
   const visibleSkills = useMemo(() => {
-    if (groupChoice === "all") {
+    if (groupChoice === ALL_GROUPS_VALUE) {
       return skills;
     }
 
@@ -98,9 +101,57 @@ export default function AddTrainingForm({ petId }: Props) {
     return skills.filter((skill) => group.skillIds.includes(skill.id));
   }, [groupChoice, groups, skills]);
 
-  function handleGroupChange(value: string) {
-    setGroupChoice(value);
+  // Opciones del buscador de grupo: nombres de grupos + "Todas"
+  const groupSelectOptions = useMemo(() => {
+    return [...groups.map((g) => g.name), "Todas"];
+  }, [groups]);
+
+  // Valor mostrado en el buscador de grupo (nombre o "Todas")
+  const groupSelectValue = useMemo(() => {
+    if (groupChoice === ALL_GROUPS_VALUE) return "Todas";
+    const group = groups.find((g) => String(g.id) === groupChoice);
+    return group?.name ?? "Todas";
+  }, [groupChoice, groups]);
+
+  // Opciones del buscador de habilidad (etiquetas visibles)
+  const skillLabelToId = useMemo(() => {
+    const map = new Map<string, string>();
+    visibleSkills.forEach((skill) => {
+      const label = skill.category
+        ? `${skill.category} — ${skill.name}`
+        : skill.name;
+      map.set(label, String(skill.id));
+    });
+    return map;
+  }, [visibleSkills]);
+
+  const skillSelectOptions = useMemo(
+    () => Array.from(skillLabelToId.keys()),
+    [skillLabelToId]
+  );
+
+  const skillSelectValue = useMemo(() => {
+    if (!skillId) return "";
+    const skill = visibleSkills.find((s) => String(s.id) === skillId);
+    if (!skill) return "";
+    return skill.category
+      ? `${skill.category} — ${skill.name}`
+      : skill.name;
+  }, [skillId, visibleSkills]);
+
+  function handleGroupChange(groupName: string) {
+    if (groupName === "Todas") {
+      setGroupChoice(ALL_GROUPS_VALUE);
+    } else {
+      const group = groups.find((g) => g.name === groupName);
+      setGroupChoice(group ? String(group.id) : ALL_GROUPS_VALUE);
+    }
     setSkillId("");
+  }
+
+  function handleSkillChange(label: string) {
+    const id = skillLabelToId.get(label);
+    setSkillId(id ?? "");
   }
 
   async function handleSave() {
@@ -133,12 +184,11 @@ export default function AddTrainingForm({ petId }: Props) {
       return;
     }
 
-    // Generar título automático: "Grupo — Habilidad" (o solo habilidad si es "Todas")
     const chosenSkill = skills.find((s) => String(s.id) === skillId);
     const skillName = chosenSkill?.name ?? "Entrenamiento";
 
     let generatedTitle = skillName;
-    if (groupChoice !== "all") {
+    if (groupChoice !== ALL_GROUPS_VALUE) {
       const group = groups.find((g) => String(g.id) === groupChoice);
       if (group) {
         generatedTitle = `${group.name} — ${skillName}`;
@@ -157,7 +207,8 @@ export default function AddTrainingForm({ petId }: Props) {
       status,
       notes: notes.trim() || null,
       skill_id: Number(skillId),
-      skill_group_id: groupChoice === "all" ? null : Number(groupChoice),
+      skill_group_id:
+        groupChoice === ALL_GROUPS_VALUE ? null : Number(groupChoice),
     });
 
     if (error) {
@@ -174,7 +225,7 @@ export default function AddTrainingForm({ petId }: Props) {
     setDuration("");
     setStatus("pending");
     setNotes("");
-    setGroupChoice("all");
+    setGroupChoice(ALL_GROUPS_VALUE);
     setSkillId("");
 
     router.refresh();
@@ -209,19 +260,13 @@ export default function AddTrainingForm({ petId }: Props) {
               </Link>
             </div>
           ) : (
-            <select
-              value={groupChoice}
-              onChange={(e) => handleGroupChange(e.target.value)}
+            <SearchableSelect
+              options={groupSelectOptions}
+              value={groupSelectValue}
+              onChange={handleGroupChange}
+              placeholder="Selecciona un grupo"
               disabled={saving}
-              className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-            >
-              {groups.map((group) => (
-                <option key={group.id} value={String(group.id)}>
-                  {group.name}
-                </option>
-              ))}
-              <option value="all">Todas</option>
-            </select>
+            />
           )}
         </div>
 
@@ -232,23 +277,15 @@ export default function AddTrainingForm({ petId }: Props) {
             Habilidad trabajada
           </label>
 
-          <select
-            value={skillId}
-            onChange={(e) => setSkillId(e.target.value)}
+          <SearchableSelect
+            options={skillSelectOptions}
+            value={skillSelectValue}
+            onChange={handleSkillChange}
+            placeholder="Selecciona una habilidad"
             disabled={saving}
-            className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-          >
-            <option value="">Selecciona una habilidad</option>
+          />
 
-            {visibleSkills.map((skill) => (
-              <option key={skill.id} value={skill.id}>
-                {skill.category ? `${skill.category} — ` : ""}
-                {skill.name}
-              </option>
-            ))}
-          </select>
-
-          {groupChoice !== "all" && visibleSkills.length === 0 && (
+          {groupChoice !== ALL_GROUPS_VALUE && visibleSkills.length === 0 && (
             <p className="mt-2 text-sm text-amber-700">
               Este grupo no tiene habilidades.
             </p>
