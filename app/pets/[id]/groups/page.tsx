@@ -6,10 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import {
-  buildAvailableGroupNames,
   buildGroupSignature,
   type GroupSkillInput,
 } from "@/lib/skill-group-names";
+import { suggestGroupName } from "@/lib/group-name-ai";
 
 const supabase = createClient();
 
@@ -65,12 +65,12 @@ export default function PetGroupsPage() {
 
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
 
+  // Nombres sugeridos en esta sesión (se van añadiendo de uno en uno).
   const [nameOptions, setNameOptions] = useState<string[]>([]);
   const [nameIndex, setNameIndex] = useState(0);
-  // Cuántos nombres se han mostrado ya (para la lista de vistos)
-  const [revealedCount, setRevealedCount] = useState(1);
   const [namingOpen, setNamingOpen] = useState(false);
   const [namingMode, setNamingMode] = useState<"create" | "rename">("create");
+  const [generatingName, setGeneratingName] = useState(false);
 
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -199,11 +199,9 @@ export default function PetGroupsPage() {
     return skills.find((s) => s.id === id)?.name ?? "?";
   }
 
-  function buildNameOptionsFor(
-    ids: number[],
-    excludeGroupId: number | null
-  ): string[] {
-    const selectedSkills: GroupSkillInput[] = ids.map((id) => {
+  // Convierte los ids seleccionados en el formato que espera la IA.
+  function selectedSkillInputs(ids: number[]): GroupSkillInput[] {
+    return ids.map((id) => {
       const s = skills.find((sk) => sk.id === id);
       return {
         id,
@@ -211,12 +209,31 @@ export default function PetGroupsPage() {
         category: s?.category ?? null,
       };
     });
+  }
 
-    const takenNames = groups
+  // Nombres de otros grupos (para no repetir).
+  function takenGroupNames(excludeGroupId: number | null): string[] {
+    return groups
       .filter((g) => g.id !== excludeGroupId)
       .map((g) => g.name);
+  }
 
-    return buildAvailableGroupNames(selectedSkills, takenNames);
+  // Pide un nombre nuevo a la IA y lo añade a la lista.
+  // currentNames = nombres ya sugeridos en esta sesión.
+  async function generateName(
+    excludeGroupId: number | null,
+    currentNames: string[]
+  ) {
+    setGeneratingName(true);
+
+    const inputs = selectedSkillInputs(selectedIds);
+    const avoid = [...takenGroupNames(excludeGroupId), ...currentNames];
+
+    const name = await suggestGroupName({ skills: inputs, avoid });
+
+    setNameOptions([...currentNames, name]);
+    setNameIndex(currentNames.length);
+    setGeneratingName(false);
   }
 
   function handleStartNaming() {
@@ -236,20 +253,16 @@ export default function PetGroupsPage() {
       return;
     }
 
-    setNameOptions(buildNameOptionsFor(selectedIds, null));
-    setNameIndex(0);
-    setRevealedCount(1);
     setNamingMode("create");
+    setNameOptions([]);
+    setNameIndex(0);
     setNamingOpen(true);
+    void generateName(null, []);
   }
 
   function handleNextName() {
-    setNameIndex((prev) => {
-      const next = (prev + 1) % nameOptions.length;
-      // Ampliar la lista de vistos si descubrimos uno nuevo
-      setRevealedCount((count) => Math.max(count, next + 1));
-      return next;
-    });
+    const excludeId = namingMode === "rename" ? editingGroupId : null;
+    void generateName(excludeId, nameOptions);
   }
 
   function handlePickRevealed(index: number) {
@@ -260,7 +273,7 @@ export default function PetGroupsPage() {
     setNamingOpen(false);
     setNameOptions([]);
     setNameIndex(0);
-    setRevealedCount(1);
+    setGeneratingName(false);
   }
 
   async function handleAcceptName() {
@@ -435,11 +448,11 @@ export default function PetGroupsPage() {
       return;
     }
 
-    setNameOptions(buildNameOptionsFor(selectedIds, editingGroupId));
-    setNameIndex(0);
-    setRevealedCount(1);
     setNamingMode("rename");
+    setNameOptions([]);
+    setNameIndex(0);
     setNamingOpen(true);
+    void generateName(editingGroupId, []);
   }
 
   async function renameGroup(chosenName: string) {
@@ -473,7 +486,7 @@ export default function PetGroupsPage() {
     setNamingOpen(false);
     setNameOptions([]);
     setNameIndex(0);
-    setRevealedCount(1);
+    setGeneratingName(false);
     setSaving(false);
   }
 
@@ -503,8 +516,8 @@ export default function PetGroupsPage() {
     setNamingOpen(false);
     setNameOptions([]);
     setNameIndex(0);
-    setRevealedCount(1);
     setNamingMode("create");
+    setGeneratingName(false);
     setSaving(false);
     setWarning(null);
   }
@@ -661,7 +674,6 @@ export default function PetGroupsPage() {
   }
 
   const isEditing = editingGroupId !== null;
-  const revealedNames = nameOptions.slice(0, revealedCount);
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
@@ -896,29 +908,31 @@ export default function PetGroupsPage() {
                   : "Nombre del grupo"}
               </h3>
               <p className="text-slate-500">
-                Esta es la sugerencia para tu grupo. Si no te convence, pide otra
-                o elige una de las anteriores.
+                La IA ha pensado este nombre para tu grupo. Si no te convence,
+                pide otro o elige uno de los anteriores.
               </p>
 
               <div className="mt-6 rounded-2xl bg-slate-100 p-6 text-center">
                 <p className="text-3xl font-extrabold text-slate-900">
-                  {nameOptions[nameIndex]}
+                  {nameOptions.length === 0
+                    ? "Generando..."
+                    : nameOptions[nameIndex]}
                 </p>
               </div>
             </div>
 
             {/* LISTA DE NOMBRES YA VISTOS */}
-            {revealedNames.length > 1 && (
+            {nameOptions.length > 1 && (
               <div className="overflow-y-auto px-8">
                 <p className="mb-2 text-sm font-semibold text-slate-500">
                   Sugerencias vistas
                 </p>
                 <div className="flex flex-wrap gap-2 pb-2">
-                  {revealedNames.map((name, index) => {
+                  {nameOptions.map((name, index) => {
                     const isCurrent = index === nameIndex;
                     return (
                       <button
-                        key={name}
+                        key={`${name}-${index}`}
                         type="button"
                         onClick={() => handlePickRevealed(index)}
                         className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -939,7 +953,7 @@ export default function PetGroupsPage() {
               <button
                 type="button"
                 onClick={handleAcceptName}
-                disabled={saving}
+                disabled={saving || generatingName || nameOptions.length === 0}
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? "Guardando..." : "Aceptar este nombre"}
@@ -947,10 +961,10 @@ export default function PetGroupsPage() {
               <button
                 type="button"
                 onClick={handleNextName}
-                disabled={saving || nameOptions.length <= 1}
+                disabled={saving || generatingName}
                 className="w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
               >
-                Sugerir otro nombre
+                {generatingName ? "Generando..." : "Sugerir otro nombre"}
               </button>
               <button
                 type="button"
