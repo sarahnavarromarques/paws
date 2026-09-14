@@ -518,7 +518,7 @@ Evita sesiones largas y haz que el aprendizaje sea gradual y positivo.`;
     text.includes("buenas") ||
     text.includes("hey")
   ) {
-    return `¡Hola! 👋 Soy PAWS IA.
+    return `¡Hola! 👋 Soy PAWS Coaching IA.
 
 Puedo ayudarte con el entrenamiento de ${petName}.
 
@@ -545,7 +545,7 @@ Por ejemplo, puedes preguntarme:
 • ¿Qué debería entrenar hoy?
 • ¿Cómo va su progreso?
 
-También puedo consultar sus datos registrados en PAWS.`;
+También puedo consultar sus datos registrados en PAWS Coaching.`;
 }
 
 export async function POST(request: Request) {
@@ -626,7 +626,7 @@ export async function POST(request: Request) {
     if (petList.length === 0) {
       return NextResponse.json({
         message:
-          "Todavía no tienes ninguna mascota registrada en PAWS. Añade una mascota y podré ayudarte con sus datos.",
+          "Todavía no tienes ninguna mascota registrada en PAWS Coaching.. Añade una mascota y podré ayudarte con sus datos.",
       });
     }
 
@@ -919,7 +919,7 @@ He eliminado "${training.title}" de ${pet.name}.`,
       message: answer,
     });
   } catch (error) {
-    console.error("ERROR PAWS IA:", error);
+    console.error("ERROR PAWS Coaching IA:", error);
 
     return NextResponse.json(
       {

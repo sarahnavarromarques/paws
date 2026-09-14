@@ -15,7 +15,7 @@ export default function AIPage() {
     {
       role: "assistant",
       content:
-        "Hola 👋 Soy PAWS IA. Pregúntame cualquier cosa sobre el entrenamiento de tu mascota.",
+        "Hola 👋 Soy PAWS Coaching IA. Pregúntame cualquier cosa sobre el entrenamiento de tu mascota.",
     },
   ]);
 
@@ -100,7 +100,7 @@ export default function AIPage() {
           <div className="bg-blue-600 p-8 text-white">
 
             <h1 className="text-4xl font-bold">
-              🤖 PAWS IA
+              🤖 PAWS Coaching IA
             </h1>
 
             <p className="mt-2 text-blue-100">
@@ -169,7 +169,7 @@ export default function AIPage() {
                   }
                 }}
                 placeholder="Escribe tu pregunta..."
-                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100"
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100"
               />
 
               <button

@@ -13,13 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PAWS · Entrenamiento canino",
+  title: "PAWS Coaching · Entrenamiento canino",
   description:
     "Plataforma inteligente para el entrenamiento y seguimiento de mascotas.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "PAWS",
+    title: "PAWS Coaching",
     statusBarStyle: "default",
   },
   icons: {

@@ -253,7 +253,7 @@ export default function DashboardPage() {
         <header className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-5xl font-extrabold tracking-tight">
-              🐾 PAWS
+              🐾 PAWS Coaching
             </h1>
 
             <p className="mt-3 text-slate-600">

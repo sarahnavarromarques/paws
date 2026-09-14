@@ -50,7 +50,7 @@ export default function LoginPage() {
         className="w-[420px] rounded-2xl bg-white p-10 shadow-xl"
       >
         <h1 className="mb-8 text-center text-3xl font-bold">
-          🐾 PAWS
+          🐾 PAWS Coaching
         </h1>
 
         <input

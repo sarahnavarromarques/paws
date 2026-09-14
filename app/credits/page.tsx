@@ -20,7 +20,7 @@ export default function CreditsPage() {
 
           <p className="mt-2 text-slate-600">
             Reconocimiento a las fuentes que han servido de referencia para
-            construir PAWS.
+            construir PAWS Coaching.
           </p>
         </header>
 
@@ -32,7 +32,7 @@ export default function CreditsPage() {
 
           <p className="mt-4 leading-relaxed text-slate-700">
             Parte de las habilidades y ejercicios de obediencia incluidos en
-            PAWS se han elaborado tomando como referencia el{" "}
+            PAWS Coaching se han elaborado tomando como referencia el{" "}
             <span className="font-semibold">
               «Reglamento General para la Participación en Pruebas y
               Competiciones de Obediencia Clase Internacional con C.A.C.I.O.B.»
@@ -51,9 +51,9 @@ export default function CreditsPage() {
 
           <div className="mt-6 rounded-xl bg-slate-50 p-5">
             <p className="text-sm leading-relaxed text-slate-500">
-              PAWS no está afiliada ni respaldada por la FCI. Las referencias a
-              dicho reglamento se realizan con fines informativos y educativos,
-              como reconocimiento a la fuente original.
+              PAWS Coaching no está afiliada ni respaldada por la FCI. Las
+              referencias a dicho reglamento se realizan con fines informativos
+              y educativos, como reconocimiento a la fuente original.
             </p>
           </div>
         </section>
