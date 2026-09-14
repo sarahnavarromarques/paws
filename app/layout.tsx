@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,20 @@ export const metadata: Metadata = {
   title: "PAWS · Entrenamiento canino",
   description:
     "Plataforma inteligente para el entrenamiento y seguimiento de mascotas.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "PAWS",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1e3a5f",
 };
 
 export default function RootLayout({
