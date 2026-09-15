@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
+import ProgressAnalysis from "@/components/ProgressAnalysis";
 
 type PageProps = {
   params: Promise<{
@@ -566,6 +567,31 @@ export default async function PetProfile({
                 </Link>
               </div>
             </div>
+
+            {/* ANÁLISIS DE PROGRESO (IA) */}
+
+            <ProgressAnalysis
+              pet={{
+                name: pet.name,
+                breed: pet.breed ?? null,
+                objective: pet.objective ?? null,
+                level: pet.level ?? null,
+              }}
+              skills={petSkillsWithNames.map((item) => ({
+                name: item.name,
+                category: item.category,
+                progress: item.progress,
+                sessionCount: item.sessionCount,
+                lastTrainedDays: item.lastTrainedDays,
+                isGoal: item.isGoal,
+              }))}
+              trainings={completedTrainings.slice(0, 15).map((training) => ({
+                title: training.title ?? null,
+                date: training.date ?? null,
+                duration: training.duration ?? null,
+                notes: training.notes ?? null,
+              }))}
+            />
 
             {/* HABILIDADES DEL PERRO */}
 
