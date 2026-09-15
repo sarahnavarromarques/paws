@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
+const ADMIN_USER_ID = "ee62d6fc-b3e8-42c9-898e-4f9f9148a347";
 
 type Skill = {
   id: number;
@@ -15,6 +16,8 @@ type Skill = {
   difficulty: string | null;
   description: string | null;
   user_id: string | null;
+  steps_image: string | null;
+  mistakes_image: string | null;
 };
 
 type PetSkillRow = {
@@ -54,6 +57,8 @@ const KNOWN_CATEGORIES = [
   "Obediencia FCI",
 ];
 
+type ImageKind = "steps" | "mistakes";
+
 export default function PetSkillsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -67,6 +72,9 @@ export default function PetSkillsPage() {
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [savingSkillId, setSavingSkillId] = useState<number | null>(null);
   const [openInfoId, setOpenInfoId] = useState<number | null>(null);
+
+  // Subida de imágenes: guarda "skillId-kind" mientras sube
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
   // Crear habilidad
   const [createOpen, setCreateOpen] = useState(false);
@@ -106,7 +114,9 @@ export default function PetSkillsPage() {
 
       const { data: skillsData } = await supabase
         .from("skills")
-        .select("id, name, category, difficulty, description, user_id")
+        .select(
+          "id, name, category, difficulty, description, user_id, steps_image, mistakes_image"
+        )
         .order("id", { ascending: true });
 
       setSkills(skillsData ?? []);
@@ -246,6 +256,71 @@ export default function PetSkillsPage() {
     setSavingSkillId(null);
   }
 
+  // Subir una imagen (pasos o errores) para una habilidad
+  async function handleUploadImage(
+    skill: Skill,
+    kind: ImageKind,
+    file: File
+  ) {
+    const key = `${skill.id}-${kind}`;
+    setUploadingKey(key);
+
+    try {
+      const extension = file.name.split(".").pop() ?? "jpg";
+      const path = `skill-${skill.id}/${kind}-${Date.now()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("skill-images")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) {
+        console.error("Error subiendo imagen:", uploadError);
+        alert("No se pudo subir la imagen. Inténtalo de nuevo.");
+        setUploadingKey(null);
+        return;
+      }
+
+      const { data: publicData } = supabase.storage
+        .from("skill-images")
+        .getPublicUrl(path);
+
+      const publicUrl = publicData.publicUrl;
+
+            const { error: updateError } = await supabase
+        .from("skills")
+        .update(
+          kind === "steps"
+            ? { steps_image: publicUrl }
+            : { mistakes_image: publicUrl }
+        )
+        .eq("id", skill.id);
+
+      if (updateError) {
+        console.error("Error guardando enlace de imagen:", updateError);
+        alert("La imagen se subió pero no se pudo guardar. Inténtalo de nuevo.");
+        setUploadingKey(null);
+        return;
+      }
+
+      // Actualizar en pantalla sin recargar
+      setSkills((prev) =>
+        prev.map((s) =>
+          s.id === skill.id
+            ? {
+                ...s,
+                steps_image:
+                  kind === "steps" ? publicUrl : s.steps_image,
+                mistakes_image:
+                  kind === "mistakes" ? publicUrl : s.mistakes_image,
+              }
+            : s
+        )
+      );
+    } finally {
+      setUploadingKey(null);
+    }
+  }
+
   async function handleCreateSkill() {
     setCreateError(null);
 
@@ -261,7 +336,6 @@ export default function PetSkillsPage() {
       return;
     }
 
-    // Comprobar que no tenga ya una habilidad propia con ese nombre
     const alreadyExists = skills.some(
       (s) =>
         s.user_id === currentUserId &&
@@ -275,7 +349,6 @@ export default function PetSkillsPage() {
 
     setCreating(true);
 
-    // 1) Crear la habilidad como propia del usuario
     const { data: skillData, error: skillError } = await supabase
       .from("skills")
       .insert({
@@ -283,7 +356,9 @@ export default function PetSkillsPage() {
         category: newCategory,
         user_id: currentUserId,
       })
-      .select("id, name, category, difficulty, description, user_id")
+      .select(
+        "id, name, category, difficulty, description, user_id, steps_image, mistakes_image"
+      )
       .single();
 
     if (skillError || !skillData) {
@@ -293,7 +368,6 @@ export default function PetSkillsPage() {
       return;
     }
 
-    // 2) Añadirla automáticamente a este perro
     const { data: petSkillData, error: petSkillError } = await supabase
       .from("pet_skills")
       .insert({
@@ -309,7 +383,6 @@ export default function PetSkillsPage() {
 
     if (petSkillError) {
       console.error("Error añadiendo habilidad al perro:", petSkillError);
-      // La habilidad se creó igualmente; la reflejamos en el catálogo
     }
 
     setSkills((prev) => [...prev, skillData]);
@@ -317,7 +390,6 @@ export default function PetSkillsPage() {
       setPetSkills((prev) => [...prev, petSkillData]);
     }
 
-    // Reset
     setNewName("");
     setNewCategory(KNOWN_CATEGORIES[0]);
     setCreateOpen(false);
@@ -476,6 +548,20 @@ export default function PetSkillsPage() {
               const isInfoOpen = openInfoId === skill.id;
               const isMine = skill.user_id !== null;
 
+              // Tiene panel de info si hay descripción o imágenes
+              const hasInfo =
+                !!skill.description ||
+                !!skill.steps_image ||
+                !!skill.mistakes_image;
+
+              const stepsUploading = uploadingKey === `${skill.id}-steps`;
+              const mistakesUploading =
+                uploadingKey === `${skill.id}-mistakes`;
+              const canEditImages =
+                currentUserId === ADMIN_USER_ID ||
+                (skill.user_id !== null &&
+                  skill.user_id === currentUserId);
+
               return (
                 <div
                   key={skill.id}
@@ -506,24 +592,20 @@ export default function PetSkillsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {skill.description && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenInfoId(
-                              isInfoOpen ? null : skill.id
-                            )
-                          }
-                          aria-label="Más información"
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
-                            isInfoOpen
-                              ? "bg-blue-600 text-white"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                          }`}
-                        >
-                          ℹ
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenInfoId(isInfoOpen ? null : skill.id)
+                        }
+                        aria-label="Más información"
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
+                          isInfoOpen
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        ℹ
+                      </button>
 
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${difficultyStyle}`}
@@ -533,9 +615,98 @@ export default function PetSkillsPage() {
                     </div>
                   </div>
 
-                  {isInfoOpen && skill.description && (
-                    <div className="mb-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
-                      {skill.description}
+                  {/* PANEL DE INFORMACIÓN */}
+                  {isInfoOpen && (
+                    <div className="mb-4 space-y-4 rounded-xl bg-blue-50 p-4">
+                      {skill.description && (
+                        <p className="text-sm text-blue-900">
+                          {skill.description}
+                        </p>
+                      )}
+
+                      {/* Viñeta de pasos */}
+                      <div>
+                        <p className="mb-2 text-sm font-bold text-blue-900">
+                          📋 Cómo entrenar (paso a paso)
+                        </p>
+                        {skill.steps_image ? (
+                          <img
+                            src={skill.steps_image}
+                            alt={`Pasos para ${skill.name}`}
+                            className="w-full rounded-lg border border-blue-200"
+                          />
+                        ) : (
+                          <p className="text-sm italic text-blue-700">
+                            Todavía no hay imagen de pasos.
+                          </p>
+                        )}
+
+                       {canEditImages && (  
+                        <label className="mt-2 inline-block cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
+                          {stepsUploading
+                            ? "Subiendo..."
+                            : skill.steps_image
+                            ? "Reemplazar imagen"
+                            : "Subir imagen"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={stepsUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                void handleUploadImage(skill, "steps", file);
+                              }
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                        )}
+                      </div>
+
+                      {/* Viñeta de errores comunes */}
+                      <div>
+                        <p className="mb-2 text-sm font-bold text-blue-900">
+                          ⚠️ Errores comunes
+                        </p>
+                        {skill.mistakes_image ? (
+                          <img
+                            src={skill.mistakes_image}
+                            alt={`Errores comunes de ${skill.name}`}
+                            className="w-full rounded-lg border border-blue-200"
+                          />
+                        ) : (
+                          <p className="text-sm italic text-blue-700">
+                            Todavía no hay imagen de errores comunes.
+                          </p>
+                        )}
+
+                        <label className="mt-2 inline-block cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
+                          {mistakesUploading
+                            ? "Subiendo..."
+                            : skill.mistakes_image
+                            ? "Reemplazar imagen"
+                            : "Subir imagen"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={mistakesUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                void handleUploadImage(
+                                  skill,
+                                  "mistakes",
+                                  file
+                                );
+                              }
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
                     </div>
                   )}
 
