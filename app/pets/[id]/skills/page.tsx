@@ -143,7 +143,7 @@ export default function PetSkillsPage() {
 
   function getProgressForSkill(skillId: number): number {
     const petSkill = petSkills.find((ps) => ps.skill_id === skillId);
-    return petSkill?.manual_progress ?? 0;
+    return petSkill?.auto_progress ?? 0;
   }
 
   function isSkillActive(skillId: number): boolean {
@@ -200,29 +200,6 @@ export default function PetSkillsPage() {
 
     setPetSkills((prev) => prev.filter((ps) => ps.skill_id !== skillId));
     setSavingSkillId(null);
-  }
-
-  async function handleUpdateProgress(skillId: number, newValue: number) {
-    setPetSkills((prev) =>
-      prev.map((ps) =>
-        ps.skill_id === skillId
-          ? { ...ps, manual_progress: newValue }
-          : ps
-      )
-    );
-
-    const { error } = await supabase
-      .from("pet_skills")
-      .update({
-        manual_progress: newValue,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("pet_id", petId)
-      .eq("skill_id", skillId);
-
-    if (error) {
-      console.error("Error actualizando progreso:", error);
-    }
   }
 
   async function handleToggleGoal(skillId: number) {
@@ -354,7 +331,7 @@ export default function PetSkillsPage() {
       ? 0
       : Math.round(
           petSkills.reduce(
-            (sum, ps) => sum + (ps.manual_progress ?? 0),
+            (sum, ps) => sum + (ps.auto_progress ?? 0),
             0
           ) / petSkills.length
         );
@@ -579,33 +556,22 @@ export default function PetSkillsPage() {
                         </span>
                       </div>
 
-                      <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-200">
                         <div
                           className="h-full bg-blue-600 transition-all"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
 
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={progress}
-                        onChange={(event) =>
-                          handleUpdateProgress(
-                            skill.id,
-                            Number(event.target.value)
-                          )
-                        }
-                        className="w-full accent-blue-600"
-                      />
+                      <p className="mb-4 text-xs font-medium text-slate-400">
+                        El progreso lo actualiza la IA al completar cada sesión.
+                      </p>
 
                       <button
                         type="button"
                         onClick={() => handleToggleGoal(skill.id)}
                         disabled={isSaving}
-                        className={`mt-4 w-full rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
+                        className={`w-full rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
                           isGoal
                             ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
                             : "bg-amber-500 text-white hover:bg-amber-600"

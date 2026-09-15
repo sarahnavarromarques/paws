@@ -222,7 +222,7 @@ export default async function PetProfile({
           skillId: row.skill_id,
           name: skill?.name ?? "Habilidad",
           category: skill?.category ?? null,
-          progress: row.manual_progress ?? 0,
+          progress: row.auto_progress ?? 0,
           isGoal: row.is_goal ?? false,
           sessionCount: stats?.count ?? 0,
           lastTrainedDays: daysSince(stats?.lastDate ?? null),
