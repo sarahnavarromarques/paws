@@ -286,7 +286,7 @@ export default function PetSkillsPage() {
 
       const publicUrl = publicData.publicUrl;
 
-            const { error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from("skills")
         .update(
           kind === "steps"
@@ -548,20 +548,6 @@ export default function PetSkillsPage() {
               const isInfoOpen = openInfoId === skill.id;
               const isMine = skill.user_id !== null;
 
-              // Tiene panel de info si hay descripción o imágenes
-              const hasInfo =
-                !!skill.description ||
-                !!skill.steps_image ||
-                !!skill.mistakes_image;
-
-              const stepsUploading = uploadingKey === `${skill.id}-steps`;
-              const mistakesUploading =
-                uploadingKey === `${skill.id}-mistakes`;
-              const canEditImages =
-                currentUserId === ADMIN_USER_ID ||
-                (skill.user_id !== null &&
-                  skill.user_id === currentUserId);
-
               return (
                 <div
                   key={skill.id}
@@ -614,101 +600,6 @@ export default function PetSkillsPage() {
                       </span>
                     </div>
                   </div>
-
-                  {/* PANEL DE INFORMACIÓN */}
-                  {isInfoOpen && (
-                    <div className="mb-4 space-y-4 rounded-xl bg-blue-50 p-4">
-                      {skill.description && (
-                        <p className="text-sm text-blue-900">
-                          {skill.description}
-                        </p>
-                      )}
-
-                      {/* Viñeta de pasos */}
-                      <div>
-                        <p className="mb-2 text-sm font-bold text-blue-900">
-                          📋 Cómo entrenar (paso a paso)
-                        </p>
-                        {skill.steps_image ? (
-                          <img
-                            src={skill.steps_image}
-                            alt={`Pasos para ${skill.name}`}
-                            className="w-full rounded-lg border border-blue-200"
-                          />
-                        ) : (
-                          <p className="text-sm italic text-blue-700">
-                            Todavía no hay imagen de pasos.
-                          </p>
-                        )}
-
-                       {canEditImages && (  
-                        <label className="mt-2 inline-block cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
-                          {stepsUploading
-                            ? "Subiendo..."
-                            : skill.steps_image
-                            ? "Reemplazar imagen"
-                            : "Subir imagen"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={stepsUploading}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                void handleUploadImage(skill, "steps", file);
-                              }
-                              e.target.value = "";
-                            }}
-                          />
-                        </label>
-                        )}
-                      </div>
-
-                      {/* Viñeta de errores comunes */}
-                      <div>
-                        <p className="mb-2 text-sm font-bold text-blue-900">
-                          ⚠️ Errores comunes
-                        </p>
-                        {skill.mistakes_image ? (
-                          <img
-                            src={skill.mistakes_image}
-                            alt={`Errores comunes de ${skill.name}`}
-                            className="w-full rounded-lg border border-blue-200"
-                          />
-                        ) : (
-                          <p className="text-sm italic text-blue-700">
-                            Todavía no hay imagen de errores comunes.
-                          </p>
-                        )}
-
-                        <label className="mt-2 inline-block cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
-                          {mistakesUploading
-                            ? "Subiendo..."
-                            : skill.mistakes_image
-                            ? "Reemplazar imagen"
-                            : "Subir imagen"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={mistakesUploading}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                void handleUploadImage(
-                                  skill,
-                                  "mistakes",
-                                  file
-                                );
-                              }
-                              e.target.value = "";
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  )}
 
                   {isGoal && (
                     <div className="mb-3 rounded-lg bg-amber-500 px-3 py-1 text-center text-sm font-bold text-white">
@@ -779,6 +670,150 @@ export default function PetSkillsPage() {
         )}
 
       </div>
+
+      {/* MODAL DE INFORMACIÓN DE HABILIDAD */}
+      {(() => {
+        const infoSkill = skills.find((s) => s.id === openInfoId);
+        if (!infoSkill) return null;
+
+        const icon = infoSkill.category
+          ? CATEGORY_ICONS[infoSkill.category] ?? "🐾"
+          : "🐾";
+
+        const canEditImages =
+          currentUserId === ADMIN_USER_ID ||
+          (infoSkill.user_id !== null &&
+            infoSkill.user_id === currentUserId);
+
+        const stepsUploading = uploadingKey === `${infoSkill.id}-steps`;
+        const mistakesUploading =
+          uploadingKey === `${infoSkill.id}-mistakes`;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onClick={() => setOpenInfoId(null)}
+          >
+            <div
+              className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-8 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Cabecera del modal */}
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl">{icon}</span>
+                  <div>
+                    <h3 className="text-2xl font-bold">{infoSkill.name}</h3>
+                    <p className="text-sm text-slate-500">
+                      {infoSkill.category ?? "Sin categoría"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenInfoId(null)}
+                  aria-label="Cerrar"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-bold text-slate-600 transition hover:bg-slate-200"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {infoSkill.description && (
+                <p className="mb-6 text-slate-700">
+                  {infoSkill.description}
+                </p>
+              )}
+
+              {/* Imagen de pasos */}
+              <div className="mb-8">
+                <p className="mb-3 text-lg font-bold text-slate-800">
+                  📋 Cómo entrenar (paso a paso)
+                </p>
+                {infoSkill.steps_image ? (
+                  <img
+                    src={infoSkill.steps_image}
+                    alt={`Pasos para ${infoSkill.name}`}
+                    className="w-full rounded-xl border border-slate-200"
+                  />
+                ) : (
+                  <p className="text-sm italic text-slate-400">
+                    Todavía no hay imagen de pasos.
+                  </p>
+                )}
+
+                {canEditImages && (
+                  <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                    {stepsUploading
+                      ? "Subiendo..."
+                      : infoSkill.steps_image
+                      ? "Reemplazar imagen"
+                      : "Subir imagen"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={stepsUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          void handleUploadImage(infoSkill, "steps", file);
+                        }
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Imagen de errores comunes */}
+              <div>
+                <p className="mb-3 text-lg font-bold text-slate-800">
+                  ⚠️ Errores comunes
+                </p>
+                {infoSkill.mistakes_image ? (
+                  <img
+                    src={infoSkill.mistakes_image}
+                    alt={`Errores comunes de ${infoSkill.name}`}
+                    className="w-full rounded-xl border border-slate-200"
+                  />
+                ) : (
+                  <p className="text-sm italic text-slate-400">
+                    Todavía no hay imagen de errores comunes.
+                  </p>
+                )}
+
+                {canEditImages && (
+                  <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                    {mistakesUploading
+                      ? "Subiendo..."
+                      : infoSkill.mistakes_image
+                      ? "Reemplazar imagen"
+                      : "Subir imagen"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={mistakesUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          void handleUploadImage(
+                            infoSkill,
+                            "mistakes",
+                            file
+                          );
+                        }
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* MODAL CREAR HABILIDAD */}
       {createOpen && (
