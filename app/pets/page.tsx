@@ -119,19 +119,9 @@ export default function PetsPage() {
           </Link>
         </div>
 
-        {/* AÑADIR MASCOTA */}
-
-        <div className="mb-10 rounded-2xl bg-white p-6 shadow md:p-8">
-          <h2 className="mb-6 text-3xl font-bold">
-            Añadir mascota
-          </h2>
-
-          <AddPetForm onAddPet={loadPets} />
-        </div>
-
         {/* MASCOTAS */}
 
-        <section>
+        <section className="mb-10">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-3xl font-bold">
               Tus mascotas
@@ -162,7 +152,7 @@ export default function PetsPage() {
               </h3>
 
               <p className="mt-2 text-slate-500">
-                Añade tu primera mascota usando el formulario de arriba.
+                Añade tu primera mascota usando el formulario de abajo.
               </p>
             </div>
           ) : (
@@ -217,6 +207,17 @@ export default function PetsPage() {
             </div>
           )}
         </section>
+
+        {/* AÑADIR MASCOTA */}
+
+        <div className="rounded-2xl bg-white p-6 shadow md:p-8">
+          <h2 className="mb-6 text-3xl font-bold">
+            Añadir mascota
+          </h2>
+
+          <AddPetForm onAddPet={loadPets} />
+        </div>
+
       </div>
     </main>
   );

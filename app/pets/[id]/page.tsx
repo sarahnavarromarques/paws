@@ -128,10 +128,6 @@ export default async function PetProfile({
     (training) => training.status === "completed"
   );
 
-  const pendingTrainings = allTrainings.filter(
-    (training) => training.status !== "completed"
-  );
-
   const totalMinutes = allTrainings.reduce(
     (total, training) => total + (training.duration ?? 0),
     0
@@ -196,7 +192,6 @@ export default async function PetProfile({
     name: string;
     category: string | null;
     progress: number;
-    isGoal: boolean;
     sessionCount: number;
     lastTrainedDays: number | null;
   }[] = [];
@@ -223,16 +218,12 @@ export default async function PetProfile({
           name: skill?.name ?? "Habilidad",
           category: skill?.category ?? null,
           progress: row.auto_progress ?? 0,
-          isGoal: row.is_goal ?? false,
           sessionCount: stats?.count ?? 0,
           lastTrainedDays: daysSince(stats?.lastDate ?? null),
         };
       })
       .sort((a, b) => b.progress - a.progress);
   }
-
-  const goalSkill =
-    petSkillsWithNames.find((item) => item.isGoal) ?? null;
 
   const averageSkillProgress =
     petSkillsWithNames.length === 0
@@ -258,34 +249,6 @@ export default async function PetProfile({
       body: "Este perro todavía no tiene habilidades. Añade alguna para empezar a planificar su entrenamiento.",
       cta: "Añadir habilidades",
     };
-  } else if (goalSkill) {
-    if (goalSkill.progress >= 100) {
-      recommendation = {
-        title: `¡Objetivo conseguido! ${goalSkill.name} al 100%`,
-        body: "Has completado el objetivo actual. Marca una nueva habilidad como objetivo para seguir avanzando.",
-        cta: "Elegir nuevo objetivo",
-      };
-    } else if (
-      goalSkill.lastTrainedDays === null ||
-      goalSkill.lastTrainedDays >= 3
-    ) {
-      const tiempo =
-        goalSkill.lastTrainedDays === null
-          ? "aún no lo has entrenado"
-          : `hace ${goalSkill.lastTrainedDays} días que no lo entrenas`;
-
-      recommendation = {
-        title: `Retoma "${goalSkill.name}"`,
-        body: `Es el objetivo actual (${goalSkill.progress}%) y ${tiempo}. Dedícale la próxima sesión para no perder ritmo.`,
-        cta: "Ver habilidad",
-      };
-    } else {
-      recommendation = {
-        title: `Sigue con "${goalSkill.name}"`,
-        body: `Es el objetivo actual y está al ${goalSkill.progress}%. Vas con buen ritmo: mantén las sesiones para acercarte a completarlo.`,
-        cta: "Ver habilidad",
-      };
-    }
   } else {
     const lowest = [...petSkillsWithNames].sort(
       (a, b) => a.progress - b.progress
@@ -293,8 +256,8 @@ export default async function PetProfile({
 
     recommendation = {
       title: `Refuerza "${lowest.name}"`,
-      body: `Es la habilidad con menos progreso (${lowest.progress}%). Trabajarla equilibra el aprendizaje. Consejo: marca una habilidad como objetivo para enfocar el plan.`,
-      cta: "Marcar un objetivo",
+      body: `Es la habilidad con menos progreso (${lowest.progress}%). Trabajarla equilibra el aprendizaje del perro.`,
+      cta: "Ver habilidades",
     };
   }
 
@@ -384,38 +347,6 @@ export default async function PetProfile({
 
             <div className="rounded-2xl bg-slate-100 p-8">
 
-              <div className="mb-8 grid grid-cols-4 gap-4">
-
-                <div className="rounded-xl bg-blue-50 p-5 text-center">
-                  <p className="text-3xl font-bold">
-                    {allTrainings.length}
-                  </p>
-                  <p>Total</p>
-                </div>
-
-                <div className="rounded-xl bg-green-50 p-5 text-center">
-                  <p className="text-3xl font-bold text-green-600">
-                    {completedTrainings.length}
-                  </p>
-                  <p>Completados</p>
-                </div>
-
-                <div className="rounded-xl bg-orange-50 p-5 text-center">
-                  <p className="text-3xl font-bold text-orange-600">
-                    {pendingTrainings.length}
-                  </p>
-                  <p>Pendientes</p>
-                </div>
-
-                <div className="rounded-xl bg-purple-50 p-5 text-center">
-                  <p className="text-3xl font-bold">
-                    {totalMinutes}
-                  </p>
-                  <p>Minutos</p>
-                </div>
-
-              </div>
-
               <h2 className="mb-6 text-3xl font-bold">
                 Información
               </h2>
@@ -444,11 +375,6 @@ export default async function PetProfile({
                 <p>
                   <strong>Color:</strong>{" "}
                   {pet.color ?? "Sin datos"}
-                </p>
-
-                <p>
-                  <strong>Objetivo:</strong>{" "}
-                  {pet.objective ?? "Sin datos"}
                 </p>
 
               </div>
@@ -497,52 +423,6 @@ export default async function PetProfile({
 
           <div className="px-10">
 
-            {/* OBJETIVO ACTUAL */}
-
-            {goalSkill && (
-              <div className="mb-8 rounded-2xl border-2 border-amber-400 bg-amber-50 p-8 shadow">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-widest text-amber-700">
-                      🎯 Objetivo actual
-                    </p>
-                    <p className="mt-1 text-3xl font-bold text-amber-900">
-                      {goalSkill.category
-                        ? `${goalSkill.category} — `
-                        : ""}
-                      {goalSkill.name}
-                    </p>
-                  </div>
-
-                  <div className="text-center">
-                    <p className="text-4xl font-bold text-amber-600">
-                      {goalSkill.progress}%
-                    </p>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">
-                      progreso
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 h-3 w-full overflow-hidden rounded-full bg-amber-200">
-                  <div
-                    className="h-full bg-amber-500 transition-all"
-                    style={{ width: `${goalSkill.progress}%` }}
-                  />
-                </div>
-
-                <p className="mt-4 text-sm font-semibold text-amber-800">
-                  {goalSkill.sessionCount === 0
-                    ? "Aún no has registrado sesiones de esta habilidad."
-                    : `${goalSkill.sessionCount} ${
-                        goalSkill.sessionCount === 1
-                          ? "sesión completada"
-                          : "sesiones completadas"
-                      } · ${formatDaysSince(goalSkill.lastTrainedDays)}`}
-                </p>
-              </div>
-            )}
-
             {/* PLAN RECOMENDADO */}
 
             <div className="mb-8 rounded-2xl border-2 border-indigo-300 bg-indigo-50 p-8 shadow">
@@ -583,7 +463,7 @@ export default async function PetProfile({
                 progress: item.progress,
                 sessionCount: item.sessionCount,
                 lastTrainedDays: item.lastTrainedDays,
-                isGoal: item.isGoal,
+                isGoal: false,
               }))}
               trainings={completedTrainings.slice(0, 15).map((training) => ({
                 title: training.title ?? null,
@@ -631,30 +511,19 @@ export default async function PetProfile({
                     <div key={item.skillId}>
                       <div className="mb-1 flex items-center justify-between">
                         <span className="font-semibold">
-                          {item.isGoal && "🎯 "}
                           {item.category
                             ? `${item.category} — `
                             : ""}
                           {item.name}
                         </span>
-                        <span
-                          className={`font-bold ${
-                            item.isGoal
-                              ? "text-amber-600"
-                              : "text-blue-600"
-                          }`}
-                        >
+                        <span className="font-bold text-blue-600">
                           {item.progress}%
                         </span>
                       </div>
 
                       <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
                         <div
-                          className={`h-full transition-all ${
-                            item.isGoal
-                              ? "bg-amber-500"
-                              : "bg-blue-600"
-                          }`}
+                          className="h-full bg-blue-600 transition-all"
                           style={{ width: `${item.progress}%` }}
                         />
                       </div>
