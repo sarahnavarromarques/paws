@@ -160,10 +160,6 @@ export default function PetSkillsPage() {
     return petSkills.some((ps) => ps.skill_id === skillId);
   }
 
-  function isSkillGoal(skillId: number): boolean {
-    return petSkills.some((ps) => ps.skill_id === skillId && ps.is_goal);
-  }
-
   async function handleAddSkill(skillId: number) {
     setSavingSkillId(skillId);
 
@@ -209,50 +205,6 @@ export default function PetSkillsPage() {
     }
 
     setPetSkills((prev) => prev.filter((ps) => ps.skill_id !== skillId));
-    setSavingSkillId(null);
-  }
-
-  async function handleToggleGoal(skillId: number) {
-    const currentlyGoal = isSkillGoal(skillId);
-
-    setPetSkills((prev) =>
-      prev.map((ps) => {
-        if (ps.skill_id === skillId) {
-          return { ...ps, is_goal: !currentlyGoal };
-        }
-        return { ...ps, is_goal: false };
-      })
-    );
-
-    setSavingSkillId(skillId);
-
-    if (currentlyGoal) {
-      const { error } = await supabase
-        .from("pet_skills")
-        .update({ is_goal: false })
-        .eq("pet_id", petId)
-        .eq("skill_id", skillId);
-
-      if (error) {
-        console.error("Error quitando objetivo:", error);
-      }
-    } else {
-      const { error: clearError } = await supabase
-        .from("pet_skills")
-        .update({ is_goal: false })
-        .eq("pet_id", petId);
-
-      const { error: setError } = await supabase
-        .from("pet_skills")
-        .update({ is_goal: true })
-        .eq("pet_id", petId)
-        .eq("skill_id", skillId);
-
-      if (clearError || setError) {
-        console.error("Error marcando objetivo:", clearError, setError);
-      }
-    }
-
     setSavingSkillId(null);
   }
 
@@ -542,7 +494,6 @@ export default function PetSkillsPage() {
                 ? CATEGORY_ICONS[skill.category] ?? "🐾"
                 : "🐾";
               const isActive = isSkillActive(skill.id);
-              const isGoal = isSkillGoal(skill.id);
               const progress = getProgressForSkill(skill.id);
               const isSaving = savingSkillId === skill.id;
               const isInfoOpen = openInfoId === skill.id;
@@ -552,11 +503,7 @@ export default function PetSkillsPage() {
                 <div
                   key={skill.id}
                   className={`flex flex-col rounded-2xl bg-white p-6 shadow transition ${
-                    isGoal
-                      ? "ring-2 ring-amber-500"
-                      : isActive
-                      ? "ring-2 ring-blue-500"
-                      : ""
+                    isActive ? "ring-2 ring-blue-500" : ""
                   }`}
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
@@ -601,12 +548,6 @@ export default function PetSkillsPage() {
                     </div>
                   </div>
 
-                  {isGoal && (
-                    <div className="mb-3 rounded-lg bg-amber-500 px-3 py-1 text-center text-sm font-bold text-white">
-                      🎯 Objetivo actual
-                    </div>
-                  )}
-
                   {isActive ? (
                     <div className="mt-1">
                       <div className="mb-2 flex items-center justify-between">
@@ -631,24 +572,9 @@ export default function PetSkillsPage() {
 
                       <button
                         type="button"
-                        onClick={() => handleToggleGoal(skill.id)}
-                        disabled={isSaving}
-                        className={`w-full rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
-                          isGoal
-                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                            : "bg-amber-500 text-white hover:bg-amber-600"
-                        }`}
-                      >
-                        {isGoal
-                          ? "Quitar objetivo"
-                          : "🎯 Marcar como objetivo"}
-                      </button>
-
-                      <button
-                        type="button"
                         onClick={() => handleRemoveSkill(skill.id)}
                         disabled={isSaving}
-                        className="mt-2 w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                        className="w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
                       >
                         {isSaving ? "Guardando..." : "Quitar habilidad"}
                       </button>
