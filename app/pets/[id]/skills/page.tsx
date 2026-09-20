@@ -382,12 +382,6 @@ export default function PetSkillsPage() {
           >
             ← Volver a la mascota
           </Link>
-          <Link
-            href="/skills"
-            className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            📚 Ver biblioteca completa
-          </Link>
           <button
             type="button"
             onClick={() => {
