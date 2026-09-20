@@ -312,7 +312,7 @@ export default function DashboardPage() {
 
         {/* ACCESOS */}
         <section>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Link
               href="/pets"
               className="rounded-xl bg-white p-4 text-center shadow-sm transition hover:shadow"
@@ -330,6 +330,16 @@ export default function DashboardPage() {
               <div className="text-2xl">📅</div>
               <p className="mt-1 text-sm font-semibold text-slate-700">
                 Calendario
+              </p>
+            </Link>
+
+            <Link
+              href="/settings"
+              className="rounded-xl bg-white p-4 text-center shadow-sm transition hover:shadow"
+            >
+              <div className="text-2xl">⚙️</div>
+              <p className="mt-1 text-sm font-semibold text-slate-700">
+                Ajustes
               </p>
             </Link>
           </div>

@@ -1,0 +1,11 @@
+{
+  "Settings": {
+    "title": "Settings",
+    "languageLabel": "Language",
+    "spanish": "Spanish",
+    "english": "English",
+    "save": "Save",
+    "saved": "Language updated",
+    "back": "← Back to dashboard"
+  }
+}

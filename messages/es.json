@@ -1,0 +1,11 @@
+{
+  "Settings": {
+    "title": "Ajustes",
+    "languageLabel": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés",
+    "save": "Guardar",
+    "saved": "Idioma actualizado",
+    "back": "← Volver al panel"
+  }
+}
