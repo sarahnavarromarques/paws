@@ -21,6 +21,6 @@ body {
 /* Letra más pequeña solo en móvil */
 @media (max-width: 767px) {
   html {
-    font-size: 87.5%;
+    font-size: 75%;
   }
 }
