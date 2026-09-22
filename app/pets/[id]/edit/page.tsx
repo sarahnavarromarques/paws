@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { ChangeEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
-import { BREEDS, COLORS, WEIGHTS } from "@/lib/breeds";
+import { BREEDS, COLORS, WEIGHTS, getBreedLabel, getColorLabel } from "@/lib/breeds";
 import type { Database } from "@/lib/supabase/database.types";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -43,6 +44,8 @@ function minBirthISO() {
 export default function EditPetPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations("EditPet");
+  const locale = useLocale();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,12 +106,12 @@ export default function EditPetPage() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Selecciona una imagen.");
+      alert(t("alertSelectImage"));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("La imagen no puede superar los 5 MB.");
+      alert(t("alertImageTooLarge"));
       return;
     }
 
@@ -120,7 +123,7 @@ export default function EditPetPage() {
 
     if (!user) {
       setUploading(false);
-      alert("No hay usuario autenticado.");
+      alert(t("alertNoUser"));
       return;
     }
 
@@ -137,9 +140,7 @@ export default function EditPetPage() {
     if (error) {
       console.error("Error subiendo foto:", error);
       setUploading(false);
-      alert(
-        "No se ha podido subir la foto. Inténtalo de nuevo o prueba con otra imagen."
-      );
+      alert(t("alertPhotoUploadError"));
       return;
     }
 
@@ -153,24 +154,22 @@ export default function EditPetPage() {
 
   async function savePet() {
     if (!name.trim()) {
-      alert("Introduce un nombre.");
+      alert(t("alertEnterName"));
       return;
     }
 
     if (!birthDate) {
-      alert("Introduce la fecha de nacimiento.");
+      alert(t("alertEnterBirthDate"));
       return;
     }
 
     if (birthDate > todayISO()) {
-      alert("La fecha de nacimiento no puede ser futura.");
+      alert(t("alertFutureDate"));
       return;
     }
 
     if (birthDate < minBirthISO()) {
-      alert(
-        "La fecha de nacimiento no es válida (demasiado antigua)."
-      );
+      alert(t("alertOldDate"));
       return;
     }
 
@@ -208,14 +207,12 @@ export default function EditPetPage() {
 
     if (error) {
       console.error("Error guardando cambios:", error);
-      alert(
-        "No se han podido guardar los cambios. Inténtalo de nuevo."
-      );
+      alert(t("alertSaveError"));
       return;
     }
 
     if (!data || data.length === 0) {
-      alert("No se ha actualizado ninguna mascota.");
+      alert(t("alertNoUpdate"));
       return;
     }
 
@@ -224,9 +221,7 @@ export default function EditPetPage() {
   }
 
   async function deletePet() {
-    const confirmed = confirm(
-      "¿Seguro que quieres eliminar esta mascota? También se eliminarán sus entrenamientos."
-    );
+    const confirmed = confirm(t("confirmDeletePet"));
 
     if (!confirmed) return;
 
@@ -250,9 +245,7 @@ export default function EditPetPage() {
         "Error eliminando entrenamientos:",
         trainingError
       );
-      alert(
-        "No se ha podido eliminar la mascota. Inténtalo de nuevo."
-      );
+      alert(t("alertDeleteFailed"));
       return;
     }
 
@@ -264,9 +257,7 @@ export default function EditPetPage() {
 
     if (error) {
       console.error("Error eliminando mascota:", error);
-      alert(
-        "No se ha podido eliminar la mascota. Inténtalo de nuevo."
-      );
+      alert(t("alertDeleteFailed"));
       return;
     }
 
@@ -279,7 +270,7 @@ export default function EditPetPage() {
       <main className="min-h-screen bg-slate-100 p-10">
         <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 shadow-xl">
           <p className="text-slate-500">
-            Cargando mascota...
+            {t("loading")}
           </p>
         </div>
       </main>
@@ -300,18 +291,18 @@ export default function EditPetPage() {
             onClick={() => router.back()}
             className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            ← Volver
+            {t("back")}
           </button>
         </div>
 
         <div className="rounded-3xl bg-white p-6 shadow-xl md:p-10">
 
           <h1 className="mb-2 text-4xl font-bold">
-            Editar mascota
+            {t("title")}
           </h1>
 
           <p className="mb-8 text-slate-500">
-            Actualiza la información de tu mascota.
+            {t("subtitle")}
           </p>
 
           {/* FOTO */}
@@ -333,7 +324,7 @@ export default function EditPetPage() {
             )}
 
             <label className="block font-semibold">
-              Cambiar foto
+              {t("changePhoto")}
             </label>
 
             <input
@@ -346,7 +337,7 @@ export default function EditPetPage() {
 
             {uploading && (
               <p className="mt-2 text-sm text-blue-600">
-                Subiendo imagen...
+                {t("uploadingImage")}
               </p>
             )}
           </div>
@@ -359,12 +350,12 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Nombre
+                {t("nameLabel")}
               </label>
 
               <input
                 className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Nombre"
+                placeholder={t("namePlaceholder")}
                 value={name}
                 onChange={(e) =>
                   setName(e.target.value)
@@ -376,14 +367,15 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Raza
+                {t("breedLabel")}
               </label>
 
               <SearchableSelect
                 options={breedOptions}
                 value={breed}
                 onChange={setBreed}
-                placeholder="Selecciona una raza"
+                placeholder={t("breedPlaceholder")}
+                renderLabel={(item) => getBreedLabel(item, locale)}
               />
             </div>
 
@@ -391,7 +383,7 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Fecha de nacimiento
+                {t("birthDateLabel")}
               </label>
 
               <input
@@ -406,7 +398,7 @@ export default function EditPetPage() {
               />
 
               <p className="mt-2 text-sm text-slate-500">
-                La edad se calculará automáticamente a partir de esta fecha.
+                {t("ageAutoCalcNote")}
               </p>
             </div>
 
@@ -414,7 +406,7 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Sexo
+                {t("sexLabel")}
               </label>
 
               <select
@@ -425,12 +417,16 @@ export default function EditPetPage() {
                 }
               >
                 <option value="">
-                  Selecciona el sexo
+                  {t("selectSex")}
                 </option>
 
                 {sexOptions.map((item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {item === "Macho"
+                      ? t("male")
+                      : item === "Hembra"
+                      ? t("female")
+                      : item}
                   </option>
                 ))}
               </select>
@@ -440,14 +436,14 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Peso
+                {t("weightLabel")}
               </label>
 
               <SearchableSelect
                 options={weightOptions}
                 value={weight}
                 onChange={setWeight}
-                placeholder="Selecciona el peso"
+                placeholder={t("selectWeight")}
                 renderLabel={(item) => `${item} kg`}
               />
             </div>
@@ -456,14 +452,15 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Color
+                {t("colorLabel")}
               </label>
 
               <SearchableSelect
                 options={colorOptions}
                 value={color}
                 onChange={setColor}
-                placeholder="Selecciona un color"
+                placeholder={t("selectColor")}
+                renderLabel={(item) => getColorLabel(item, locale)}
               />
             </div>
 
@@ -471,12 +468,12 @@ export default function EditPetPage() {
 
             <div>
               <label className="mb-2 block font-semibold">
-                Objetivo
+                {t("objectiveLabel")}
               </label>
 
               <textarea
                 className="min-h-28 w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Objetivo de entrenamiento"
+                placeholder={t("objectivePlaceholder")}
                 value={objective}
                 onChange={(e) =>
                   setObjective(e.target.value)
@@ -496,8 +493,8 @@ export default function EditPetPage() {
               className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving
-                ? "Guardando..."
-                : "Guardar cambios"}
+                ? t("savingButton")
+                : t("saveChanges")}
             </button>
 
             <button
@@ -507,7 +504,7 @@ export default function EditPetPage() {
               disabled={saving}
               className="rounded-xl bg-slate-200 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
             >
-              Cancelar
+              {t("cancelButton")}
             </button>
 
             <button
@@ -515,7 +512,7 @@ export default function EditPetPage() {
               disabled={saving || uploading}
               className="rounded-xl bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              🗑 Eliminar mascota
+              {t("deletePetButton")}
             </button>
 
           </div>
