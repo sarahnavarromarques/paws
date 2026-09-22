@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "no_api_key" }, { status: 500 });
   }
 
-  let body: { skills?: SkillInput[]; avoid?: string[] };
+  let body: { skills?: SkillInput[]; avoid?: string[]; locale?: string };
   try {
     body = await request.json();
   } catch {
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
 
   const skills = Array.isArray(body.skills) ? body.skills : [];
   const avoid = Array.isArray(body.avoid) ? body.avoid : [];
+  const locale = body.locale === "en" ? "en" : "es";
 
   if (skills.length === 0) {
     return NextResponse.json({ error: "no_skills" }, { status: 400 });
@@ -38,9 +39,27 @@ export async function POST(request: Request) {
     .map((s) => (s.category ? `${s.name} (${s.category})` : s.name))
     .join(", ");
 
-  const avoidList = avoid.length > 0 ? avoid.join(", ") : "ninguno";
+  const avoidList =
+    avoid.length > 0 ? avoid.join(", ") : locale === "en" ? "none" : "ninguno";
 
   const anthropic = new Anthropic({ apiKey });
+
+  const prompt =
+    locale === "en"
+      ? `You are an assistant that comes up with short, appealing names for dog-training skill groups.
+
+Skills in this group: ${skillList}
+
+Names already used that you must NOT repeat: ${avoidList}
+
+Return ONLY a name for this group, in English, 1 to 3 words, no quotes, no trailing period and no explanations. It should be clear and reflect the content of the group.`
+      : `Eres un asistente que inventa nombres cortos y atractivos para grupos de habilidades de adiestramiento canino.
+
+Habilidades del grupo: ${skillList}
+
+Nombres ya usados que NO puedes repetir: ${avoidList}
+
+Devuelve SOLO un nombre para este grupo, en español, de 1 a 3 palabras, sin comillas, sin punto final y sin explicaciones. Que sea claro y refleje el contenido del grupo.`;
 
   try {
     const message = await anthropic.messages.create({
@@ -49,13 +68,7 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "user",
-          content: `Eres un asistente que inventa nombres cortos y atractivos para grupos de habilidades de adiestramiento canino.
-
-Habilidades del grupo: ${skillList}
-
-Nombres ya usados que NO puedes repetir: ${avoidList}
-
-Devuelve SOLO un nombre para este grupo, en español, de 1 a 3 palabras, sin comillas, sin punto final y sin explicaciones. Que sea claro y refleje el contenido del grupo.`,
+          content: prompt,
         },
       ],
     });

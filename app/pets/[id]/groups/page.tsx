@@ -244,7 +244,7 @@ export default function PetGroupsPage() {
       .map((g) => g.name);
   }
 
-  // Pide un nombre nuevo a la IA y lo añade a la lista.
+  // Pide un nombre nuevo a la IA (en el idioma actual) y lo añade a la lista.
   // currentNames = nombres ya sugeridos en esta sesión.
   async function generateName(
     excludeGroupId: number | null,
@@ -255,7 +255,7 @@ export default function PetGroupsPage() {
     const inputs = selectedSkillInputs(selectedIds);
     const avoid = [...takenGroupNames(excludeGroupId), ...currentNames];
 
-    const name = await suggestGroupName({ skills: inputs, avoid });
+    const name = await suggestGroupName({ skills: inputs, avoid, locale });
 
     setNameOptions([...currentNames, name]);
     setNameIndex(currentNames.length);

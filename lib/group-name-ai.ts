@@ -1,7 +1,7 @@
-// Pide a la IA un nombre para un grupo de habilidades.
-// Si la IA falla (sin clave, sin internet, sin crédito, etc.),
-// usa automáticamente el generador local como red de seguridad.
-// Así la app nunca se queda sin nombre ni se rompe.
+// Pide a la IA un nombre para un grupo de habilidades, en el idioma
+// actual del usuario. Si la IA falla (sin clave, sin internet, sin
+// crédito, etc.), usa automáticamente el generador local como red de
+// seguridad. Así la app nunca se queda sin nombre ni se rompe.
 
 import {
   buildAvailableGroupNames,
@@ -13,11 +13,14 @@ type SuggestArgs = {
   // Nombres que NO se pueden repetir: los de otros grupos
   // + los ya sugeridos en esta sesión.
   avoid: string[];
+  // Idioma actual del usuario ("es" o "en").
+  locale: string;
 };
 
 export async function suggestGroupName({
   skills,
   avoid,
+  locale,
 }: SuggestArgs): Promise<string> {
   const avoidLower = avoid.map((a) => a.trim().toLowerCase());
 
@@ -26,7 +29,7 @@ export async function suggestGroupName({
     const res = await fetch("/api/group-name", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skills, avoid }),
+      body: JSON.stringify({ skills, avoid, locale }),
     });
 
     if (res.ok) {
@@ -41,7 +44,7 @@ export async function suggestGroupName({
     // Si algo falla, seguimos al generador local.
   }
 
-  // 2) Red de seguridad: generador local
-  const available = buildAvailableGroupNames(skills, avoid);
-  return available[0] ?? "Grupo";
+  // 2) Red de seguridad: generador local, en el mismo idioma.
+  const available = buildAvailableGroupNames(skills, avoid, locale);
+  return available[0] ?? (locale === "en" ? "Group" : "Grupo");
 }

@@ -1,6 +1,5 @@
 // Generador de nombres para grupos de habilidades.
-// Versión sin IA (opción B). Cuando enchufemos la IA real,
-// solo hay que cambiar este archivo.
+// Red de seguridad si la IA falla. Soporta español e inglés.
 
 export type GroupSkillInput = {
   id: number;
@@ -8,7 +7,7 @@ export type GroupSkillInput = {
   category: string | null;
 };
 
-// Nombres sugeridos según la categoría dominante del grupo.
+// Nombres sugeridos según la categoría dominante del grupo (español).
 const CATEGORY_NAMES: Record<string, string[]> = {
   Posiciones: [
     "Posiciones",
@@ -64,7 +63,63 @@ const CATEGORY_NAMES: Record<string, string[]> = {
   ],
 };
 
-// Nombres genéricos que sirven para cualquier grupo.
+// Mismas categorías, sugerencias en inglés.
+const CATEGORY_NAMES_EN: Record<string, string[]> = {
+  Posiciones: [
+    "Positions",
+    "Postures",
+    "Posture basics",
+    "Posture control",
+    "Basic positions",
+    "Posture mastery",
+    "Position changes",
+    "Steady posture",
+  ],
+  Control: [
+    "Self-control",
+    "Serenity",
+    "Calm",
+    "Advanced control",
+    "Calm routine",
+    "Self-mastery",
+    "Patience",
+    "Zen mode",
+    "Stillness",
+    "Composure",
+  ],
+  Llamada: [
+    "Recall",
+    "Return",
+    "Safe return",
+    "Perfect recall",
+    "Reliable return",
+    "Come here",
+    "Controlled recall",
+    "Homecoming",
+  ],
+  Paseo: [
+    "Walk",
+    "Heel",
+    "By my side",
+    "Perfect walk",
+    "Controlled heel",
+    "Loose leash",
+    "Calm walk",
+    "Off-leash heel",
+  ],
+  "Obediencia FCI": [
+    "Obedience",
+    "Competition",
+    "FCI ring",
+    "Competition level",
+    "Show obedience",
+    "FCI routine",
+    "Ring prep",
+    "Pro level",
+  ],
+};
+
+// Nombres genéricos que sirven para cualquier grupo (español).
 const THEMATIC_POOL = [
   "Fundamentos",
   "Esenciales",
@@ -100,14 +155,58 @@ const THEMATIC_POOL = [
   "Objetivo semanal",
 ];
 
+// Mismo pool, en inglés.
+const THEMATIC_POOL_EN = [
+  "Fundamentals",
+  "Essentials",
+  "Daily routine",
+  "Balance",
+  "Focus",
+  "Progress",
+  "Consistency",
+  "Connection",
+  "Discipline",
+  "Mastery",
+  "Solid base",
+  "Good habits",
+  "Base routine",
+  "First steps",
+  "Beginner level",
+  "Intermediate level",
+  "Advanced level",
+  "Review",
+  "Daily training",
+  "My routine",
+  "Full session",
+  "Work block",
+  "Key skills",
+  "Basic combo",
+  "Pro combo",
+  "Training mode",
+  "Growth",
+  "Confidence",
+  "Bond",
+  "Fine-tuning",
+  "Tune-up",
+  "Weekly goal",
+];
+
 // Firma única de un grupo: la lista de ids ordenada.
 // Sirve para detectar grupos con exactamente las mismas habilidades.
 export function buildGroupSignature(skillIds: number[]): string {
   return [...skillIds].sort((a, b) => a - b).join("-");
 }
 
-// Lista ordenada de nombres base según las habilidades del grupo.
-function baseSuggestions(skills: GroupSkillInput[]): string[] {
+// Lista ordenada de nombres base según las habilidades del grupo y el idioma.
+// Las categorías (s.category) siguen guardadas en español en la base de datos;
+// solo cambia el idioma de las SUGERENCIAS.
+function baseSuggestions(
+  skills: GroupSkillInput[],
+  locale: string
+): string[] {
+  const categoryNames = locale === "en" ? CATEGORY_NAMES_EN : CATEGORY_NAMES;
+  const thematicPool = locale === "en" ? THEMATIC_POOL_EN : THEMATIC_POOL;
+
   const suggestions: string[] = [];
 
   // Contar categorías para saber cuál domina.
@@ -118,11 +217,11 @@ function baseSuggestions(skills: GroupSkillInput[]): string[] {
 
   const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   sorted.forEach(([category]) => {
-    const names = CATEGORY_NAMES[category];
+    const names = categoryNames[category];
     if (names) names.forEach((n) => suggestions.push(n));
   });
 
-  THEMATIC_POOL.forEach((n) => suggestions.push(n));
+  thematicPool.forEach((n) => suggestions.push(n));
 
   // Quitar duplicados manteniendo el orden.
   return Array.from(new Set(suggestions));
@@ -132,10 +231,11 @@ function baseSuggestions(skills: GroupSkillInput[]): string[] {
 // añadiendo variantes numeradas si hiciera falta para no quedarse sin opciones.
 export function buildAvailableGroupNames(
   skills: GroupSkillInput[],
-  takenNames: string[]
+  takenNames: string[],
+  locale: string = "es"
 ): string[] {
   const taken = new Set(takenNames.map((n) => n.trim().toLowerCase()));
-  const base = baseSuggestions(skills);
+  const base = baseSuggestions(skills, locale);
 
   const available: string[] = [];
 
