@@ -307,6 +307,20 @@
     "alertSaveError": "No se han podido guardar los cambios. Inténtalo de nuevo.",
     "alertNoUpdate": "No se ha actualizado ninguna mascota.",
     "confirmDeletePet": "¿Seguro que quieres eliminar esta mascota? También se eliminarán sus entrenamientos.",
-    "alertDeleteFailed": "No se ha podido eliminar la mascota. Inténtalo de nuevo."
+       "alertDeleteFailed": "No se ha podido eliminar la mascota. Inténtalo de nuevo."
+  },
+  "Calendar": {
+    "title": "📅 Calendario",
+    "subtitle": "Organiza y consulta los entrenamientos de tus mascotas.",
+    "backToDashboard": "← Dashboard",
+    "today": "Hoy",
+    "loading": "Cargando calendario...",
+    "weekdays": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
+    "defaultTrainingTitle": "Entrenamiento",
+    "defaultPetName": "Mascota",
+    "completedStatus": "✓ Completado",
+    "pendingStatus": "Pendiente",
+    "clickToEdit": "Pulsa para editar",
+    "minSuffix": "min"
   }
 }

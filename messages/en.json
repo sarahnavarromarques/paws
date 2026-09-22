@@ -307,6 +307,20 @@
     "alertSaveError": "The changes couldn't be saved. Please try again.",
     "alertNoUpdate": "No dog was updated.",
     "confirmDeletePet": "Are you sure you want to delete this dog? Their training sessions will also be deleted.",
-    "alertDeleteFailed": "The dog couldn't be deleted. Please try again."
+      "alertDeleteFailed": "The dog couldn't be deleted. Please try again."
+  },
+  "Calendar": {
+    "title": "📅 Calendar",
+    "subtitle": "Organize and check your dogs' training sessions.",
+    "backToDashboard": "← Dashboard",
+    "today": "Today",
+    "loading": "Loading calendar...",
+    "weekdays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "defaultTrainingTitle": "Training session",
+    "defaultPetName": "Dog",
+    "completedStatus": "✓ Completed",
+    "pendingStatus": "Pending",
+    "clickToEdit": "Tap to edit",
+    "minSuffix": "min"
   }
 }

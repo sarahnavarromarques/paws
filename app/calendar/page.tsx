@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -25,6 +26,8 @@ type Training = {
 
 export default function CalendarPage() {
   const router = useRouter();
+  const t = useTranslations("Calendar");
+  const locale = useLocale();
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -75,12 +78,14 @@ export default function CalendarPage() {
   const month = currentDate.getMonth();
 
   const monthName = currentDate.toLocaleDateString(
-    "es-ES",
+    locale === "en" ? "en-US" : "es-ES",
     {
       month: "long",
       year: "numeric",
     }
   );
+
+  const weekdays = t.raw("weekdays") as string[];
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -142,7 +147,7 @@ export default function CalendarPage() {
     return (
       pets.find(
         (pet) => pet.id === petId
-      )?.name ?? "Mascota"
+      )?.name ?? t("defaultPetName")
     );
   }
 
@@ -172,12 +177,11 @@ export default function CalendarPage() {
 
           <div>
             <h1 className="text-5xl font-extrabold">
-              📅 Calendario
+              {t("title")}
             </h1>
 
             <p className="mt-3 text-slate-600">
-              Organiza y consulta los
-              entrenamientos de tus mascotas.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -188,7 +192,7 @@ export default function CalendarPage() {
             }
             className="rounded-lg bg-slate-700 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
           >
-            ← Dashboard
+            {t("backToDashboard")}
           </button>
 
         </div>
@@ -222,7 +226,7 @@ export default function CalendarPage() {
                 onClick={goToday}
                 className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
               >
-                Hoy
+                {t("today")}
               </button>
 
             </div>
@@ -237,7 +241,7 @@ export default function CalendarPage() {
 
           {loading ? (
             <div className="py-16 text-center text-lg text-slate-500">
-              Cargando calendario...
+              {t("loading")}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -246,15 +250,7 @@ export default function CalendarPage() {
 
                 <div className="grid grid-cols-7 border-l border-t border-slate-200">
 
-                  {[
-                    "Lunes",
-                    "Martes",
-                    "Miércoles",
-                    "Jueves",
-                    "Viernes",
-                    "Sábado",
-                    "Domingo",
-                  ].map((day) => (
+                  {weekdays.map((day) => (
                     <div
                       key={day}
                       className="border-b border-r border-slate-200 bg-slate-100 p-3 text-center font-bold text-slate-700"
@@ -314,7 +310,7 @@ export default function CalendarPage() {
 
                                       <div className="font-bold">
                                         {training.title ??
-                                          "Entrenamiento"}
+                                          t("defaultTrainingTitle")}
                                       </div>
 
                                       <div>
@@ -341,19 +337,19 @@ export default function CalendarPage() {
                                           {
                                             training.duration
                                           }{" "}
-                                          min
+                                          {t("minSuffix")}
                                         </div>
                                       )}
 
                                       <div className="mt-1 font-semibold">
                                         {training.status ===
                                         "completed"
-                                          ? "✓ Completado"
-                                          : "Pendiente"}
+                                          ? t("completedStatus")
+                                          : t("pendingStatus")}
                                       </div>
 
                                       <div className="mt-1 text-[10px] opacity-60">
-                                        Pulsa para editar
+                                        {t("clickToEdit")}
                                       </div>
 
                                     </button>
