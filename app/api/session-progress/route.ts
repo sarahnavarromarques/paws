@@ -19,7 +19,20 @@ type Body = {
   petBreed?: string | null;
   petAge?: string | null;
   duration?: number | null;
+  locale?: string;
   answers?: Answers;
+};
+
+const DISTRACTION_LABELS: Record<string, { es: string; en: string }> = {
+  baja: { es: "baja", en: "low" },
+  media: { es: "media", en: "medium" },
+  alta: { es: "alta", en: "high" },
+};
+
+const MOOD_LABELS: Record<string, { es: string; en: string }> = {
+  bajo: { es: "bajo", en: "low" },
+  normal: { es: "normal", en: "normal" },
+  alto: { es: "alto", en: "high" },
 };
 
 export async function POST(request: Request) {
@@ -41,6 +54,7 @@ export async function POST(request: Request) {
   const current =
     typeof body.currentProgress === "number" ? body.currentProgress : 0;
   const answers = body.answers;
+  const locale = body.locale === "en" ? "en" : "es";
 
   if (!skillName || !answers) {
     return NextResponse.json({ error: "missing_data" }, { status: 400 });
@@ -49,15 +63,37 @@ export async function POST(request: Request) {
   const anthropic = new Anthropic({ apiKey });
 
   const catText = category ? `${category} — ` : "";
+  const distractionLabel =
+    DISTRACTION_LABELS[answers.distraction]?.[locale] ?? answers.distraction;
+  const moodLabel = MOOD_LABELS[answers.mood]?.[locale] ?? answers.mood;
 
-  try {
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 200,
-      messages: [
-        {
-          role: "user",
-          content: `Eres un experto en adiestramiento canino. Tienes que decidir el nuevo nivel de progreso (0 a 100) de una habilidad después de una sesión de entrenamiento.
+  const prompt =
+    locale === "en"
+      ? `You are an expert in dog training. You need to decide the new progress level (0 to 100) for a skill after a training session.
+
+Dog: ${body.petName ?? "no name"}
+Breed: ${body.petBreed ?? "no data"}
+Age: ${body.petAge ?? "no data"}
+Skill trained: ${catText}${skillName}
+Current skill progress: ${current}%
+Session duration: ${body.duration != null ? `${body.duration} minutes` : "no data"}
+
+How the session went:
+- Total attempts: ${answers.attempts}
+- Successes: ${answers.successes}
+- Environment distraction level: ${distractionLabel}
+- Dog's mood: ${moodLabel}
+
+Rules:
+- Progress evolves gradually. It goes up if the session was good, stays about the same, or drops slightly if it was bad. Never make huge jumps in a single session (max about 15 points up or down).
+- A good success rate with high distraction is worth more than the same rate with low distraction.
+- The result must be between 0 and 100.
+
+Respond ONLY with a valid JSON object, no extra text or code blocks. Exact format:
+{"newProgress": integer between 0 and 100, "comentario": "a short sentence with the next step to work on"}
+
+Write the comment in English, addressing the trainer directly as "you".`
+      : `Eres un experto en adiestramiento canino. Tienes que decidir el nuevo nivel de progreso (0 a 100) de una habilidad después de una sesión de entrenamiento.
 
 Perro: ${body.petName ?? "sin nombre"}
 Raza: ${body.petBreed ?? "sin datos"}
@@ -69,8 +105,8 @@ Duración de la sesión: ${body.duration != null ? `${body.duration} minutos` : 
 Cómo ha ido la sesión:
 - Intentos totales: ${answers.attempts}
 - Aciertos: ${answers.successes}
-- Nivel de distracción del entorno: ${answers.distraction}
-- Estado de ánimo del perro: ${answers.mood}
+- Nivel de distracción del entorno: ${distractionLabel}
+- Estado de ánimo del perro: ${moodLabel}
 
 Reglas:
 - El progreso evoluciona poco a poco. Sube si la sesión fue buena, se mantiene o baja ligeramente si fue mala. Nunca des saltos enormes en una sola sesión (máximo unos 15 puntos arriba o abajo).
@@ -80,7 +116,16 @@ Reglas:
 Responde SOLO con un objeto JSON válido, sin texto adicional ni bloques de código. Formato exacto:
 {"newProgress": número entero entre 0 y 100, "comentario": "una frase corta con el siguiente paso a trabajar"}
 
-Escribe el comentario en español, dirigiéndote al adiestrador de tú.`,
+Escribe el comentario en español, dirigiéndote al adiestrador de tú.`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
         },
       ],
     });
