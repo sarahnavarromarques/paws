@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -30,6 +31,7 @@ type PetSkillRow = {
 type SkillInfo = {
   id: number;
   name: string;
+  name_en: string | null;
 };
 
 type PetPlan = {
@@ -53,6 +55,8 @@ function todayISO(): string {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const t = useTranslations("Dashboard");
+  const locale = useLocale();
 
   const [email, setEmail] = useState("");
   const [pets, setPets] = useState<Pet[]>([]);
@@ -90,17 +94,15 @@ export default function DashboardPage() {
       const petList = petsData ?? [];
       setPets(petList);
 
-      const trainings: Training[] = (trainingsData ?? []).map((t) => ({
-        id: t.id,
-        title: t.title,
-        date: t.date,
-        status: t.status ?? "",
-        pet_id: t.pet_id,
+      const trainings: Training[] = (trainingsData ?? []).map((tr) => ({
+        id: tr.id,
+        title: tr.title,
+        date: tr.date,
+        status: tr.status ?? "",
+        pet_id: tr.pet_id,
       }));
 
-      const pending = trainings.filter(
-        (t) => t.status !== "completed"
-      );
+      const pending = trainings.filter((tr) => tr.status !== "completed");
       setPendingCount(pending.length);
 
       // --- Habilidades y progreso por perro (auto_progress) ---
@@ -128,7 +130,7 @@ export default function DashboardPage() {
         if (skillIds.length > 0) {
           const { data: skillsData } = await supabase
             .from("skills")
-            .select("id, name")
+            .select("id, name, name_en")
             .in("id", skillIds);
 
           skillsInfo = skillsData ?? [];
@@ -155,7 +157,7 @@ export default function DashboardPage() {
         // 1) ¿Hay un entrenamiento pendiente para HOY?
         const todayTraining =
           pending.find(
-            (t) => t.pet_id === pet.id && t.date === today
+            (tr) => tr.pet_id === pet.id && tr.date === today
           ) ?? null;
 
         // 2) Si no, la habilidad con menor progreso
@@ -165,8 +167,9 @@ export default function DashboardPage() {
             (a, b) =>
               (a.auto_progress ?? 0) - (b.auto_progress ?? 0)
           )[0];
+          const skill = skillsMap.get(lowest.skill_id);
           reinforceSkillName =
-            skillsMap.get(lowest.skill_id)?.name ?? null;
+            locale === "en" && skill?.name_en ? skill.name_en : skill?.name ?? null;
         }
 
         return {
@@ -185,7 +188,7 @@ export default function DashboardPage() {
     }
 
     void loadDashboard();
-  }, [router]);
+  }, [router, locale]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -197,7 +200,7 @@ export default function DashboardPage() {
     return (
       <main className="min-h-screen bg-slate-50 p-10">
         <div className="mx-auto max-w-4xl">
-          <p className="text-slate-500">Cargando...</p>
+          <p className="text-slate-500">{t("loading")}</p>
         </div>
       </main>
     );
@@ -213,16 +216,11 @@ export default function DashboardPage() {
         <header className="mb-10 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">
-              Hola{firstName ? `, ${firstName}` : ""} 👋
+              {t("greeting", { name: firstName ? `, ${firstName}` : "" })}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              {pets.length}{" "}
-              {pets.length === 1 ? "perro" : "perros"}
-              {pendingCount > 0
-                ? ` · ${pendingCount} pendiente${
-                    pendingCount === 1 ? "" : "s"
-                  }`
-                : ""}
+              {t("petCount", { count: pets.length })}
+              {pendingCount > 0 ? t("pendingSuffix", { count: pendingCount }) : ""}
             </p>
           </div>
 
@@ -231,25 +229,25 @@ export default function DashboardPage() {
             onClick={handleLogout}
             className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
           >
-            Cerrar sesión
+            {t("logout")}
           </button>
         </header>
 
         {/* ¿QUÉ ENTRENO HOY? */}
         <section className="mb-10">
           <h2 className="mb-4 text-lg font-bold text-slate-800">
-            ¿Qué entreno hoy?
+            {t("todayTitle")}
           </h2>
 
           {petPlans.length === 0 ? (
             <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
               <p className="text-slate-500">
-                Todavía no tienes perros.{" "}
+                {t("noPets")}
                 <Link
                   href="/pets"
                   className="font-semibold text-blue-600 hover:underline"
                 >
-                  Añadir uno
+                  {t("addOne")}
                 </Link>
               </p>
             </div>
@@ -262,20 +260,22 @@ export default function DashboardPage() {
                 let actionHref: string;
 
                 if (plan.skillCount === 0) {
-                  message = "Añade habilidades para empezar.";
-                  actionLabel = "Ver habilidades";
+                  message = t("addSkills");
+                  actionLabel = t("viewSkills");
                   actionHref = `/pets/${plan.petId}/skills`;
                 } else if (plan.todayTrainingId) {
-                  message = `Tienes pendiente: "${plan.todayTrainingTitle}".`;
-                  actionLabel = "Hacer entrenamiento";
+                  message = t("pendingTraining", {
+                    title: plan.todayTrainingTitle ?? "",
+                  });
+                  actionLabel = t("doTraining");
                   actionHref = `/trainings/${plan.todayTrainingId}/edit`;
                 } else if (plan.reinforceSkillName) {
-                  message = `Refuerza "${plan.reinforceSkillName}".`;
-                  actionLabel = "Ver habilidades";
+                  message = t("reinforce", { skill: plan.reinforceSkillName });
+                  actionLabel = t("viewSkills");
                   actionHref = `/pets/${plan.petId}/skills`;
                 } else {
-                  message = "Todo al día. ¡Buen trabajo!";
-                  actionLabel = "Ver perro";
+                  message = t("allDone");
+                  actionLabel = t("viewPet");
                   actionHref = `/pets/${plan.petId}`;
                 }
 
@@ -319,7 +319,7 @@ export default function DashboardPage() {
             >
               <div className="text-2xl">🐶</div>
               <p className="mt-1 text-sm font-semibold text-slate-700">
-                Mascotas
+                {t("pets")}
               </p>
             </Link>
 
@@ -329,7 +329,7 @@ export default function DashboardPage() {
             >
               <div className="text-2xl">📅</div>
               <p className="mt-1 text-sm font-semibold text-slate-700">
-                Calendario
+                {t("calendar")}
               </p>
             </Link>
 
@@ -339,7 +339,7 @@ export default function DashboardPage() {
             >
               <div className="text-2xl">⚙️</div>
               <p className="mt-1 text-sm font-semibold text-slate-700">
-                Ajustes
+                {t("settings")}
               </p>
             </Link>
           </div>
@@ -349,7 +349,7 @@ export default function DashboardPage() {
               href="/credits"
               className="text-xs font-semibold text-slate-400 hover:text-slate-600"
             >
-              Créditos y fuentes
+              {t("credits")}
             </Link>
           </div>
         </section>

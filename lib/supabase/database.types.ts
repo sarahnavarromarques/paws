@@ -249,6 +249,7 @@ export type Database = {
           id: number
           mistakes_image: string | null
           name: string
+          name_en: string | null
           steps_image: string | null
           user_id: string | null
         }
@@ -260,6 +261,7 @@ export type Database = {
           id?: never
           mistakes_image?: string | null
           name: string
+          name_en?: string | null
           steps_image?: string | null
           user_id?: string | null
         }
@@ -271,6 +273,7 @@ export type Database = {
           id?: never
           mistakes_image?: string | null
           name?: string
+          name_en?: string | null
           steps_image?: string | null
           user_id?: string | null
         }

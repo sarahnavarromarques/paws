@@ -11,14 +11,19 @@ export default getRequestConfig(async () => {
     const supabase = await createClient();
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
+    console.log("[i18n] user:", user?.id ?? null, "userError:", userError);
+
     if (user) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("language")
         .eq("id", user.id)
         .single();
+
+      console.log("[i18n] profile:", profile, "profileError:", profileError);
 
       if (
         profile?.language &&
@@ -27,9 +32,12 @@ export default getRequestConfig(async () => {
         locale = profile.language;
       }
     }
-  } catch {
+  } catch (err) {
+    console.log("[i18n] caught error:", err);
     locale = DEFAULT_LOCALE;
   }
+
+  console.log("[i18n] final locale:", locale);
 
   return {
     locale,

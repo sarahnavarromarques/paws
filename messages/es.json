@@ -7,5 +7,26 @@
     "save": "Guardar",
     "saved": "Idioma actualizado",
     "back": "← Volver al panel"
+  },
+  "Dashboard": {
+    "loading": "Cargando...",
+    "greeting": "Hola{name} 👋",
+    "petCount": "{count, plural, one {# perro} other {# perros}}",
+    "pendingSuffix": " · {count, plural, one {# pendiente} other {# pendientes}}",
+    "logout": "Cerrar sesión",
+    "todayTitle": "¿Qué entreno hoy?",
+    "noPets": "Todavía no tienes perros. ",
+    "addOne": "Añadir uno",
+    "addSkills": "Añade habilidades para empezar.",
+    "viewSkills": "Ver habilidades",
+    "pendingTraining": "Tienes pendiente: \"{title}\".",
+    "doTraining": "Hacer entrenamiento",
+    "reinforce": "Refuerza \"{skill}\".",
+    "allDone": "Todo al día. ¡Buen trabajo!",
+    "viewPet": "Ver perro",
+    "pets": "Mascotas",
+    "calendar": "Calendario",
+    "settings": "Ajustes",
+    "credits": "Créditos y fuentes"
   }
 }

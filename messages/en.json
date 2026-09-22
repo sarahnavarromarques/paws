@@ -7,5 +7,26 @@
     "save": "Save",
     "saved": "Language updated",
     "back": "← Back to dashboard"
+  },
+  "Dashboard": {
+    "loading": "Loading...",
+    "greeting": "Hello{name} 👋",
+    "petCount": "{count, plural, one {# dog} other {# dogs}}",
+    "pendingSuffix": " · {count, plural, one {# pending session} other {# pending sessions}}",
+    "logout": "Log out",
+    "todayTitle": "What are we training today?",
+    "noPets": "You don't have any dogs yet. ",
+    "addOne": "Add one",
+    "addSkills": "Add skills to get started.",
+    "viewSkills": "View skills",
+    "pendingTraining": "You have a pending session: \"{title}\".",
+    "doTraining": "Start training",
+    "reinforce": "Reinforce \"{skill}\".",
+    "allDone": "All caught up. Great work!",
+    "viewPet": "View dog",
+    "pets": "Dogs",
+    "calendar": "Calendar",
+    "settings": "Settings",
+    "credits": "Credits & sources"
   }
 }
