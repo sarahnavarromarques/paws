@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -16,6 +17,7 @@ const supabase = createClient();
 type Skill = {
   id: number;
   name: string;
+  name_en: string | null;
   category: string | null;
 };
 
@@ -50,10 +52,33 @@ const CATEGORY_ICONS: Record<string, string> = {
   "Obediencia FCI": "🏆",
 };
 
+const CATEGORY_LABELS_EN: Record<string, string> = {
+  Posiciones: "Positions",
+  Control: "Control",
+  Llamada: "Recall",
+  Paseo: "Heel",
+  "Obediencia FCI": "FCI Obedience",
+};
+
+function getCategoryLabel(category: string, locale: string): string {
+  if (locale === "en" && CATEGORY_LABELS_EN[category]) {
+    return CATEGORY_LABELS_EN[category];
+  }
+  return category;
+}
+
+function getSkillName(skill: Skill, locale: string): string {
+  return locale === "en" && skill.name_en ? skill.name_en : skill.name;
+}
+
+const ALL_CATEGORIES_VALUE = "__all__";
+
 export default function PetGroupsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const petId = Number(params.id);
+  const t = useTranslations("PetGroups");
+  const locale = useLocale();
 
   const [pet, setPet] = useState<Pet | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -61,7 +86,7 @@ export default function PetGroupsPage() {
   const [loading, setLoading] = useState(true);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>("Todas");
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES_VALUE);
 
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
 
@@ -113,7 +138,7 @@ export default function PetGroupsPage() {
 
       const { data: skillsData } = await supabase
         .from("skills")
-        .select("id, name, category")
+        .select("id, name, name_en, category")
         .order("id", { ascending: true });
 
       setSkills(skillsData ?? []);
@@ -173,11 +198,11 @@ export default function PetGroupsPage() {
     skills.forEach((skill) => {
       if (skill.category) unique.add(skill.category);
     });
-    return ["Todas", ...Array.from(unique)];
+    return [ALL_CATEGORIES_VALUE, ...Array.from(unique)];
   }, [skills]);
 
   const filteredSkills = useMemo(() => {
-    if (activeCategory === "Todas") return skills;
+    if (activeCategory === ALL_CATEGORIES_VALUE) return skills;
     return skills.filter((skill) => skill.category === activeCategory);
   }, [skills, activeCategory]);
 
@@ -196,7 +221,8 @@ export default function PetGroupsPage() {
   }
 
   function skillNameById(id: number): string {
-    return skills.find((s) => s.id === id)?.name ?? "?";
+    const skill = skills.find((s) => s.id === id);
+    return skill ? getSkillName(skill, locale) : "?";
   }
 
   // Convierte los ids seleccionados en el formato que espera la IA.
@@ -240,7 +266,7 @@ export default function PetGroupsPage() {
     setWarning(null);
 
     if (selectedIds.length === 0) {
-      setWarning("Selecciona al menos una habilidad para crear un grupo.");
+      setWarning(t("warnSelectAtLeastOneCreate"));
       return;
     }
 
@@ -249,7 +275,7 @@ export default function PetGroupsPage() {
       (g) => buildGroupSignature(g.skillIds) === newSignature
     );
     if (duplicateSet) {
-      setWarning("Ya tienes un grupo con estas mismas habilidades creado");
+      setWarning(t("warnDuplicateSkillSet"));
       return;
     }
 
@@ -314,11 +340,11 @@ export default function PetGroupsPage() {
     if (groupError || !groupData) {
       const message = groupError?.message ?? "";
       if (message.includes("skill_groups_pet_name_unique")) {
-        setWarning("Ya tienes un grupo de habilidades con este nombre");
+        setWarning(t("warnDuplicateName"));
       } else if (message.includes("skill_groups_pet_signature_unique")) {
-        setWarning("Ya tienes un grupo con estas mismas habilidades creado");
+        setWarning(t("warnDuplicateSkillSet"));
       } else {
-        setWarning("No se pudo crear el grupo. Inténtalo de nuevo.");
+        setWarning(t("errorCreateGroup"));
         console.error("Error creando grupo:", groupError);
       }
       setSaving(false);
@@ -336,7 +362,7 @@ export default function PetGroupsPage() {
 
     if (itemsError) {
       console.error("Error añadiendo habilidades al grupo:", itemsError);
-      setWarning("El grupo se creó pero hubo un problema con las habilidades.");
+      setWarning(t("errorGroupCreatedSkillsIssue"));
       setSaving(false);
       return;
     }
@@ -353,7 +379,7 @@ export default function PetGroupsPage() {
     setWarning(null);
     setEditingGroupId(group.id);
     setSelectedIds([...group.skillIds]);
-    setActiveCategory("Todas");
+    setActiveCategory(ALL_CATEGORIES_VALUE);
     if (typeof window !== "undefined") {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
@@ -368,7 +394,7 @@ export default function PetGroupsPage() {
     setWarning(null);
 
     if (selectedIds.length === 0) {
-      setWarning("Selecciona al menos una habilidad.");
+      setWarning(t("warnSelectAtLeastOne"));
       return;
     }
 
@@ -379,7 +405,7 @@ export default function PetGroupsPage() {
         buildGroupSignature(g.skillIds) === newSignature
     );
     if (duplicateSet) {
-      setWarning("Ya tienes un grupo con estas mismas habilidades creado");
+      setWarning(t("warnDuplicateSkillSet"));
       return;
     }
 
@@ -393,9 +419,9 @@ export default function PetGroupsPage() {
     if (sigError) {
       const message = sigError.message ?? "";
       if (message.includes("skill_groups_pet_signature_unique")) {
-        setWarning("Ya tienes un grupo con estas mismas habilidades creado");
+        setWarning(t("warnDuplicateSkillSet"));
       } else {
-        setWarning("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+        setWarning(t("errorSaveChanges"));
         console.error("Error actualizando firma:", sigError);
       }
       setSaving(false);
@@ -409,7 +435,7 @@ export default function PetGroupsPage() {
 
     if (delError) {
       console.error("Error limpiando habilidades:", delError);
-      setWarning("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+      setWarning(t("errorSaveChanges"));
       setSaving(false);
       return;
     }
@@ -425,7 +451,7 @@ export default function PetGroupsPage() {
 
     if (insError) {
       console.error("Error guardando habilidades:", insError);
-      setWarning("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+      setWarning(t("errorSaveChanges"));
       setSaving(false);
       return;
     }
@@ -444,7 +470,7 @@ export default function PetGroupsPage() {
     setWarning(null);
 
     if (selectedIds.length === 0) {
-      setWarning("Selecciona al menos una habilidad.");
+      setWarning(t("warnSelectAtLeastOne"));
       return;
     }
 
@@ -468,9 +494,9 @@ export default function PetGroupsPage() {
     if (error) {
       const message = error.message ?? "";
       if (message.includes("skill_groups_pet_name_unique")) {
-        setWarning("Ya tienes un grupo de habilidades con este nombre");
+        setWarning(t("warnDuplicateName"));
       } else {
-        setWarning("No se pudo cambiar el nombre. Inténtalo de nuevo.");
+        setWarning(t("errorRenameGroup"));
         console.error("Error renombrando grupo:", error);
       }
       setSaving(false);
@@ -491,9 +517,7 @@ export default function PetGroupsPage() {
   }
 
   async function handleDeleteGroup(groupId: number) {
-    const confirmed = window.confirm(
-      "¿Seguro que quieres eliminar este grupo? Los entrenamientos ya creados no se verán afectados."
-    );
+    const confirmed = window.confirm(t("confirmDeleteGroup"));
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -588,7 +612,7 @@ export default function PetGroupsPage() {
       (g) => buildGroupSignature(g.skillIds) === sourceSignature
     );
     if (duplicateSet) {
-      setCopyWarning("Ya tienes un grupo con estas mismas habilidades creado");
+      setCopyWarning(t("warnDuplicateSkillSet"));
       return;
     }
 
@@ -627,11 +651,11 @@ export default function PetGroupsPage() {
     if (groupError || !groupData) {
       const message = groupError?.message ?? "";
       if (message.includes("skill_groups_pet_signature_unique")) {
-        setCopyWarning("Ya tienes un grupo con estas mismas habilidades creado");
+        setCopyWarning(t("warnDuplicateSkillSet"));
       } else if (message.includes("skill_groups_pet_name_unique")) {
-        setCopyWarning("Ya tienes un grupo de habilidades con este nombre");
+        setCopyWarning(t("warnDuplicateName"));
       } else {
-        setCopyWarning("No se pudo copiar el grupo. Inténtalo de nuevo.");
+        setCopyWarning(t("errorCopyGroup"));
         console.error("Error copiando grupo:", groupError);
       }
       setCopyingGroupId(null);
@@ -649,7 +673,7 @@ export default function PetGroupsPage() {
 
     if (itemsError) {
       console.error("Error copiando habilidades:", itemsError);
-      setCopyWarning("El grupo se copió pero hubo un problema con las habilidades.");
+      setCopyWarning(t("errorGroupCopiedSkillsIssue"));
       setCopyingGroupId(null);
       return;
     }
@@ -660,14 +684,14 @@ export default function PetGroupsPage() {
     ]);
 
     setCopyingGroupId(null);
-    setCopyWarning(`Grupo "${finalName}" copiado correctamente.`);
+    setCopyWarning(t("copySuccess", { name: finalName }));
   }
 
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-10">
         <div className="mx-auto max-w-6xl">
-          <p className="text-slate-500">Cargando grupos...</p>
+          <p className="text-slate-500">{t("loading")}</p>
         </div>
       </main>
     );
@@ -683,13 +707,13 @@ export default function PetGroupsPage() {
             href={`/pets/${petId}`}
             className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            ← Volver a la mascota
+            {t("backToPet")}
           </Link>
           <Link
             href={`/pets/${petId}/skills`}
             className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
-            🎯 Habilidades de la mascota
+            {t("viewSkills")}
           </Link>
         </div>
 
@@ -707,7 +731,7 @@ export default function PetGroupsPage() {
           )}
           <div>
             <p className="text-sm font-semibold uppercase tracking-widest text-slate-500">
-              Grupos de habilidades de
+              {t("headerLabel")}
             </p>
             <h1 className="text-4xl font-extrabold tracking-tight">
               {pet?.name}
@@ -717,14 +741,14 @@ export default function PetGroupsPage() {
 
         <section className="mb-10">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-2xl font-bold">Tus grupos</h2>
+            <h2 className="text-2xl font-bold">{t("yourGroupsTitle")}</h2>
             {otherPets.length > 0 && (
               <button
                 type="button"
                 onClick={handleOpenCopy}
                 className="rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700"
               >
-                📋 Copiar grupo de otro perro
+                {t("copyGroupButton")}
               </button>
             )}
           </div>
@@ -733,8 +757,7 @@ export default function PetGroupsPage() {
             <div className="rounded-2xl bg-white p-8 text-center shadow">
               <div className="text-4xl">📂</div>
               <p className="mt-3 text-slate-500">
-                Todavía no has creado ningún grupo. Selecciona habilidades abajo
-                para crear el primero.
+                {t("emptyGroupsBody")}
               </p>
             </div>
           ) : (
@@ -756,14 +779,14 @@ export default function PetGroupsPage() {
                           onClick={() => handleStartEdit(group)}
                           className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
                         >
-                          Editar
+                          {t("editButton")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteGroup(group.id)}
                           className="rounded-lg bg-red-100 px-3 py-1 text-sm font-semibold text-red-700 transition hover:bg-red-200"
                         >
-                          Eliminar
+                          {t("deleteButton")}
                         </button>
                       </div>
                     </div>
@@ -787,8 +810,8 @@ export default function PetGroupsPage() {
         <section>
           <h2 className="mb-4 text-2xl font-bold">
             {isEditing
-              ? `Editando: ${editingGroup?.name ?? ""}`
-              : "Crear un grupo nuevo"}
+              ? t("editingTitle", { name: editingGroup?.name ?? "" })
+              : t("createNewTitle")}
           </h2>
 
           {warning && (
@@ -801,6 +824,10 @@ export default function PetGroupsPage() {
             <div className="mb-6 flex flex-wrap gap-3">
               {categories.map((category) => {
                 const isActive = category === activeCategory;
+                const label =
+                  category === ALL_CATEGORIES_VALUE
+                    ? t("allCategories")
+                    : getCategoryLabel(category, locale);
                 return (
                   <button
                     key={category}
@@ -812,10 +839,10 @@ export default function PetGroupsPage() {
                         : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                     }
                   >
-                    {category !== "Todas" && CATEGORY_ICONS[category]
+                    {category !== ALL_CATEGORIES_VALUE && CATEGORY_ICONS[category]
                       ? `${CATEGORY_ICONS[category]} `
                       : ""}
-                    {category}
+                    {label}
                   </button>
                 );
               })}
@@ -840,7 +867,7 @@ export default function PetGroupsPage() {
                   }`}
                 >
                   <span className="text-2xl">{icon}</span>
-                  <span className="font-semibold">{skill.name}</span>
+                  <span className="font-semibold">{getSkillName(skill, locale)}</span>
                   {isSelected && (
                     <span className="ml-auto text-lg font-bold">✓</span>
                   )}
@@ -851,9 +878,7 @@ export default function PetGroupsPage() {
 
           <div className="flex flex-wrap items-center gap-4">
             <p className="text-slate-600">
-              {selectedIds.length === 0
-                ? "Ninguna habilidad seleccionada"
-                : `${selectedIds.length} habilidad(es) seleccionada(s)`}
+              {t("selectedCount", { count: selectedIds.length })}
             </p>
 
             {isEditing ? (
@@ -864,7 +889,7 @@ export default function PetGroupsPage() {
                   disabled={selectedIds.length === 0 || saving}
                   className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {saving ? "Guardando..." : "Guardar cambios"}
+                  {saving ? t("savingButton") : t("saveChanges")}
                 </button>
                 <button
                   type="button"
@@ -872,7 +897,7 @@ export default function PetGroupsPage() {
                   disabled={selectedIds.length === 0 || saving}
                   className="rounded-xl bg-amber-500 px-6 py-3 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-50"
                 >
-                  Cambiar nombre
+                  {t("renameButton")}
                 </button>
                 <button
                   type="button"
@@ -880,7 +905,7 @@ export default function PetGroupsPage() {
                   disabled={saving}
                   className="rounded-xl bg-slate-200 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
                 >
-                  Cancelar
+                  {t("cancelButton")}
                 </button>
               </>
             ) : (
@@ -890,7 +915,7 @@ export default function PetGroupsPage() {
                 disabled={selectedIds.length === 0 || saving}
                 className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
-                Crear grupo
+                {t("createGroupButton")}
               </button>
             )}
           </div>
@@ -904,18 +929,17 @@ export default function PetGroupsPage() {
             <div className="p-8 pb-4">
               <h3 className="mb-2 text-2xl font-bold">
                 {namingMode === "rename"
-                  ? "Nuevo nombre del grupo"
-                  : "Nombre del grupo"}
+                  ? t("namingTitleRename")
+                  : t("namingTitleCreate")}
               </h3>
               <p className="text-slate-500">
-                La IA ha pensado este nombre para tu grupo. Si no te convence,
-                pide otro o elige uno de los anteriores.
+                {t("namingDescription")}
               </p>
 
               <div className="mt-6 rounded-2xl bg-slate-100 p-6 text-center">
                 <p className="text-3xl font-extrabold text-slate-900">
                   {nameOptions.length === 0
-                    ? "Generando..."
+                    ? t("generating")
                     : nameOptions[nameIndex]}
                 </p>
               </div>
@@ -925,7 +949,7 @@ export default function PetGroupsPage() {
             {nameOptions.length > 1 && (
               <div className="overflow-y-auto px-8">
                 <p className="mb-2 text-sm font-semibold text-slate-500">
-                  Sugerencias vistas
+                  {t("previousSuggestionsLabel")}
                 </p>
                 <div className="flex flex-wrap gap-2 pb-2">
                   {nameOptions.map((name, index) => {
@@ -956,7 +980,7 @@ export default function PetGroupsPage() {
                 disabled={saving || generatingName || nameOptions.length === 0}
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
-                {saving ? "Guardando..." : "Aceptar este nombre"}
+                {saving ? t("savingButton") : t("acceptNameButton")}
               </button>
               <button
                 type="button"
@@ -964,7 +988,7 @@ export default function PetGroupsPage() {
                 disabled={saving || generatingName}
                 className="w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
               >
-                {generatingName ? "Generando..." : "Sugerir otro nombre"}
+                {generatingName ? t("generating") : t("suggestAnotherButton")}
               </button>
               <button
                 type="button"
@@ -972,7 +996,7 @@ export default function PetGroupsPage() {
                 disabled={saving}
                 className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-700 disabled:opacity-50"
               >
-                Cancelar
+                {t("cancelButton")}
               </button>
             </div>
           </div>
@@ -987,16 +1011,16 @@ export default function PetGroupsPage() {
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
               <div>
                 <h3 className="text-2xl font-bold">
-                  Copiar grupo de otro perro
+                  {t("copyModalTitle")}
                 </h3>
                 <p className="mt-1 text-slate-500">
-                  Elige un perro y copia uno de sus grupos a {pet?.name}.
+                  {t("copyModalSubtitle", { name: pet?.name ?? "" })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseCopy}
-                aria-label="Cerrar"
+                aria-label={t("close")}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl font-bold text-slate-600 transition hover:bg-slate-200"
               >
                 ✕
@@ -1011,13 +1035,13 @@ export default function PetGroupsPage() {
               )}
 
               <div className="mb-6">
-                <label className="mb-2 block font-semibold">Perro</label>
+                <label className="mb-2 block font-semibold">{t("petLabel")}</label>
                 <select
                   value={copyPetId}
                   onChange={(e) => handleSelectCopyPet(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 >
-                  <option value="">Selecciona un perro</option>
+                  <option value="">{t("selectPetPlaceholder")}</option>
                   {otherPets.map((op) => (
                     <option key={op.id} value={String(op.id)}>
                       {op.name}
@@ -1028,13 +1052,13 @@ export default function PetGroupsPage() {
 
               {copyPetId && (
                 <div>
-                  <p className="mb-2 font-semibold">Grupos disponibles</p>
+                  <p className="mb-2 font-semibold">{t("availableGroupsLabel")}</p>
 
                   {loadingCopyGroups ? (
-                    <p className="text-slate-500">Cargando grupos...</p>
+                    <p className="text-slate-500">{t("loading")}</p>
                   ) : copyableGroups.length === 0 ? (
                     <p className="text-slate-500">
-                      Este perro no tiene grupos para copiar.
+                      {t("noGroupsToCopy")}
                     </p>
                   ) : (
                     <div className="space-y-3">
@@ -1051,7 +1075,7 @@ export default function PetGroupsPage() {
                               disabled={copyingGroupId === cg.id}
                               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
                             >
-                              {copyingGroupId === cg.id ? "Copiando..." : "Copiar"}
+                              {copyingGroupId === cg.id ? t("copyingButton") : t("copyButton")}
                             </button>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -1078,7 +1102,7 @@ export default function PetGroupsPage() {
                 onClick={handleCloseCopy}
                 className="w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300"
               >
-                Cerrar
+                {t("close")}
               </button>
             </div>
           </div>
