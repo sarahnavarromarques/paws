@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,9 +13,11 @@ const ADMIN_USER_ID = "ee62d6fc-b3e8-42c9-898e-4f9f9148a347";
 type Skill = {
   id: number;
   name: string;
+  name_en: string | null;
   category: string | null;
   difficulty: string | null;
   description: string | null;
+  description_en: string | null;
   user_id: string | null;
   steps_image: string | null;
   mistakes_image: string | null;
@@ -49,6 +52,30 @@ const CATEGORY_ICONS: Record<string, string> = {
   "Obediencia FCI": "🏆",
 };
 
+const CATEGORY_LABELS_EN: Record<string, string> = {
+  Posiciones: "Positions",
+  Control: "Control",
+  Llamada: "Recall",
+  Paseo: "Heel",
+  "Obediencia FCI": "FCI Obedience",
+};
+
+function getCategoryLabel(category: string, locale: string): string {
+  if (locale === "en" && CATEGORY_LABELS_EN[category]) {
+    return CATEGORY_LABELS_EN[category];
+  }
+  return category;
+}
+
+function getSkillName(skill: Skill, locale: string): string {
+  return locale === "en" && skill.name_en ? skill.name_en : skill.name;
+}
+
+function getSkillDescription(skill: Skill, locale: string): string | null {
+  if (locale === "en" && skill.description_en) return skill.description_en;
+  return skill.description;
+}
+
 const KNOWN_CATEGORIES = [
   "Posiciones",
   "Control",
@@ -57,19 +84,30 @@ const KNOWN_CATEGORIES = [
   "Obediencia FCI",
 ];
 
+const ALL_CATEGORIES_VALUE = "__all__";
+
 type ImageKind = "steps" | "mistakes";
 
 export default function PetSkillsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const petId = Number(params.id);
+  const t = useTranslations("PetSkills");
+  const locale = useLocale();
+
+  function getDifficultyLabel(difficulty: string): string {
+    if (difficulty === "baja") return t("difficultyLow");
+    if (difficulty === "media") return t("difficultyMedium");
+    if (difficulty === "alta") return t("difficultyHigh");
+    return difficulty;
+  }
 
   const [pet, setPet] = useState<Pet | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [petSkills, setPetSkills] = useState<PetSkillRow[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<string>("Todas");
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES_VALUE);
   const [savingSkillId, setSavingSkillId] = useState<number | null>(null);
   const [openInfoId, setOpenInfoId] = useState<number | null>(null);
 
@@ -115,7 +153,7 @@ export default function PetSkillsPage() {
       const { data: skillsData } = await supabase
         .from("skills")
         .select(
-          "id, name, category, difficulty, description, user_id, steps_image, mistakes_image"
+          "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image"
         )
         .order("id", { ascending: true });
 
@@ -143,11 +181,11 @@ export default function PetSkillsPage() {
     skills.forEach((skill) => {
       if (skill.category) unique.add(skill.category);
     });
-    return ["Todas", ...Array.from(unique)];
+    return [ALL_CATEGORIES_VALUE, ...Array.from(unique)];
   }, [skills]);
 
   const filteredSkills = useMemo(() => {
-    if (activeCategory === "Todas") return skills;
+    if (activeCategory === ALL_CATEGORIES_VALUE) return skills;
     return skills.filter((skill) => skill.category === activeCategory);
   }, [skills, activeCategory]);
 
@@ -227,7 +265,7 @@ export default function PetSkillsPage() {
 
       if (uploadError) {
         console.error("Error subiendo imagen:", uploadError);
-        alert("No se pudo subir la imagen. Inténtalo de nuevo.");
+        alert(t("alertUploadFailed"));
         setUploadingKey(null);
         return;
       }
@@ -249,7 +287,7 @@ export default function PetSkillsPage() {
 
       if (updateError) {
         console.error("Error guardando enlace de imagen:", updateError);
-        alert("La imagen se subió pero no se pudo guardar. Inténtalo de nuevo.");
+        alert(t("alertUploadSavedFailed"));
         setUploadingKey(null);
         return;
       }
@@ -279,12 +317,12 @@ export default function PetSkillsPage() {
     const trimmedName = newName.trim();
 
     if (!trimmedName) {
-      setCreateError("Escribe un nombre para la habilidad.");
+      setCreateError(t("errorEmptyName"));
       return;
     }
 
     if (!currentUserId) {
-      setCreateError("Usuario no autenticado.");
+      setCreateError(t("errorNoUser"));
       return;
     }
 
@@ -295,7 +333,7 @@ export default function PetSkillsPage() {
     );
 
     if (alreadyExists) {
-      setCreateError("Ya has creado una habilidad con este nombre.");
+      setCreateError(t("errorDuplicateName"));
       return;
     }
 
@@ -309,13 +347,13 @@ export default function PetSkillsPage() {
         user_id: currentUserId,
       })
       .select(
-        "id, name, category, difficulty, description, user_id, steps_image, mistakes_image"
+        "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image"
       )
       .single();
 
     if (skillError || !skillData) {
       console.error("Error creando habilidad:", skillError);
-      setCreateError("No se pudo crear la habilidad. Inténtalo de nuevo.");
+      setCreateError(t("errorCreateFailed"));
       setCreating(false);
       return;
     }
@@ -364,7 +402,7 @@ export default function PetSkillsPage() {
     return (
       <main className="min-h-screen bg-slate-100 p-10">
         <div className="mx-auto max-w-6xl">
-          <p className="text-slate-500">Cargando habilidades...</p>
+          <p className="text-slate-500">{t("loading")}</p>
         </div>
       </main>
     );
@@ -380,7 +418,7 @@ export default function PetSkillsPage() {
             href={`/pets/${petId}`}
             className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            ← Volver a la mascota
+            {t("backToPet")}
           </Link>
           <button
             type="button"
@@ -390,7 +428,7 @@ export default function PetSkillsPage() {
             }}
             className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
           >
-            + Crear habilidad
+            {t("createSkillButton")}
           </button>
         </div>
 
@@ -410,7 +448,7 @@ export default function PetSkillsPage() {
 
             <div>
               <p className="text-sm font-semibold uppercase tracking-widest text-slate-500">
-                Habilidades de
+                {t("skillsOf")}
               </p>
               <h1 className="text-4xl font-extrabold tracking-tight">
                 {pet?.name}
@@ -422,13 +460,13 @@ export default function PetSkillsPage() {
             <div className="rounded-2xl bg-slate-100 px-6 py-4 text-center">
               <p className="text-3xl font-bold">{activeSkillsCount}</p>
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                activas
+                {t("active")}
               </p>
             </div>
             <div className="rounded-2xl bg-slate-100 px-6 py-4 text-center">
               <p className="text-3xl font-bold">{averageProgress}%</p>
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                media
+                {t("average")}
               </p>
             </div>
           </div>
@@ -439,6 +477,10 @@ export default function PetSkillsPage() {
           <div className="mb-8 flex flex-wrap gap-3">
             {categories.map((category) => {
               const isActive = category === activeCategory;
+              const label =
+                category === ALL_CATEGORIES_VALUE
+                  ? t("allCategories")
+                  : getCategoryLabel(category, locale);
               return (
                 <button
                   key={category}
@@ -450,10 +492,10 @@ export default function PetSkillsPage() {
                       : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                   }
                 >
-                  {category !== "Todas" && CATEGORY_ICONS[category]
+                  {category !== ALL_CATEGORIES_VALUE && CATEGORY_ICONS[category]
                     ? `${CATEGORY_ICONS[category]} `
                     : ""}
-                  {category}
+                  {label}
                 </button>
               );
             })}
@@ -465,16 +507,16 @@ export default function PetSkillsPage() {
           <div className="rounded-2xl bg-white p-10 text-center shadow">
             <div className="text-5xl">📚</div>
             <h3 className="mt-4 text-2xl font-bold">
-              Todavía no hay habilidades disponibles
+              {t("noSkillsAvailableTitle")}
             </h3>
             <p className="mt-2 text-slate-500">
-              La biblioteca de habilidades no se ha podido cargar. Inténtalo de nuevo más tarde.
+              {t("noSkillsAvailableBody")}
             </p>
           </div>
         ) : filteredSkills.length === 0 ? (
           <div className="rounded-2xl bg-white p-10 text-center shadow">
             <p className="text-slate-500">
-              No hay habilidades en esta categoría.
+              {t("noSkillsInCategory")}
             </p>
           </div>
         ) : (
@@ -505,15 +547,17 @@ export default function PetSkillsPage() {
                       <span className="text-3xl">{icon}</span>
                       <div>
                         <h2 className="text-xl font-bold">
-                          {skill.name}
+                          {getSkillName(skill, locale)}
                           {isMine && (
                             <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 align-middle">
-                              Mía
+                              {t("mine")}
                             </span>
                           )}
                         </h2>
                         <p className="text-sm text-slate-500">
-                          {skill.category ?? "Sin categoría"}
+                          {skill.category
+                            ? getCategoryLabel(skill.category, locale)
+                            : t("noCategory")}
                         </p>
                       </div>
                     </div>
@@ -524,7 +568,7 @@ export default function PetSkillsPage() {
                         onClick={() =>
                           setOpenInfoId(isInfoOpen ? null : skill.id)
                         }
-                        aria-label="Más información"
+                        aria-label={t("moreInfo")}
                         className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
                           isInfoOpen
                             ? "bg-blue-600 text-white"
@@ -537,7 +581,7 @@ export default function PetSkillsPage() {
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${difficultyStyle}`}
                       >
-                        {difficulty}
+                        {getDifficultyLabel(difficulty)}
                       </span>
                     </div>
                   </div>
@@ -546,7 +590,7 @@ export default function PetSkillsPage() {
                     <div className="mt-1">
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-sm font-semibold text-slate-600">
-                          Progreso
+                          {t("progressLabel")}
                         </span>
                         <span className="text-lg font-bold text-blue-600">
                           {progress}%
@@ -561,7 +605,7 @@ export default function PetSkillsPage() {
                       </div>
 
                       <p className="mb-4 text-xs font-medium text-slate-400">
-                        El progreso lo actualiza la IA al completar cada sesión.
+                        {t("progressAutoNote")}
                       </p>
 
                       <button
@@ -570,7 +614,7 @@ export default function PetSkillsPage() {
                         disabled={isSaving}
                         className="w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
                       >
-                        {isSaving ? "Guardando..." : "Quitar habilidad"}
+                        {isSaving ? t("saving") : t("removeSkill")}
                       </button>
                     </div>
                   ) : (
@@ -580,7 +624,7 @@ export default function PetSkillsPage() {
                       disabled={isSaving}
                       className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {isSaving ? "Añadiendo..." : "+ Añadir a mi mascota"}
+                      {isSaving ? t("adding") : t("addToMyPet")}
                     </button>
                   )}
                 </div>
@@ -609,6 +653,8 @@ export default function PetSkillsPage() {
         const mistakesUploading =
           uploadingKey === `${infoSkill.id}-mistakes`;
 
+        const description = getSkillDescription(infoSkill, locale);
+
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -623,52 +669,56 @@ export default function PetSkillsPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-4xl">{icon}</span>
                   <div>
-                    <h3 className="text-2xl font-bold">{infoSkill.name}</h3>
+                    <h3 className="text-2xl font-bold">
+                      {getSkillName(infoSkill, locale)}
+                    </h3>
                     <p className="text-sm text-slate-500">
-                      {infoSkill.category ?? "Sin categoría"}
+                      {infoSkill.category
+                        ? getCategoryLabel(infoSkill.category, locale)
+                        : t("noCategory")}
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setOpenInfoId(null)}
-                  aria-label="Cerrar"
+                  aria-label={t("close")}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-bold text-slate-600 transition hover:bg-slate-200"
                 >
                   ✕
                 </button>
               </div>
 
-              {infoSkill.description && (
+              {description && (
                 <p className="mb-6 text-slate-700">
-                  {infoSkill.description}
+                  {description}
                 </p>
               )}
 
               {/* Imagen de pasos */}
               <div className="mb-8">
                 <p className="mb-3 text-lg font-bold text-slate-800">
-                  📋 Cómo entrenar (paso a paso)
+                  {t("howToTrainTitle")}
                 </p>
                 {infoSkill.steps_image ? (
                   <img
                     src={infoSkill.steps_image}
-                    alt={`Pasos para ${infoSkill.name}`}
+                    alt={getSkillName(infoSkill, locale)}
                     className="w-full rounded-xl border border-slate-200"
                   />
                 ) : (
                   <p className="text-sm italic text-slate-400">
-                    Todavía no hay imagen de pasos.
+                    {t("noStepsImage")}
                   </p>
                 )}
 
                 {canEditImages && (
                   <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                     {stepsUploading
-                      ? "Subiendo..."
+                      ? t("uploading")
                       : infoSkill.steps_image
-                      ? "Reemplazar imagen"
-                      : "Subir imagen"}
+                      ? t("replaceImage")
+                      : t("uploadImage")}
                     <input
                       type="file"
                       accept="image/*"
@@ -689,27 +739,27 @@ export default function PetSkillsPage() {
               {/* Imagen de errores comunes */}
               <div>
                 <p className="mb-3 text-lg font-bold text-slate-800">
-                  ⚠️ Errores comunes
+                  {t("commonMistakesTitle")}
                 </p>
                 {infoSkill.mistakes_image ? (
                   <img
                     src={infoSkill.mistakes_image}
-                    alt={`Errores comunes de ${infoSkill.name}`}
+                    alt={getSkillName(infoSkill, locale)}
                     className="w-full rounded-xl border border-slate-200"
                   />
                 ) : (
                   <p className="text-sm italic text-slate-400">
-                    Todavía no hay imagen de errores comunes.
+                    {t("noMistakesImage")}
                   </p>
                 )}
 
                 {canEditImages && (
                   <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                     {mistakesUploading
-                      ? "Subiendo..."
+                      ? t("uploading")
                       : infoSkill.mistakes_image
-                      ? "Reemplazar imagen"
-                      : "Subir imagen"}
+                      ? t("replaceImage")
+                      : t("uploadImage")}
                     <input
                       type="file"
                       accept="image/*"
@@ -739,9 +789,9 @@ export default function PetSkillsPage() {
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-            <h3 className="mb-2 text-2xl font-bold">Crear habilidad</h3>
+            <h3 className="mb-2 text-2xl font-bold">{t("createSkillTitle")}</h3>
             <p className="mb-6 text-slate-500">
-              Esta habilidad será solo tuya y se añadirá a {pet?.name}.
+              {t("createSkillSubtitle", { name: pet?.name ?? "" })}
             </p>
 
             {createError && (
@@ -751,19 +801,19 @@ export default function PetSkillsPage() {
             )}
 
             <div className="mb-4">
-              <label className="mb-2 block font-semibold">Nombre</label>
+              <label className="mb-2 block font-semibold">{t("nameLabel")}</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 disabled={creating}
-                placeholder="Ej. Dar la pata cruzada"
+                placeholder={t("namePlaceholder")}
                 className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
             </div>
 
             <div className="mb-6">
-              <label className="mb-2 block font-semibold">Categoría</label>
+              <label className="mb-2 block font-semibold">{t("categoryLabel")}</label>
               <select
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
@@ -772,7 +822,7 @@ export default function PetSkillsPage() {
               >
                 {KNOWN_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
-                    {cat}
+                    {getCategoryLabel(cat, locale)}
                   </option>
                 ))}
               </select>
@@ -785,7 +835,7 @@ export default function PetSkillsPage() {
                 disabled={creating}
                 className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
               >
-                {creating ? "Creando..." : "Crear habilidad"}
+                {creating ? t("creatingButton") : t("createButton")}
               </button>
               <button
                 type="button"
@@ -796,7 +846,7 @@ export default function PetSkillsPage() {
                 disabled={creating}
                 className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-700 disabled:opacity-50"
               >
-                Cancelar
+                {t("cancel")}
               </button>
             </div>
           </div>

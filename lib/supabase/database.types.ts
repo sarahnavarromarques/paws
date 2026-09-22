@@ -246,6 +246,7 @@ export type Database = {
           category_en: string | null
           created_at: string | null
           description: string | null
+          description_en: string | null
           difficulty: string | null
           id: number
           mistakes_image: string | null
@@ -259,6 +260,7 @@ export type Database = {
           category_en?: string | null
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
           difficulty?: string | null
           id?: never
           mistakes_image?: string | null
@@ -272,6 +274,7 @@ export type Database = {
           category_en?: string | null
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
           difficulty?: string | null
           id?: never
           mistakes_image?: string | null
