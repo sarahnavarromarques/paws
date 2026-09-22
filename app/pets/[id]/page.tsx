@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations, getLocale } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
 import ProgressAnalysis from "@/components/ProgressAnalysis";
+import { getBreedLabel, getColorLabel } from "@/lib/breeds";
 
 type PageProps = {
   params: Promise<{
@@ -14,9 +16,11 @@ type PageProps = {
   }>;
 };
 
-function calculateAge(birthDate: string | null) {
+type TFunction = Awaited<ReturnType<typeof getTranslations>>;
+
+function calculateAge(birthDate: string | null, t: TFunction): string {
   if (!birthDate) {
-    return "Sin fecha de nacimiento";
+    return t("noBirthDate");
   }
 
   const birth = new Date(`${birthDate}T00:00:00`);
@@ -35,24 +39,22 @@ function calculateAge(birthDate: string | null) {
   }
 
   if (years < 0) {
-    return "Fecha no válida";
+    return t("invalidDate");
   }
 
   if (years === 0) {
     if (months === 0) {
-      return "Menos de 1 mes";
+      return t("lessThanMonth");
     }
 
-    return `${months} ${months === 1 ? "mes" : "meses"}`;
+    return t("ageMonths", { months });
   }
 
   if (months === 0) {
-    return `${years} ${years === 1 ? "año" : "años"}`;
+    return t("ageYears", { years });
   }
 
-  return `${years} ${years === 1 ? "año" : "años"} y ${months} ${
-    months === 1 ? "mes" : "meses"
-  }`;
+  return t("ageYearsMonths", { years, months });
 }
 
 function daysSince(dateStr: string | null): number | null {
@@ -70,20 +72,20 @@ function daysSince(dateStr: string | null): number | null {
   return diffDays >= 0 ? diffDays : null;
 }
 
-function formatDaysSince(days: number | null): string {
+function formatDaysSince(days: number | null, t: TFunction): string {
   if (days === null) {
-    return "Sin entrenar todavía";
+    return t("daysSinceNever");
   }
 
   if (days === 0) {
-    return "Entrenado hoy";
+    return t("daysSinceToday");
   }
 
   if (days === 1) {
-    return "Hace 1 día";
+    return t("daysSinceOneDay");
   }
 
-  return `Hace ${days} días`;
+  return t("daysSinceMultiple", { days });
 }
 
 export default async function PetProfile({
@@ -92,6 +94,11 @@ export default async function PetProfile({
 }: PageProps) {
   const { id } = await params;
   const { training: selectedTraining } = await searchParams;
+
+  const locale = await getLocale();
+  const t = await getTranslations("PetProfile");
+  const tPets = await getTranslations("Pets");
+  const tAddPetForm = await getTranslations("AddPetForm");
 
   const supabase = await createClient();
 
@@ -162,7 +169,7 @@ export default async function PetProfile({
   const petSkillList = petSkillRows ?? [];
 
   // Resumen de entrenamientos por habilidad (solo completados)
-    const trainingStatsBySkill = new Map<number, { count: number; lastDate: string | null }>();
+  const trainingStatsBySkill = new Map<number, { count: number; lastDate: string | null }>();
 
   for (const training of completedTrainings) {
     if (training.skill_id === null || training.skill_id === undefined) {
@@ -201,7 +208,7 @@ export default async function PetProfile({
 
     const { data: skillsData } = await supabase
       .from("skills")
-      .select("id, name, category")
+      .select("id, name, name_en, category, category_en")
       .in("id", skillIds);
 
     const skillsMap = new Map(
@@ -213,10 +220,20 @@ export default async function PetProfile({
         const skill = skillsMap.get(row.skill_id);
         const stats = trainingStatsBySkill.get(row.skill_id);
 
+        const name =
+          locale === "en" && skill?.name_en
+            ? skill.name_en
+            : skill?.name ?? t("genericSkillName");
+
+        const category =
+          locale === "en" && skill?.category_en
+            ? skill.category_en
+            : skill?.category ?? null;
+
         return {
           skillId: row.skill_id,
-          name: skill?.name ?? "Habilidad",
-          category: skill?.category ?? null,
+          name,
+          category,
           progress: row.auto_progress ?? 0,
           sessionCount: stats?.count ?? 0,
           lastTrainedDays: daysSince(stats?.lastDate ?? null),
@@ -245,9 +262,9 @@ export default async function PetProfile({
 
   if (petSkillsWithNames.length === 0) {
     recommendation = {
-      title: "Empieza añadiendo habilidades",
-      body: "Este perro todavía no tiene habilidades. Añade alguna para empezar a planificar su entrenamiento.",
-      cta: "Añadir habilidades",
+      title: t("startAddingSkillsTitle"),
+      body: t("startAddingSkillsBody"),
+      cta: t("addSkillsCta"),
     };
   } else {
     const lowest = [...petSkillsWithNames].sort(
@@ -255,15 +272,15 @@ export default async function PetProfile({
     )[0];
 
     recommendation = {
-      title: `Refuerza "${lowest.name}"`,
-      body: `Es la habilidad con menos progreso (${lowest.progress}%). Trabajarla equilibra el aprendizaje del perro.`,
-      cta: "Ver habilidades",
+      title: t("reinforceTitle", { skill: lowest.name }),
+      body: t("reinforceBody", { progress: lowest.progress }),
+      cta: t("viewSkillsCta"),
     };
   }
 
   function formatLatestTraining() {
     if (!latestTraining) {
-      return "Sin datos";
+      return t("noData");
     }
 
     const date = latestTraining.date ?? "";
@@ -276,8 +293,15 @@ export default async function PetProfile({
       return `${date} — ${time}`;
     }
 
-    return date || time || "Sin datos";
+    return date || time || t("noData");
   }
+
+  const sexLabel =
+    pet.sex === "Macho"
+      ? tAddPetForm("male")
+      : pet.sex === "Hembra"
+      ? tAddPetForm("female")
+      : null;
 
   return (
     <main className="min-h-screen bg-slate-100 p-10">
@@ -288,28 +312,28 @@ export default async function PetProfile({
             href="/pets"
             className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            ← Mis mascotas
+            {t("backToPets")}
           </Link>
 
           <Link
             href={`/pets/${pet.id}/edit`}
             className="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-white transition hover:bg-amber-600"
           >
-            ✏️ Editar mascota
+            {t("editPet")}
           </Link>
 
           <Link
             href={`/pets/${pet.id}/skills`}
             className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
           >
-            🎯 Habilidades
+            {t("skills")}
           </Link>
 
           <Link
             href={`/pets/${pet.id}/groups`}
             className="rounded-xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700"
           >
-            📂 Grupos de habilidades
+            {t("skillGroups")}
           </Link>
         </div>
 
@@ -336,7 +360,7 @@ export default async function PetProfile({
                 </h1>
 
                 <p className="text-2xl text-blue-100">
-                  {pet.breed ?? "Sin raza"}
+                  {pet.breed ? getBreedLabel(pet.breed, locale) : tPets("noBreed")}
                 </p>
               </div>
 
@@ -348,33 +372,33 @@ export default async function PetProfile({
             <div className="rounded-2xl bg-slate-100 p-8">
 
               <h2 className="mb-6 text-3xl font-bold">
-                Información
+                {t("infoTitle")}
               </h2>
 
               <div className="space-y-4">
 
                 <p>
-                  {calculateAge(pet.birth_date)}
+                  {calculateAge(pet.birth_date, tPets)}
                 </p>
 
                 <p>
-                  <strong>Fecha de nacimiento:</strong>{" "}
-                  {pet.birth_date ?? "Sin datos"}
+                  <strong>{t("birthDateLabel")}</strong>{" "}
+                  {pet.birth_date ?? t("noData")}
                 </p>
 
                 <p>
-                  <strong>Sexo:</strong>{" "}
-                  {pet.sex ?? "Sin datos"}
+                  <strong>{t("sexLabel")}</strong>{" "}
+                  {sexLabel ?? t("noData")}
                 </p>
 
                 <p>
-                  <strong>Peso:</strong>{" "}
-                  {pet.weight ?? "Sin datos"}
+                  <strong>{t("weightLabel")}</strong>{" "}
+                  {pet.weight ?? t("noData")}
                 </p>
 
                 <p>
-                  <strong>Color:</strong>{" "}
-                  {pet.color ?? "Sin datos"}
+                  <strong>{t("colorLabel")}</strong>{" "}
+                  {pet.color ? getColorLabel(pet.color, locale) : t("noData")}
                 </p>
 
               </div>
@@ -383,36 +407,36 @@ export default async function PetProfile({
             <div className="rounded-2xl bg-slate-100 p-8">
 
               <h2 className="mb-6 text-3xl font-bold">
-                Estado
+                {t("statusTitle")}
               </h2>
 
               <div className="space-y-5">
 
                 <p>
-                  📅 Último entrenamiento:{" "}
+                  {t("lastTraining")}{" "}
                   <strong>
                     {formatLatestTraining()}
                   </strong>
                 </p>
 
                 <p>
-                  ⭐ Nivel:{" "}
+                  {t("levelLabel")}{" "}
                   <strong>
-                    {pet.level ?? "Principiante"}
+                    {pet.level ?? t("beginnerLevel")}
                   </strong>
                 </p>
 
                 <p>
-                  📊 Entrenamientos completados:{" "}
+                  {t("completedTrainingsLabel")}{" "}
                   <strong>
                     {completedTrainings.length}
                   </strong>
                 </p>
 
                 <p>
-                  ⏱️ Tiempo total entrenado:{" "}
+                  {t("totalTimeLabel")}{" "}
                   <strong>
-                    {totalMinutes} min
+                    {t("minutesSuffix", { minutes: totalMinutes })}
                   </strong>
                 </p>
 
@@ -429,7 +453,7 @@ export default async function PetProfile({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="max-w-2xl">
                   <p className="text-sm font-semibold uppercase tracking-widest text-indigo-600">
-                    🧭 Plan recomendado
+                    {t("recommendedPlan")}
                   </p>
                   <p className="mt-1 text-2xl font-bold text-indigo-900">
                     {recommendation.title}
@@ -479,7 +503,7 @@ export default async function PetProfile({
 
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <h2 className="text-3xl font-bold">
-                  Habilidades del perro
+                  {t("dogSkillsTitle")}
                 </h2>
 
                 <div className="flex items-center gap-4">
@@ -489,7 +513,7 @@ export default async function PetProfile({
                         {averageSkillProgress}%
                       </span>
                       <span className="ml-2 text-sm font-semibold text-slate-500">
-                        media
+                        {t("average")}
                       </span>
                     </div>
                   )}
@@ -498,7 +522,7 @@ export default async function PetProfile({
                     href={`/pets/${pet.id}/skills`}
                     className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                   >
-                    Gestionar
+                    {t("manage")}
                   </Link>
                 </div>
               </div>
@@ -530,12 +554,8 @@ export default async function PetProfile({
 
                       <p className="mt-1 text-xs font-medium text-slate-500">
                         {item.sessionCount === 0
-                          ? "Sin sesiones registradas"
-                          : `${item.sessionCount} ${
-                              item.sessionCount === 1
-                                ? "sesión"
-                                : "sesiones"
-                            } · ${formatDaysSince(item.lastTrainedDays)}`}
+                          ? t("noSessionsRecorded")
+                          : `${t("sessionCount", { count: item.sessionCount })} · ${formatDaysSince(item.lastTrainedDays, t)}`}
                       </p>
                     </div>
                   ))}
@@ -545,12 +565,12 @@ export default async function PetProfile({
               ) : (
 
                 <p className="text-slate-500">
-                  Este perro todavía no tiene habilidades asignadas.{" "}
+                  {t("noSkillsYet")}{" "}
                   <Link
                     href={`/pets/${pet.id}/skills`}
                     className="font-semibold text-blue-600 hover:underline"
                   >
-                    Añadir habilidades
+                    {t("addSkillsCta")}
                   </Link>
                 </p>
 
@@ -561,7 +581,7 @@ export default async function PetProfile({
             <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
 
               <h2 className="mb-6 text-3xl font-bold">
-                Nuevo entrenamiento
+                {t("newTrainingTitle")}
               </h2>
 
               <AddTrainingForm petId={pet.id} />
@@ -571,7 +591,7 @@ export default async function PetProfile({
             <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
 
               <h2 className="mb-6 text-3xl font-bold">
-                Historial de entrenamientos
+                {t("trainingHistoryTitle")}
               </h2>
 
               {orderedTrainings.length > 0 ? (
@@ -596,7 +616,7 @@ export default async function PetProfile({
 
                         {isSelected && (
                           <div className="mb-4 rounded-lg bg-blue-600 px-4 py-2 font-bold text-white">
-                            📅 Entrenamiento seleccionado
+                            {t("selectedTrainingBanner")}
                           </div>
                         )}
 
@@ -606,13 +626,13 @@ export default async function PetProfile({
 
                             <h3 className="text-xl font-bold">
                               {training.title ??
-                                "Entrenamiento"}
+                                t("trainingDefaultTitle")}
                             </h3>
 
                             <p>
                               📅{" "}
                               {training.date ??
-                                "Sin fecha"}
+                                t("noDate")}
                             </p>
 
                             <p>
@@ -633,7 +653,7 @@ export default async function PetProfile({
                             </p>
 
                             <p>
-                              Estado:{" "}
+                              {t("statusLabel")}{" "}
                               <span
                                 className={
                                   training.status ===
@@ -644,8 +664,8 @@ export default async function PetProfile({
                               >
                                 {training.status ===
                                 "completed"
-                                  ? "Completado"
-                                  : "Pendiente"}
+                                  ? t("completedStatus")
+                                  : t("pendingStatus")}
                               </span>
                             </p>
 
@@ -661,7 +681,7 @@ export default async function PetProfile({
                             href={`/trainings/${training.id}/edit`}
                             className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 font-semibold text-white transition hover:bg-amber-600"
                           >
-                            ✏️ Editar
+                            {t("editLink")}
                           </Link>
 
                         </div>
@@ -675,7 +695,7 @@ export default async function PetProfile({
               ) : (
 
                 <p className="text-slate-500">
-                  No hay entrenamientos registrados.
+                  {t("noTrainingsRecorded")}
                 </p>
 
               )}

@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     pet?: PetInput;
     skills?: SkillInput[];
     trainings?: TrainingInput[];
+    locale?: string;
   };
 
   try {
@@ -51,10 +52,28 @@ export async function POST(request: Request) {
   const pet = body.pet;
   const skills = Array.isArray(body.skills) ? body.skills : [];
   const trainings = Array.isArray(body.trainings) ? body.trainings : [];
+  const isEn = body.locale === "en";
 
   if (!pet || !pet.name) {
     return NextResponse.json({ error: "no_pet" }, { status: 400 });
   }
+
+  const noSkillsText = isEn ? "No skills recorded." : "Sin habilidades registradas.";
+  const noSessionsRecordedText = isEn
+    ? "No sessions recorded."
+    : "Sin sesiones registradas.";
+  const noSessionsForSkillText = isEn ? "no sessions" : "sin sesiones";
+  const daysAgoText = (days: number) =>
+    isEn ? `${days} days ago` : `hace ${days} días`;
+  const goalTag = isEn ? " [MAIN GOAL]" : " [OBJETIVO PRINCIPAL]";
+  const noDateText = isEn ? "no date" : "sin fecha";
+  const noDurationText = isEn ? "no duration" : "sin duración";
+  const notesPrefix = isEn ? " — Notes: " : " — Notas: ";
+  const defaultSessionTitle = isEn ? "Session" : "Sesión";
+  const noDataText = isEn ? "no data" : "sin datos";
+  const fallbackText = isEn
+    ? "Could not generate the analysis."
+    : "No se pudo generar el análisis.";
 
   const skillLines =
     skills.length > 0
@@ -63,41 +82,37 @@ export async function POST(request: Request) {
             const cat = s.category ? `${s.category} — ` : "";
             const last =
               s.lastTrainedDays === null
-                ? "sin sesiones"
-                : `hace ${s.lastTrainedDays} días`;
-            const goal = s.isGoal ? " [OBJETIVO PRINCIPAL]" : "";
-            return `- ${cat}${s.name}: ${s.progress}%, ${s.sessionCount} sesiones, última ${last}${goal}`;
+                ? noSessionsForSkillText
+                : daysAgoText(s.lastTrainedDays);
+            const goal = s.isGoal ? goalTag : "";
+            return isEn
+              ? `- ${cat}${s.name}: ${s.progress}%, ${s.sessionCount} sessions, last ${last}${goal}`
+              : `- ${cat}${s.name}: ${s.progress}%, ${s.sessionCount} sesiones, última ${last}${goal}`;
           })
           .join("\n")
-      : "Sin habilidades registradas.";
+      : noSkillsText;
 
   const trainingLines =
     trainings.length > 0
       ? trainings
           .map((t) => {
-            const d = t.date ?? "sin fecha";
-            const dur = t.duration != null ? `${t.duration} min` : "sin duración";
-            const notes = t.notes ? ` — Notas: ${t.notes}` : "";
-            return `- ${d}: ${t.title ?? "Sesión"} (${dur})${notes}`;
+            const d = t.date ?? noDateText;
+            const dur =
+              t.duration != null ? `${t.duration} min` : noDurationText;
+            const notes = t.notes ? `${notesPrefix}${t.notes}` : "";
+            return `- ${d}: ${t.title ?? defaultSessionTitle} (${dur})${notes}`;
           })
           .join("\n")
-      : "Sin sesiones registradas.";
+      : noSessionsRecordedText;
 
   const anthropic = new Anthropic({ apiKey });
 
-  try {
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 700,
-      messages: [
-        {
-          role: "user",
-          content: `Eres un analista experto en adiestramiento canino. Analiza el progreso de este perro basándote SOLO en los datos que te doy.
+  const promptEs = `Eres un analista experto en adiestramiento canino. Analiza el progreso de este perro basándote SOLO en los datos que te doy.
 
 Perro: ${pet.name}
-Raza: ${pet.breed ?? "sin datos"}
-Objetivo principal: ${pet.objective ?? "sin datos"}
-Nivel: ${pet.level ?? "sin datos"}
+Raza: ${pet.breed ?? noDataText}
+Objetivo principal: ${pet.objective ?? noDataText}
+Nivel: ${pet.level ?? noDataText}
 
 Habilidades:
 ${skillLines}
@@ -108,7 +123,34 @@ ${trainingLines}
 Responde SOLO con un objeto JSON válido, sin texto adicional y sin bloques de código. Formato exacto:
 {"resumen":"2-3 frases sobre el estado general del progreso","patrones":"qué está funcionando y qué se resiste, según los datos","recomendacion":"el siguiente paso concreto a trabajar"}
 
-Escribe en español, dirigiéndote al adiestrador de tú, claro y práctico. No inventes datos que no aparezcan arriba.`,
+Escribe en español, dirigiéndote al adiestrador de tú, claro y práctico. No inventes datos que no aparezcan arriba.`;
+
+  const promptEn = `You are an expert dog training analyst. Analyze this dog's progress based ONLY on the data provided.
+
+Dog: ${pet.name}
+Breed: ${pet.breed ?? noDataText}
+Main goal: ${pet.objective ?? noDataText}
+Level: ${pet.level ?? noDataText}
+
+Skills:
+${skillLines}
+
+Recent sessions (newest to oldest):
+${trainingLines}
+
+Reply ONLY with a valid JSON object, no extra text and no code blocks. Exact format:
+{"resumen":"2-3 sentences on the overall state of progress","patrones":"what's working and what's resisting, based on the data","recomendacion":"the concrete next step to work on"}
+
+Write in English, addressing the trainer directly, clear and practical. Don't invent data that isn't listed above.`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 700,
+      messages: [
+        {
+          role: "user",
+          content: isEn ? promptEn : promptEs,
         },
       ],
     });
@@ -139,7 +181,7 @@ Escribe en español, dirigiéndote al adiestrador de tú, claro y práctico. No 
       // Modo degradado: si la IA no devolvió JSON, mostramos su texto tal cual.
       return NextResponse.json({
         analysis: {
-          resumen: raw || "No se pudo generar el análisis.",
+          resumen: raw || fallbackText,
           patrones: "",
           recomendacion: "",
         },

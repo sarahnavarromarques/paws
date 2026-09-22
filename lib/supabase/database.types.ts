@@ -243,6 +243,7 @@ export type Database = {
       skills: {
         Row: {
           category: string | null
+          category_en: string | null
           created_at: string | null
           description: string | null
           difficulty: string | null
@@ -255,6 +256,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          category_en?: string | null
           created_at?: string | null
           description?: string | null
           difficulty?: string | null
@@ -267,6 +269,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          category_en?: string | null
           created_at?: string | null
           description?: string | null
           difficulty?: string | null

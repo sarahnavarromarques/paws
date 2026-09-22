@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -15,7 +16,9 @@ type Props = {
 type Skill = {
   id: number;
   name: string;
+  name_en: string | null;
   category: string | null;
+  category_en: string | null;
 };
 
 type Group = {
@@ -28,6 +31,8 @@ const ALL_GROUPS_VALUE = "all";
 
 export default function AddTrainingForm({ petId }: Props) {
   const router = useRouter();
+  const t = useTranslations("AddTrainingForm");
+  const locale = useLocale();
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,13 +49,22 @@ export default function AddTrainingForm({ petId }: Props) {
   const [groupChoice, setGroupChoice] = useState<string>(ALL_GROUPS_VALUE);
   const [skillId, setSkillId] = useState<string>("");
 
+  function skillName(skill: Skill): string {
+    return locale === "en" && skill.name_en ? skill.name_en : skill.name;
+  }
+
+  function skillCategory(skill: Skill): string | null {
+    if (locale === "en" && skill.category_en) return skill.category_en;
+    return skill.category;
+  }
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
 
       const { data: skillsData } = await supabase
         .from("skills")
-        .select("id, name, category")
+        .select("id, name, name_en, category, category_en")
         .order("category", { ascending: true })
         .order("name", { ascending: true });
 
@@ -101,29 +115,31 @@ export default function AddTrainingForm({ petId }: Props) {
     return skills.filter((skill) => group.skillIds.includes(skill.id));
   }, [groupChoice, groups, skills]);
 
-  // Opciones del buscador de grupo: nombres de grupos + "Todas"
+  // Opciones del buscador de grupo: nombres de grupos + "Todas"/"All"
   const groupSelectOptions = useMemo(() => {
-    return [...groups.map((g) => g.name), "Todas"];
-  }, [groups]);
+    return [...groups.map((g) => g.name), t("allGroupsLabel")];
+  }, [groups, t]);
 
-  // Valor mostrado en el buscador de grupo (nombre o "Todas")
+  // Valor mostrado en el buscador de grupo (nombre o "Todas"/"All")
   const groupSelectValue = useMemo(() => {
-    if (groupChoice === ALL_GROUPS_VALUE) return "Todas";
+    if (groupChoice === ALL_GROUPS_VALUE) return t("allGroupsLabel");
     const group = groups.find((g) => String(g.id) === groupChoice);
-    return group?.name ?? "Todas";
-  }, [groupChoice, groups]);
+    return group?.name ?? t("allGroupsLabel");
+  }, [groupChoice, groups, t]);
 
   // Opciones del buscador de habilidad (etiquetas visibles)
   const skillLabelToId = useMemo(() => {
     const map = new Map<string, string>();
     visibleSkills.forEach((skill) => {
-      const label = skill.category
-        ? `${skill.category} — ${skill.name}`
-        : skill.name;
+      const category = skillCategory(skill);
+      const label = category
+        ? `${category} — ${skillName(skill)}`
+        : skillName(skill);
       map.set(label, String(skill.id));
     });
     return map;
-  }, [visibleSkills]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSkills, locale]);
 
   const skillSelectOptions = useMemo(
     () => Array.from(skillLabelToId.keys()),
@@ -134,13 +150,13 @@ export default function AddTrainingForm({ petId }: Props) {
     if (!skillId) return "";
     const skill = visibleSkills.find((s) => String(s.id) === skillId);
     if (!skill) return "";
-    return skill.category
-      ? `${skill.category} — ${skill.name}`
-      : skill.name;
-  }, [skillId, visibleSkills]);
+    const category = skillCategory(skill);
+    return category ? `${category} — ${skillName(skill)}` : skillName(skill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skillId, visibleSkills, locale]);
 
   function handleGroupChange(groupName: string) {
-    if (groupName === "Todas") {
+    if (groupName === t("allGroupsLabel")) {
       setGroupChoice(ALL_GROUPS_VALUE);
     } else {
       const group = groups.find((g) => g.name === groupName);
@@ -156,12 +172,12 @@ export default function AddTrainingForm({ petId }: Props) {
 
   async function handleSave() {
     if (!skillId) {
-      alert("Selecciona una habilidad.");
+      alert(t("alertSelectSkill"));
       return;
     }
 
     if (!date) {
-      alert("Selecciona una fecha.");
+      alert(t("alertSelectDate"));
       return;
     }
 
@@ -171,7 +187,7 @@ export default function AddTrainingForm({ petId }: Props) {
       numericDuration !== null &&
       (!Number.isFinite(numericDuration) || numericDuration < 0)
     ) {
-      alert("Introduce una duración válida.");
+      alert(t("alertInvalidDuration"));
       return;
     }
 
@@ -180,18 +196,20 @@ export default function AddTrainingForm({ petId }: Props) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Usuario no autenticado.");
+      alert(t("alertNoUser"));
       return;
     }
 
     const chosenSkill = skills.find((s) => String(s.id) === skillId);
-    const skillName = chosenSkill?.name ?? "Entrenamiento";
+    const chosenSkillName = chosenSkill
+      ? skillName(chosenSkill)
+      : t("defaultTrainingTitle");
 
-    let generatedTitle = skillName;
+    let generatedTitle = chosenSkillName;
     if (groupChoice !== ALL_GROUPS_VALUE) {
       const group = groups.find((g) => String(g.id) === groupChoice);
       if (group) {
-        generatedTitle = `${group.name} — ${skillName}`;
+        generatedTitle = `${group.name} — ${chosenSkillName}`;
       }
     }
 
@@ -214,7 +232,7 @@ export default function AddTrainingForm({ petId }: Props) {
     if (error) {
       console.error("Error guardando entrenamiento:", error);
       setSaving(false);
-      alert("No se ha podido guardar el entrenamiento. Inténtalo de nuevo.");
+      alert(t("alertSaveError"));
       return;
     }
 
@@ -232,7 +250,7 @@ export default function AddTrainingForm({ petId }: Props) {
   }
 
   if (loading) {
-    return <p className="text-slate-500">Cargando formulario...</p>;
+    return <p className="text-slate-500">{t("loading")}</p>;
   }
 
   return (
@@ -243,20 +261,19 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div className="md:col-span-2">
           <label className="mb-2 block font-semibold">
-            Grupo de habilidades
+            {t("skillGroupLabel")}
           </label>
 
           {groups.length === 0 ? (
             <div className="flex flex-col gap-3 rounded-xl border border-slate-300 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-slate-600">
-                Este perro todavía no tiene grupos. Puedes elegir cualquier
-                habilidad (Todas) o crear grupos para organizarlas.
+                {t("noGroupsMessage")}
               </p>
               <Link
                 href={`/pets/${petId}/groups`}
                 className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-blue-700"
               >
-                Crear grupos
+                {t("createGroups")}
               </Link>
             </div>
           ) : (
@@ -264,7 +281,7 @@ export default function AddTrainingForm({ petId }: Props) {
               options={groupSelectOptions}
               value={groupSelectValue}
               onChange={handleGroupChange}
-              placeholder="Selecciona un grupo"
+              placeholder={t("selectGroupPlaceholder")}
               disabled={saving}
             />
           )}
@@ -274,20 +291,20 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div className="md:col-span-2">
           <label className="mb-2 block font-semibold">
-            Habilidad trabajada
+            {t("skillWorkedLabel")}
           </label>
 
           <SearchableSelect
             options={skillSelectOptions}
             value={skillSelectValue}
             onChange={handleSkillChange}
-            placeholder="Selecciona una habilidad"
+            placeholder={t("selectSkillPlaceholder")}
             disabled={saving}
           />
 
           {groupChoice !== ALL_GROUPS_VALUE && visibleSkills.length === 0 && (
             <p className="mt-2 text-sm text-amber-700">
-              Este grupo no tiene habilidades.
+              {t("groupHasNoSkills")}
             </p>
           )}
         </div>
@@ -296,7 +313,7 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div>
           <label className="mb-2 block font-semibold">
-            Fecha
+            {t("dateLabel")}
           </label>
 
           <input
@@ -312,7 +329,7 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div>
           <label className="mb-2 block font-semibold">
-            Hora
+            {t("timeLabel")}
           </label>
 
           <input
@@ -328,7 +345,7 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div>
           <label className="mb-2 block font-semibold">
-            Duración
+            {t("durationLabel")}
           </label>
 
           <div className="flex items-center gap-2">
@@ -337,14 +354,14 @@ export default function AddTrainingForm({ petId }: Props) {
               min="0"
               step="1"
               className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              placeholder="Minutos"
+              placeholder={t("durationLabel")}
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
               disabled={saving}
             />
 
             <span className="whitespace-nowrap text-slate-500">
-              min
+              {t("minSuffix")}
             </span>
           </div>
         </div>
@@ -353,7 +370,7 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div>
           <label className="mb-2 block font-semibold">
-            Estado
+            {t("statusLabel")}
           </label>
 
           <select
@@ -363,11 +380,11 @@ export default function AddTrainingForm({ petId }: Props) {
             className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           >
             <option value="pending">
-              Pendiente
+              {t("pendingOption")}
             </option>
 
             <option value="completed">
-              Completado
+              {t("completedOption")}
             </option>
           </select>
         </div>
@@ -376,13 +393,13 @@ export default function AddTrainingForm({ petId }: Props) {
 
         <div className="md:col-span-2">
           <label className="mb-2 block font-semibold">
-            Notas
+            {t("notesLabel")}
           </label>
 
           <textarea
             rows={5}
             className="w-full rounded-xl border border-slate-300 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-            placeholder="Notas sobre el entrenamiento..."
+            placeholder={t("notesPlaceholder")}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             disabled={saving}
@@ -398,7 +415,7 @@ export default function AddTrainingForm({ petId }: Props) {
         disabled={saving}
         className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {saving ? "Guardando..." : "Guardar entrenamiento"}
+        {saving ? t("saving") : t("save")}
       </button>
     </div>
   );
