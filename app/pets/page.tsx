@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import AddPetForm from "@/components/AddPetForm";
+import { getBreedLabel } from "@/lib/breeds";
 import type { Database } from "@/lib/supabase/database.types";
 
 const supabase = createClient();
@@ -58,6 +59,7 @@ function calculateAge(birthDate: string | null, t: TFunction): string {
 
 export default function PetsPage() {
   const t = useTranslations("Pets");
+  const locale = useLocale();
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +193,7 @@ export default function PetsPage() {
                       </h3>
 
                       <p className="mt-1 text-xl text-slate-600">
-                        {pet.breed ?? t("noBreed")}
+                        {pet.breed ? getBreedLabel(pet.breed, locale) : t("noBreed")}
                       </p>
 
                       <p className="mt-1 text-lg text-slate-500">
