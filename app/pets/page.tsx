@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import AddPetForm from "@/components/AddPetForm";
@@ -14,9 +15,11 @@ type PetRow = Database["public"]["Tables"]["pets"]["Row"];
 
 type Pet = Pick<PetRow, "id" | "user_id" | "name" | "breed" | "age" | "birth_date" | "sex" | "weight" | "color" | "objective" | "level" | "last_training" | "photo">;
 
-function calculateAge(birthDate: string | null) {
+type TFunction = ReturnType<typeof useTranslations>;
+
+function calculateAge(birthDate: string | null, t: TFunction): string {
   if (!birthDate) {
-    return "Sin fecha de nacimiento";
+    return t("noBirthDate");
   }
 
   const birth = new Date(`${birthDate}T00:00:00`);
@@ -35,27 +38,27 @@ function calculateAge(birthDate: string | null) {
   }
 
   if (years < 0) {
-    return "Fecha no válida";
+    return t("invalidDate");
   }
 
   if (years === 0) {
     if (months === 0) {
-      return "Menos de 1 mes";
+      return t("lessThanMonth");
     }
 
-    return `${months} ${months === 1 ? "mes" : "meses"}`;
+    return t("ageMonths", { months });
   }
 
   if (months === 0) {
-    return `${years} ${years === 1 ? "año" : "años"}`;
+    return t("ageYears", { years });
   }
 
-  return `${years} ${years === 1 ? "año" : "años"} y ${months} ${
-    months === 1 ? "mes" : "meses"
-  }`;
+  return t("ageYearsMonths", { years, months });
 }
 
 export default function PetsPage() {
+  const t = useTranslations("Pets");
+
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -103,11 +106,11 @@ export default function PetsPage() {
         <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-5xl font-extrabold text-blue-700">
-              🐶 Mis mascotas
+              {t("title")}
             </h1>
 
             <p className="mt-3 text-lg text-slate-600">
-              Gestiona tus mascotas y consulta su progreso.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -115,7 +118,7 @@ export default function PetsPage() {
             href="/dashboard"
             className="rounded-xl bg-slate-700 px-5 py-3 text-center font-semibold text-white transition hover:bg-slate-800"
           >
-            ← Dashboard
+            {t("backToDashboard")}
           </Link>
         </div>
 
@@ -124,13 +127,12 @@ export default function PetsPage() {
         <section className="mb-10">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-3xl font-bold">
-              Tus mascotas
+              {t("yourPets")}
             </h2>
 
             {!loading && pets.length > 0 && (
               <span className="rounded-full bg-blue-100 px-4 py-2 font-semibold text-blue-700">
-                {pets.length}{" "}
-                {pets.length === 1 ? "mascota" : "mascotas"}
+                {t("petCount", { count: pets.length })}
               </span>
             )}
           </div>
@@ -138,7 +140,7 @@ export default function PetsPage() {
           {loading ? (
             <div className="rounded-2xl bg-white p-10 text-center shadow">
               <p className="text-slate-500">
-                Cargando mascotas...
+                {t("loading")}
               </p>
             </div>
           ) : pets.length === 0 ? (
@@ -148,11 +150,11 @@ export default function PetsPage() {
               </div>
 
               <h3 className="mt-4 text-2xl font-bold">
-                Todavía no tienes mascotas
+                {t("noPetsTitle")}
               </h3>
 
               <p className="mt-2 text-slate-500">
-                Añade tu primera mascota usando el formulario de abajo.
+                {t("noPetsSubtitle")}
               </p>
             </div>
           ) : (
@@ -189,15 +191,15 @@ export default function PetsPage() {
                       </h3>
 
                       <p className="mt-1 text-xl text-slate-600">
-                        {pet.breed ?? "Sin raza"}
+                        {pet.breed ?? t("noBreed")}
                       </p>
 
                       <p className="mt-1 text-lg text-slate-500">
-                        {calculateAge(pet.birth_date)}
+                        {calculateAge(pet.birth_date, t)}
                       </p>
 
                       <p className="mt-4 font-semibold text-blue-600">
-                        Ver perfil →
+                        {t("viewProfile")}
                       </p>
                     </div>
 
@@ -212,7 +214,7 @@ export default function PetsPage() {
 
         <div className="rounded-2xl bg-white p-6 shadow md:p-8">
           <h2 className="mb-6 text-3xl font-bold">
-            Añadir mascota
+            {t("addPet")}
           </h2>
 
           <AddPetForm onAddPet={loadPets} />

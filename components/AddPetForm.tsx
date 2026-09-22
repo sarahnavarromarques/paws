@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { BREEDS, COLORS, WEIGHTS } from "@/lib/breeds";
+import { BREEDS, COLORS, WEIGHTS, getBreedLabel, getColorLabel } from "@/lib/breeds";
 import SearchableSelect from "@/components/SearchableSelect";
 
 const supabase = createClient();
@@ -27,15 +28,19 @@ function minBirthISO() {
   return d.toISOString().split("T")[0];
 }
 
-function toSpanishDate(iso: string) {
+function formatDateForLocale(iso: string, locale: string) {
   const parts = iso.split("-");
   if (parts.length !== 3) return iso;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  const [year, month, day] = parts;
+  return locale === "en" ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
 }
 
 export default function AddPetForm({
   onAddPet,
 }: AddPetFormProps) {
+  const t = useTranslations("AddPetForm");
+  const locale = useLocale();
+
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [customBreed, setCustomBreed] = useState("");
@@ -72,9 +77,7 @@ export default function AddPetForm({
 
     if (!isAllowed) {
       setPhoto(null);
-      setPhotoError(
-        "Ese formato no es válido. Sube una foto JPG, PNG o WEBP. Si es una foto de iPhone (HEIC), cámbiala a JPG en Ajustes › Cámara › Formatos, o haz una captura de pantalla de la foto."
-      );
+      setPhotoError(t("photoTypeError"));
       return;
     }
 
@@ -86,28 +89,22 @@ export default function AddPetForm({
       breed === "Otro" ? customBreed.trim() : breed;
 
     if (!name.trim() || !finalBreed || !birthDate) {
-      alert(
-        "Completa el nombre, la raza y la fecha de nacimiento."
-      );
+      alert(t("alertRequiredFields"));
       return;
     }
 
     if (breed === "Otro" && !customBreed.trim()) {
-      alert("Escribe la raza de tu perro.");
+      alert(t("alertCustomBreed"));
       return;
     }
 
     if (birthDate > todayISO()) {
-      alert(
-        "La fecha de nacimiento no puede ser futura."
-      );
+      alert(t("alertFutureDate"));
       return;
     }
 
     if (birthDate < minBirthISO()) {
-      alert(
-        "La fecha de nacimiento no es válida (demasiado antigua)."
-      );
+      alert(t("alertOldDate"));
       return;
     }
 
@@ -118,7 +115,7 @@ export default function AddPetForm({
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("No hay usuario autenticado.");
+      alert(t("alertNoUser"));
       setSaving(false);
       return;
     }
@@ -139,9 +136,7 @@ export default function AddPetForm({
 
       if (uploadError) {
         console.error("Error subiendo foto:", uploadError);
-        alert(
-          "No se ha podido subir la foto. Inténtalo de nuevo o prueba con otra imagen."
-        );
+        alert(t("alertPhotoUploadError"));
         setSaving(false);
         return;
       }
@@ -171,9 +166,7 @@ export default function AddPetForm({
 
     if (error) {
       console.error("Error guardando mascota:", error);
-      alert(
-        "No se ha podido guardar la mascota. Inténtalo de nuevo."
-      );
+      alert(t("alertSaveError"));
       return;
     }
 
@@ -197,12 +190,12 @@ export default function AddPetForm({
   return (
     <div>
       <label className="mb-2 block font-semibold">
-        Nombre
+        {t("nameLabel")}
       </label>
 
       <input
         className="mb-4 w-full rounded-lg border p-3"
-        placeholder="Nombre de la mascota"
+        placeholder={t("namePlaceholder")}
         value={name}
         onChange={(e) =>
           setName(e.target.value)
@@ -210,7 +203,7 @@ export default function AddPetForm({
       />
 
       <label className="mb-2 block font-semibold">
-        Raza
+        {t("breedLabel")}
       </label>
 
       <div className="mb-4">
@@ -218,18 +211,19 @@ export default function AddPetForm({
           options={breedOptions}
           value={breed}
           onChange={handleBreedChange}
-          placeholder="Selecciona una raza"
+          placeholder={t("breedPlaceholder")}
+          renderLabel={(option) => getBreedLabel(option, locale)}
         />
       </div>
 
       {breed === "Otro" && (
         <div className="mb-4">
           <label className="mb-2 block font-semibold">
-            Escribe la raza
+            {t("customBreedLabel")}
           </label>
           <input
             className="w-full rounded-lg border p-3"
-            placeholder="Ej. Braco de Weimar"
+            placeholder={t("customBreedPlaceholder")}
             value={customBreed}
             onChange={(e) =>
               setCustomBreed(e.target.value)
@@ -239,14 +233,14 @@ export default function AddPetForm({
       )}
 
       <label className="mb-2 block font-semibold">
-        Foto de la mascota
+        {t("photoLabel")}
       </label>
 
       <label
         htmlFor="pet-photo-input"
         className="mb-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-4 font-semibold text-blue-700 transition hover:bg-blue-100"
       >
-        📷 {photo ? "Cambiar foto" : "Seleccionar foto"}
+        📷 {photo ? t("changePhoto") : t("selectPhoto")}
       </label>
 
       <input
@@ -263,7 +257,7 @@ export default function AddPetForm({
 
       {photo && (
         <p className="mb-2 text-sm text-slate-600">
-          ✅ Archivo: {photo.name}
+          {t("photoFile", { name: photo.name })}
         </p>
       )}
 
@@ -274,11 +268,11 @@ export default function AddPetForm({
       )}
 
       <p className="mb-4 text-sm text-slate-500">
-        Formatos admitidos: JPG, PNG o WEBP.
+        {t("photoFormats")}
       </p>
 
       <label className="mb-2 block font-semibold">
-        Sexo
+        {t("sexLabel")}
       </label>
 
       <select
@@ -287,14 +281,14 @@ export default function AddPetForm({
         onChange={(e) => setSex(e.target.value)}
       >
         <option value="">
-          Selecciona el sexo
+          {t("selectSex")}
         </option>
-        <option value="Macho">Macho</option>
-        <option value="Hembra">Hembra</option>
+        <option value="Macho">{t("male")}</option>
+        <option value="Hembra">{t("female")}</option>
       </select>
 
       <label className="mb-2 block font-semibold">
-        Peso (opcional)
+        {t("weightLabel")}
       </label>
 
       <div className="mb-4">
@@ -302,13 +296,13 @@ export default function AddPetForm({
           options={WEIGHTS}
           value={weight}
           onChange={setWeight}
-          placeholder="Selecciona el peso"
+          placeholder={t("selectWeight")}
           renderLabel={(item) => `${item} kg`}
         />
       </div>
 
       <label className="mb-2 block font-semibold">
-        Color (opcional)
+        {t("colorLabel")}
       </label>
 
       <div className="mb-4">
@@ -316,12 +310,13 @@ export default function AddPetForm({
           options={COLORS}
           value={color}
           onChange={setColor}
-          placeholder="Selecciona un color"
+          placeholder={t("selectColor")}
+          renderLabel={(option) => getColorLabel(option, locale)}
         />
       </div>
 
       <label className="mb-2 block font-semibold">
-        Fecha de nacimiento
+        {t("birthDateLabel")}
       </label>
 
       <input
@@ -337,12 +332,11 @@ export default function AddPetForm({
 
       {dateError ? (
         <p className="mb-6 text-sm font-semibold text-red-600">
-          ⚠️ La fecha no es válida. Debe estar entre{" "}
-          {toSpanishDate(minBirthISO())} y hoy.
+          {t("dateError", { min: formatDateForLocale(minBirthISO(), locale) })}
         </p>
       ) : (
         <p className="mb-6 text-sm text-slate-500">
-          La edad se calculará automáticamente.
+          {t("ageAutoCalc")}
         </p>
       )}
 
@@ -351,7 +345,7 @@ export default function AddPetForm({
         disabled={saving || dateError}
         className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {saving ? "Guardando..." : "Guardar mascota"}
+        {saving ? t("saving") : t("save")}
       </button>
     </div>
   );
