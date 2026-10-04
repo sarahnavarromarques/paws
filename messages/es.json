@@ -1,4 +1,8 @@
 {
+  "Metadata": {
+    "title": "PAWS Coaching · Entrenamiento canino",
+    "description": "Plataforma inteligente para el entrenamiento y seguimiento de mascotas."
+  },
   "Settings": {
     "title": "Ajustes",
     "languageLabel": "Idioma",

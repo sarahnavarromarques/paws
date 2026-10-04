@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,21 +14,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "PAWS Coaching · Entrenamiento canino",
-  description:
-    "Plataforma inteligente para el entrenamiento y seguimiento de mascotas.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    title: "PAWS Coaching",
-    statusBarStyle: "default",
-  },
-  icons: {
-    icon: "/icon-192.png",
-    apple: "/apple-touch-icon.png",
-  },
-};
+// Título y descripción en el idioma activo
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Metadata");
+
+  return {
+    title: t("title"),
+    description: t("description"),
+    manifest: "/manifest.json",
+    appleWebApp: {
+      capable: true,
+      title: "PAWS Coaching",
+      statusBarStyle: "default",
+    },
+    icons: {
+      icon: "/icon-192.png",
+      apple: "/apple-touch-icon.png",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#1e3a5f",
