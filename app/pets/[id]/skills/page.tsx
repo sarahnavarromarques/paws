@@ -21,6 +21,8 @@ type Skill = {
   user_id: string | null;
   steps_image: string | null;
   mistakes_image: string | null;
+  steps_image_en: string | null;
+  mistakes_image_en: string | null;
 };
 
 type PetSkillRow = {
@@ -74,6 +76,15 @@ function getSkillName(skill: Skill, locale: string): string {
 function getSkillDescription(skill: Skill, locale: string): string | null {
   if (locale === "en" && skill.description_en) return skill.description_en;
   return skill.description;
+}
+
+// Devuelve SOLO la imagen del idioma activo (sin fallback a otro idioma)
+function getStepsImage(skill: Skill, locale: string): string | null {
+  return locale === "en" ? skill.steps_image_en : skill.steps_image;
+}
+
+function getMistakesImage(skill: Skill, locale: string): string | null {
+  return locale === "en" ? skill.mistakes_image_en : skill.mistakes_image;
 }
 
 const KNOWN_CATEGORIES = [
@@ -153,7 +164,7 @@ export default function PetSkillsPage() {
       const { data: skillsData } = await supabase
         .from("skills")
         .select(
-          "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image"
+          "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image, steps_image_en, mistakes_image_en"
         )
         .order("id", { ascending: true });
 
@@ -246,18 +257,19 @@ export default function PetSkillsPage() {
     setSavingSkillId(null);
   }
 
-  // Subir una imagen (pasos o errores) para una habilidad
+  // Subir una imagen (pasos o errores) para una habilidad, en el idioma activo
   async function handleUploadImage(
     skill: Skill,
     kind: ImageKind,
-    file: File
+    file: File,
+    uploadLocale: string
   ) {
     const key = `${skill.id}-${kind}`;
     setUploadingKey(key);
 
     try {
       const extension = file.name.split(".").pop() ?? "jpg";
-      const path = `skill-${skill.id}/${kind}-${Date.now()}.${extension}`;
+      const path = `skill-${skill.id}/${kind}-${uploadLocale}-${Date.now()}.${extension}`;
 
       const { error: uploadError } = await supabase.storage
         .from("skill-images")
@@ -276,13 +288,22 @@ export default function PetSkillsPage() {
 
       const publicUrl = publicData.publicUrl;
 
+      // Construimos el payload explícitamente para cada caso,
+      // así TypeScript verifica los tipos sin necesidad de "as any".
+      const isEnglish = uploadLocale === "en";
+
+      const updatePayload =
+        kind === "steps"
+          ? isEnglish
+            ? { steps_image_en: publicUrl }
+            : { steps_image: publicUrl }
+          : isEnglish
+          ? { mistakes_image_en: publicUrl }
+          : { mistakes_image: publicUrl };
+
       const { error: updateError } = await supabase
         .from("skills")
-        .update(
-          kind === "steps"
-            ? { steps_image: publicUrl }
-            : { mistakes_image: publicUrl }
-        )
+        .update(updatePayload)
         .eq("id", skill.id);
 
       if (updateError) {
@@ -295,15 +316,7 @@ export default function PetSkillsPage() {
       // Actualizar en pantalla sin recargar
       setSkills((prev) =>
         prev.map((s) =>
-          s.id === skill.id
-            ? {
-                ...s,
-                steps_image:
-                  kind === "steps" ? publicUrl : s.steps_image,
-                mistakes_image:
-                  kind === "mistakes" ? publicUrl : s.mistakes_image,
-              }
-            : s
+          s.id === skill.id ? { ...s, ...updatePayload } : s
         )
       );
     } finally {
@@ -347,7 +360,7 @@ export default function PetSkillsPage() {
         user_id: currentUserId,
       })
       .select(
-        "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image"
+        "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image, steps_image_en, mistakes_image_en"
       )
       .single();
 
@@ -654,6 +667,8 @@ export default function PetSkillsPage() {
           uploadingKey === `${infoSkill.id}-mistakes`;
 
         const description = getSkillDescription(infoSkill, locale);
+        const stepsImage = getStepsImage(infoSkill, locale);
+        const mistakesImage = getMistakesImage(infoSkill, locale);
 
         return (
           <div
@@ -695,14 +710,14 @@ export default function PetSkillsPage() {
                 </p>
               )}
 
-              {/* Imagen de pasos */}
+              {/* Imagen de pasos (idioma activo) */}
               <div className="mb-8">
                 <p className="mb-3 text-lg font-bold text-slate-800">
                   {t("howToTrainTitle")}
                 </p>
-                {infoSkill.steps_image ? (
+                {stepsImage ? (
                   <img
-                    src={infoSkill.steps_image}
+                    src={stepsImage}
                     alt={getSkillName(infoSkill, locale)}
                     className="w-full rounded-xl border border-slate-200"
                   />
@@ -716,7 +731,7 @@ export default function PetSkillsPage() {
                   <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                     {stepsUploading
                       ? t("uploading")
-                      : infoSkill.steps_image
+                      : stepsImage
                       ? t("replaceImage")
                       : t("uploadImage")}
                     <input
@@ -727,7 +742,7 @@ export default function PetSkillsPage() {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          void handleUploadImage(infoSkill, "steps", file);
+                          void handleUploadImage(infoSkill, "steps", file, locale);
                         }
                         e.target.value = "";
                       }}
@@ -736,14 +751,14 @@ export default function PetSkillsPage() {
                 )}
               </div>
 
-              {/* Imagen de errores comunes */}
+              {/* Imagen de errores comunes (idioma activo) */}
               <div>
                 <p className="mb-3 text-lg font-bold text-slate-800">
                   {t("commonMistakesTitle")}
                 </p>
-                {infoSkill.mistakes_image ? (
+                {mistakesImage ? (
                   <img
-                    src={infoSkill.mistakes_image}
+                    src={mistakesImage}
                     alt={getSkillName(infoSkill, locale)}
                     className="w-full rounded-xl border border-slate-200"
                   />
@@ -757,7 +772,7 @@ export default function PetSkillsPage() {
                   <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                     {mistakesUploading
                       ? t("uploading")
-                      : infoSkill.mistakes_image
+                      : mistakesImage
                       ? t("replaceImage")
                       : t("uploadImage")}
                     <input
@@ -771,7 +786,8 @@ export default function PetSkillsPage() {
                           void handleUploadImage(
                             infoSkill,
                             "mistakes",
-                            file
+                            file,
+                            locale
                           );
                         }
                         e.target.value = "";

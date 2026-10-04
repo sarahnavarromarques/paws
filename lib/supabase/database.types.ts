@@ -250,9 +250,11 @@ export type Database = {
           difficulty: string | null
           id: number
           mistakes_image: string | null
+          mistakes_image_en: string | null
           name: string
           name_en: string | null
           steps_image: string | null
+          steps_image_en: string | null
           user_id: string | null
         }
         Insert: {
@@ -264,9 +266,11 @@ export type Database = {
           difficulty?: string | null
           id?: never
           mistakes_image?: string | null
+          mistakes_image_en?: string | null
           name: string
           name_en?: string | null
           steps_image?: string | null
+          steps_image_en?: string | null
           user_id?: string | null
         }
         Update: {
@@ -278,9 +282,11 @@ export type Database = {
           difficulty?: string | null
           id?: never
           mistakes_image?: string | null
+          mistakes_image_en?: string | null
           name?: string
           name_en?: string | null
           steps_image?: string | null
+          steps_image_en?: string | null
           user_id?: string | null
         }
         Relationships: []
