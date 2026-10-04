@@ -32,7 +32,7 @@
   "Pets": {
     "title": "🐶 Mis mascotas",
     "subtitle": "Gestiona tus mascotas y consulta su progreso.",
-    "backToDashboard": "← Dashboard",
+    "backToDashboard": "← Volver al panel",
     "yourPets": "Tus mascotas",
     "petCount": "{count, plural, one {# mascota} other {# mascotas}}",
     "loading": "Cargando mascotas...",
@@ -267,7 +267,7 @@
     "availableGroupsLabel": "Grupos disponibles",
     "noGroupsToCopy": "Este perro no tiene grupos para copiar.",
     "copyingButton": "Copiando...",
-       "copyButton": "Copiar"
+    "copyButton": "Copiar"
   },
   "EditPet": {
     "loading": "Cargando mascota...",
@@ -307,12 +307,12 @@
     "alertSaveError": "No se han podido guardar los cambios. Inténtalo de nuevo.",
     "alertNoUpdate": "No se ha actualizado ninguna mascota.",
     "confirmDeletePet": "¿Seguro que quieres eliminar esta mascota? También se eliminarán sus entrenamientos.",
-       "alertDeleteFailed": "No se ha podido eliminar la mascota. Inténtalo de nuevo."
+    "alertDeleteFailed": "No se ha podido eliminar la mascota. Inténtalo de nuevo."
   },
   "Calendar": {
     "title": "📅 Calendario",
     "subtitle": "Organiza y consulta los entrenamientos de tus mascotas.",
-    "backToDashboard": "← Dashboard",
+    "backToDashboard": "← Volver al panel",
     "today": "Hoy",
     "loading": "Cargando calendario...",
     "weekdays": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
@@ -321,7 +321,7 @@
     "completedStatus": "✓ Completado",
     "pendingStatus": "Pendiente",
     "clickToEdit": "Pulsa para editar",
-       "minSuffix": "min"
+    "minSuffix": "min"
   },
   "EditTraining": {
     "loading": "Cargando entrenamiento...",
