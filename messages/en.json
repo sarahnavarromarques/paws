@@ -449,5 +449,17 @@
     "fciBody2": "These regulations were approved by the FCI General Committee in Brussels (November 1999) and came into force on 1 January 2001.",
     "disclaimer": "PAWS Coaching is not affiliated with or endorsed by the FCI. References to these regulations are made for informational and educational purposes, in acknowledgement of the original source.",
     "footer": "Thanks to all the sources and professionals who make knowledge-based dog training possible."
+  },
+  "Sidebar": {
+    "menuTitle": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "dashboard": "Dashboard",
+    "pets": "Dogs",
+    "calendar": "Calendar",
+    "settings": "Settings",
+    "credits": "Credits & sources",
+    "logout": "Log out",
+    "loggingOut": "Logging out..."
   }
 }

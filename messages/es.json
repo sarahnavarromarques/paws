@@ -449,5 +449,17 @@
     "fciBody2": "Dicho reglamento fue aprobado por el Comité General de la FCI en Bruselas (noviembre de 1999) y entró en vigor el 1 de enero de 2001.",
     "disclaimer": "PAWS Coaching no está afiliada ni respaldada por la FCI. Las referencias a dicho reglamento se realizan con fines informativos y educativos, como reconocimiento a la fuente original.",
     "footer": "Gracias a todas las fuentes y profesionales que hacen posible un entrenamiento canino basado en el conocimiento."
+  },
+  "Sidebar": {
+    "menuTitle": "Menú",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "dashboard": "Panel",
+    "pets": "Mascotas",
+    "calendar": "Calendario",
+    "settings": "Ajustes",
+    "credits": "Créditos y fuentes",
+    "logout": "Cerrar sesión",
+    "loggingOut": "Cerrando sesión..."
   }
 }
