@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
-export default function CreditsPage() {
+export default async function CreditsPage() {
+  const t = await getTranslations("Credits");
+
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-4xl">
@@ -11,57 +14,45 @@ export default function CreditsPage() {
             href="/dashboard"
             className="text-sm font-semibold text-blue-600 hover:text-blue-800"
           >
-            ← Volver al dashboard
+            {t("back")}
           </Link>
 
           <h1 className="mt-2 text-4xl font-extrabold tracking-tight">
-            📚 Créditos y fuentes
+            {t("title")}
           </h1>
 
-          <p className="mt-2 text-slate-600">
-            Reconocimiento a las fuentes que han servido de referencia para
-            construir PAWS Coaching.
-          </p>
+          <p className="mt-2 text-slate-600">{t("subtitle")}</p>
         </header>
 
         {/* TARJETA: FCI */}
         <section className="rounded-2xl bg-white p-8 shadow">
-          <h2 className="text-xl font-bold">
-            🏅 Reglamento de Obediencia (FCI)
-          </h2>
+          <h2 className="text-xl font-bold">{t("fciTitle")}</h2>
 
           <p className="mt-4 leading-relaxed text-slate-700">
-            Parte de las habilidades y ejercicios de obediencia incluidos en
-            PAWS Coaching se han elaborado tomando como referencia el{" "}
-            <span className="font-semibold">
-              «Reglamento General para la Participación en Pruebas y
-              Competiciones de Obediencia Clase Internacional con C.A.C.I.O.B.»
-            </span>{" "}
-            de la{" "}
-            <span className="font-semibold italic">
-              Fédération Cynologique Internationale
-            </span>{" "}
-            (FCI).
+            {t.rich("fciBody1", {
+              doc: (chunks) => (
+                <span className="font-semibold">{chunks}</span>
+              ),
+              org: (chunks) => (
+                <span className="font-semibold italic">{chunks}</span>
+              ),
+            })}
           </p>
 
           <p className="mt-4 leading-relaxed text-slate-700">
-            Dicho reglamento fue aprobado por el Comité General de la FCI en
-            Bruselas (noviembre de 1999) y entró en vigor el 1 de enero de 2001.
+            {t("fciBody2")}
           </p>
 
           <div className="mt-6 rounded-xl bg-slate-50 p-5">
             <p className="text-sm leading-relaxed text-slate-500">
-              PAWS Coaching no está afiliada ni respaldada por la FCI. Las
-              referencias a dicho reglamento se realizan con fines informativos
-              y educativos, como reconocimiento a la fuente original.
+              {t("disclaimer")}
             </p>
           </div>
         </section>
 
         {/* PIE */}
         <p className="mt-8 text-center text-xs text-slate-400">
-          Gracias a todas las fuentes y profesionales que hacen posible un
-          entrenamiento canino basado en el conocimiento.
+          {t("footer")}
         </p>
 
       </div>

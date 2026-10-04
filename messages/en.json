@@ -435,5 +435,15 @@
     "defaultPlaceholder": "Select an option",
     "searchPlaceholder": "Search...",
     "noMatches": "No matches."
+  },
+  "Credits": {
+    "back": "← Back to dashboard",
+    "title": "📚 Credits & sources",
+    "subtitle": "Acknowledging the sources used as references to build PAWS Coaching.",
+    "fciTitle": "🏅 Obedience Regulations (FCI)",
+    "fciBody1": "Some of the obedience skills and exercises in PAWS Coaching were developed using as a reference the <doc>General Regulations for Participation in International Class Obedience Trials and Competitions with C.A.C.I.O.B.</doc> of the <org>Fédération Cynologique Internationale</org> (FCI).",
+    "fciBody2": "These regulations were approved by the FCI General Committee in Brussels (November 1999) and came into force on 1 January 2001.",
+    "disclaimer": "PAWS Coaching is not affiliated with or endorsed by the FCI. References to these regulations are made for informational and educational purposes, in acknowledgement of the original source.",
+    "footer": "Thanks to all the sources and professionals who make knowledge-based dog training possible."
   }
 }
