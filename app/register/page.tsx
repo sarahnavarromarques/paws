@@ -3,14 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
-import { translateAuthError } from "@/lib/auth-errors";
+import { getAuthErrorKey } from "@/lib/auth-errors";
 
 const supabase = createClient();
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useTranslations("Register");
+  const tErrors = useTranslations("AuthErrors");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,12 +24,12 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!email.trim() || !password) {
-      alert("Introduce un correo y una contraseña.");
+      alert(t("alertMissingFields"));
       return;
     }
 
     if (password.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
+      alert(t("alertPasswordTooShort"));
       return;
     }
 
@@ -40,7 +43,7 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (error) {
-      alert(translateAuthError(error.message));
+      alert(tErrors(getAuthErrorKey(error.message)));
       return;
     }
 
@@ -55,14 +58,14 @@ export default function RegisterPage() {
         className="w-[420px] rounded-2xl bg-white p-10 shadow-xl"
       >
         <h1 className="mb-8 text-center text-3xl font-bold">
-          🐾 Crear cuenta
+          {t("title")}
         </h1>
 
         <input
           type="email"
           autoComplete="email"
           className="mb-4 w-full rounded-lg border p-3"
-          placeholder="Correo electrónico"
+          placeholder={t("emailPlaceholder")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -71,13 +74,13 @@ export default function RegisterPage() {
           type="password"
           autoComplete="new-password"
           className="mb-2 w-full rounded-lg border p-3"
-          placeholder="Contraseña (mínimo 6 caracteres)"
+          placeholder={t("passwordPlaceholder")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
         <p className="mb-6 text-xs text-slate-400">
-          La contraseña debe tener al menos 6 caracteres.
+          {t("passwordHint")}
         </p>
 
         <button
@@ -85,16 +88,16 @@ export default function RegisterPage() {
           disabled={loading}
           className="w-full rounded-lg bg-green-600 py-3 text-white transition hover:bg-green-700 disabled:opacity-50"
         >
-          {loading ? "Creando cuenta..." : "Crear cuenta"}
+          {loading ? t("creating") : t("submit")}
         </button>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          ¿Ya tienes cuenta?{" "}
+          {t("haveAccount")}{" "}
           <Link
             href="/login"
             className="font-semibold text-blue-600 hover:underline"
           >
-            Inicia sesión
+            {t("loginLink")}
           </Link>
         </p>
       </form>

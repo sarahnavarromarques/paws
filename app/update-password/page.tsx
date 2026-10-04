@@ -3,14 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
-import { translateAuthError } from "@/lib/auth-errors";
+import { getAuthErrorKey } from "@/lib/auth-errors";
 
 const supabase = createClient();
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
+  const t = useTranslations("UpdatePassword");
+  const tErrors = useTranslations("AuthErrors");
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -21,17 +24,17 @@ export default function UpdatePasswordPage() {
     e.preventDefault();
 
     if (!password) {
-      alert("Introduce una contraseña nueva.");
+      alert(t("alertEnterPassword"));
       return;
     }
 
     if (password.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
+      alert(t("alertPasswordTooShort"));
       return;
     }
 
     if (password !== confirm) {
-      alert("Las contraseñas no coinciden.");
+      alert(t("alertPasswordsDontMatch"));
       return;
     }
 
@@ -44,7 +47,7 @@ export default function UpdatePasswordPage() {
     setLoading(false);
 
     if (error) {
-      alert(translateAuthError(error.message));
+      alert(tErrors(getAuthErrorKey(error.message)));
       return;
     }
 
@@ -55,15 +58,12 @@ export default function UpdatePasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-100">
       <div className="w-[420px] rounded-2xl bg-white p-10 shadow-xl">
         <h1 className="mb-2 text-center text-3xl font-bold">
-          🐾 Nueva contraseña
+          {t("title")}
         </h1>
 
         {done ? (
           <div className="mt-6 text-center">
-            <p className="mb-6 text-slate-600">
-              Tu contraseña se ha actualizado correctamente. Ya
-              puedes iniciar sesión con ella.
-            </p>
+            <p className="mb-6 text-slate-600">{t("successMessage")}</p>
 
             <button
               type="button"
@@ -73,20 +73,20 @@ export default function UpdatePasswordPage() {
               }}
               className="w-full rounded-lg bg-blue-600 py-3 text-white transition hover:bg-blue-700"
             >
-              Ir a iniciar sesión
+              {t("goToLogin")}
             </button>
           </div>
         ) : (
           <form onSubmit={handleUpdate}>
             <p className="mb-6 mt-2 text-center text-sm text-slate-500">
-              Escribe tu nueva contraseña.
+              {t("instructions")}
             </p>
 
             <input
               type="password"
               autoComplete="new-password"
               className="mb-4 w-full rounded-lg border p-3"
-              placeholder="Nueva contraseña"
+              placeholder={t("newPasswordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -95,7 +95,7 @@ export default function UpdatePasswordPage() {
               type="password"
               autoComplete="new-password"
               className="mb-6 w-full rounded-lg border p-3"
-              placeholder="Repite la contraseña"
+              placeholder={t("confirmPlaceholder")}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
@@ -105,7 +105,7 @@ export default function UpdatePasswordPage() {
               disabled={loading}
               className="w-full rounded-lg bg-blue-600 py-3 text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? "Guardando..." : "Guardar contraseña"}
+              {loading ? t("saving") : t("submit")}
             </button>
 
             <p className="mt-6 text-center text-sm text-slate-500">
@@ -113,7 +113,7 @@ export default function UpdatePasswordPage() {
                 href="/login"
                 className="font-semibold text-blue-600 hover:underline"
               >
-                Volver a iniciar sesión
+                {t("backToLogin")}
               </Link>
             </p>
           </form>

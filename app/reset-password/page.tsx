@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
-import { translateAuthError } from "@/lib/auth-errors";
+import { getAuthErrorKey } from "@/lib/auth-errors";
 
 const supabase = createClient();
 
 export default function ResetPasswordPage() {
+  const t = useTranslations("ResetPassword");
+  const tErrors = useTranslations("AuthErrors");
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -17,7 +21,7 @@ export default function ResetPasswordPage() {
     e.preventDefault();
 
     if (!email.trim()) {
-      alert("Introduce tu correo electrónico.");
+      alert(t("alertEnterEmail"));
       return;
     }
 
@@ -33,7 +37,7 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      alert(translateAuthError(error.message));
+      alert(tErrors(getAuthErrorKey(error.message)));
       return;
     }
 
@@ -44,36 +48,31 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-100">
       <div className="w-[420px] rounded-2xl bg-white p-10 shadow-xl">
         <h1 className="mb-2 text-center text-3xl font-bold">
-          🐾 Recuperar contraseña
+          {t("title")}
         </h1>
 
         {sent ? (
           <div className="mt-6 text-center">
-            <p className="mb-6 text-slate-600">
-              Si existe una cuenta con ese correo, te hemos enviado
-              un enlace para restablecer tu contraseña. Revisa tu
-              bandeja de entrada.
-            </p>
+            <p className="mb-6 text-slate-600">{t("sentMessage")}</p>
 
             <Link
               href="/login"
               className="font-semibold text-blue-600 hover:underline"
             >
-              Volver a iniciar sesión
+              {t("backToLogin")}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleReset}>
             <p className="mb-6 mt-2 text-center text-sm text-slate-500">
-              Introduce tu correo y te enviaremos un enlace para
-              crear una contraseña nueva.
+              {t("instructions")}
             </p>
 
             <input
               type="email"
               autoComplete="email"
               className="mb-6 w-full rounded-lg border p-3"
-              placeholder="Correo electrónico"
+              placeholder={t("emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -83,7 +82,7 @@ export default function ResetPasswordPage() {
               disabled={loading}
               className="w-full rounded-lg bg-blue-600 py-3 text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? "Enviando..." : "Enviar enlace"}
+              {loading ? t("sending") : t("submit")}
             </button>
 
             <p className="mt-6 text-center text-sm text-slate-500">
@@ -91,7 +90,7 @@ export default function ResetPasswordPage() {
                 href="/login"
                 className="font-semibold text-blue-600 hover:underline"
               >
-                Volver a iniciar sesión
+                {t("backToLogin")}
               </Link>
             </p>
           </form>

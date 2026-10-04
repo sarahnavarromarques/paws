@@ -372,5 +372,63 @@
     "confirmDeleteTraining": "¿Seguro que quieres eliminar este entrenamiento?",
     "alertDeleteFailed": "No se ha podido eliminar el entrenamiento. Inténtalo de nuevo.",
     "localFallbackComment": "Resumen básico sin IA: sigue practicando y aumenta la dificultad poco a poco."
+  },
+  "Login": {
+    "title": "🐾 PAWS Coaching",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña",
+    "loggingIn": "Entrando...",
+    "submit": "Iniciar sesión",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "noAccount": "¿No tienes cuenta?",
+    "registerLink": "Regístrate",
+    "alertMissingFields": "Introduce el correo y la contraseña."
+  },
+  "Register": {
+    "title": "🐾 Crear cuenta",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña (mínimo 6 caracteres)",
+    "passwordHint": "La contraseña debe tener al menos 6 caracteres.",
+    "creating": "Creando cuenta...",
+    "submit": "Crear cuenta",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "loginLink": "Inicia sesión",
+    "alertMissingFields": "Introduce un correo y una contraseña.",
+    "alertPasswordTooShort": "La contraseña debe tener al menos 6 caracteres."
+  },
+  "ResetPassword": {
+    "title": "🐾 Recuperar contraseña",
+    "sentMessage": "Si existe una cuenta con ese correo, te hemos enviado un enlace para restablecer tu contraseña. Revisa tu bandeja de entrada.",
+    "backToLogin": "Volver a iniciar sesión",
+    "instructions": "Introduce tu correo y te enviaremos un enlace para crear una contraseña nueva.",
+    "emailPlaceholder": "Correo electrónico",
+    "sending": "Enviando...",
+    "submit": "Enviar enlace",
+    "alertEnterEmail": "Introduce tu correo electrónico."
+  },
+  "UpdatePassword": {
+    "title": "🐾 Nueva contraseña",
+    "successMessage": "Tu contraseña se ha actualizado correctamente. Ya puedes iniciar sesión con ella.",
+    "goToLogin": "Ir a iniciar sesión",
+    "instructions": "Escribe tu nueva contraseña.",
+    "newPasswordPlaceholder": "Nueva contraseña",
+    "confirmPlaceholder": "Repite la contraseña",
+    "saving": "Guardando...",
+    "submit": "Guardar contraseña",
+    "backToLogin": "Volver a iniciar sesión",
+    "alertEnterPassword": "Introduce una contraseña nueva.",
+    "alertPasswordTooShort": "La contraseña debe tener al menos 6 caracteres.",
+    "alertPasswordsDontMatch": "Las contraseñas no coinciden."
+  },
+  "AuthErrors": {
+    "invalidCredentials": "Correo o contraseña incorrectos.",
+    "alreadyRegistered": "Ya existe una cuenta con este correo. Inicia sesión.",
+    "weakPassword": "La contraseña debe tener al menos 6 caracteres.",
+    "samePassword": "La nueva contraseña debe ser distinta de la anterior.",
+    "invalidEmail": "El correo electrónico no es válido.",
+    "emailNotConfirmed": "Debes confirmar tu correo antes de iniciar sesión.",
+    "rateLimited": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+    "network": "Error de conexión. Comprueba tu internet e inténtalo de nuevo.",
+    "generic": "Ha ocurrido un error. Inténtalo de nuevo."
   }
 }

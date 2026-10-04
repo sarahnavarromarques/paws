@@ -1,17 +1,33 @@
-// Traduce los mensajes de error de Supabase (en inglés) a español.
+// Convierte los mensajes de error de Supabase (en inglés) en una clave de traducción.
+// Cada pantalla traduce la clave con next-intl (namespace "AuthErrors").
 // El mensaje original se registra en la consola para depuración.
 
-export function translateAuthError(message: string): string {
+export type AuthErrorKey =
+  | "invalidCredentials"
+  | "alreadyRegistered"
+  | "weakPassword"
+  | "samePassword"
+  | "invalidEmail"
+  | "emailNotConfirmed"
+  | "rateLimited"
+  | "network"
+  | "generic";
+
+export function getAuthErrorKey(message: string): AuthErrorKey {
   console.error("Auth error original:", message);
 
   const msg = message.toLowerCase();
 
   if (msg.includes("invalid login credentials")) {
-    return "Correo o contraseña incorrectos.";
+    return "invalidCredentials";
   }
 
   if (msg.includes("user already registered")) {
-    return "Ya existe una cuenta con este correo. Inicia sesión.";
+    return "alreadyRegistered";
+  }
+
+  if (msg.includes("different from the old password")) {
+    return "samePassword";
   }
 
   if (
@@ -19,18 +35,18 @@ export function translateAuthError(message: string): string {
     msg.includes("password should contain") ||
     msg.includes("weak password")
   ) {
-    return "La contraseña debe tener al menos 6 caracteres.";
+    return "weakPassword";
   }
 
   if (
     msg.includes("unable to validate email address") ||
     msg.includes("invalid email")
   ) {
-    return "El correo electrónico no es válido.";
+    return "invalidEmail";
   }
 
   if (msg.includes("email not confirmed")) {
-    return "Debes confirmar tu correo antes de iniciar sesión.";
+    return "emailNotConfirmed";
   }
 
   if (
@@ -38,16 +54,13 @@ export function translateAuthError(message: string): string {
     msg.includes("too many requests") ||
     msg.includes("for security purposes")
   ) {
-    return "Demasiados intentos. Espera un momento e inténtalo de nuevo.";
+    return "rateLimited";
   }
 
-  if (
-    msg.includes("network") ||
-    msg.includes("failed to fetch")
-  ) {
-    return "Error de conexión. Comprueba tu internet e inténtalo de nuevo.";
+  if (msg.includes("network") || msg.includes("failed to fetch")) {
+    return "network";
   }
 
-  // Cualquier otro error: mensaje genérico en español (nunca en inglés).
-  return "Ha ocurrido un error. Inténtalo de nuevo.";
+  // Cualquier otro error: mensaje genérico
+  return "generic";
 }
