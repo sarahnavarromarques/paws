@@ -430,5 +430,10 @@
     "rateLimited": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
     "network": "Error de conexión. Comprueba tu internet e inténtalo de nuevo.",
     "generic": "Ha ocurrido un error. Inténtalo de nuevo."
+  },
+  "SearchableSelect": {
+    "defaultPlaceholder": "Selecciona una opción",
+    "searchPlaceholder": "Buscar...",
+    "noMatches": "No hay coincidencias."
   }
 }

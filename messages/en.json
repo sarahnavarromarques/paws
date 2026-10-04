@@ -430,5 +430,10 @@
     "rateLimited": "Too many attempts. Wait a moment and try again.",
     "network": "Connection error. Check your internet and try again.",
     "generic": "Something went wrong. Please try again."
+  },
+  "SearchableSelect": {
+    "defaultPlaceholder": "Select an option",
+    "searchPlaceholder": "Search...",
+    "noMatches": "No matches."
   }
 }

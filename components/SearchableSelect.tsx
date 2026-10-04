@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type Props = {
   options: string[];
@@ -16,10 +17,12 @@ export default function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "Selecciona una opción",
+  placeholder,
   renderLabel,
   disabled = false,
 }: Props) {
+  const t = useTranslations("SearchableSelect");
+
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,9 +51,9 @@ export default function SearchableSelect({
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter((option) =>
-      label(option).toLowerCase().includes(q)
+      (renderLabel ? renderLabel(option) : option).toLowerCase().includes(q)
     );
-  }, [options, query]);
+  }, [options, query, renderLabel]);
 
   function handleSelect(option: string) {
     onChange(option);
@@ -67,7 +70,7 @@ export default function SearchableSelect({
         className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white p-3 text-left outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:opacity-50"
       >
         <span className={value ? "text-slate-900" : "text-slate-400"}>
-          {value ? label(value) : placeholder}
+          {value ? label(value) : placeholder ?? t("defaultPlaceholder")}
         </span>
         <span className="ml-2 text-slate-400">▾</span>
       </button>
@@ -80,7 +83,7 @@ export default function SearchableSelect({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar..."
+              placeholder={t("searchPlaceholder")}
               className="w-full rounded-lg border border-slate-300 p-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             />
           </div>
@@ -88,7 +91,7 @@ export default function SearchableSelect({
           <div className="max-h-60 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="px-4 py-3 text-sm text-slate-500">
-                No hay coincidencias.
+                {t("noMatches")}
               </p>
             ) : (
               filtered.map((option) => {
