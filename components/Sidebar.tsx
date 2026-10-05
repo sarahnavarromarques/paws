@@ -31,11 +31,16 @@ type PetItem = Pick<PetRow, "id" | "name">;
 
 export default function Sidebar() {
   const t = useTranslations("Sidebar");
+  // Reutilizamos los textos de la ficha del perro (Habilidades, Grupos, Editar)
+  const tPet = useTranslations("PetProfile");
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [pets, setPets] = useState<PetItem[]>([]);
+  const [expandedPets, setExpandedPets] = useState<Set<PetItem["id"]>>(
+    () => new Set()
+  );
 
   // Cargar los perros del usuario cada vez que se abre el menú
   useEffect(() => {
@@ -66,6 +71,20 @@ export default function Sidebar() {
     };
   }, [open]);
 
+  // Al abrir el menú dentro de un perro, ese perro aparece desplegado
+  useEffect(() => {
+    if (!open) return;
+    const match = pathname.match(/^\/pets\/(\d+)/);
+    if (!match) return;
+    const currentPetId = Number(match[1]);
+    setExpandedPets((prev) => {
+      if (prev.has(currentPetId)) return prev;
+      const next = new Set(prev);
+      next.add(currentPetId);
+      return next;
+    });
+  }, [open, pathname]);
+
   // Cerrar con la tecla Escape
   useEffect(() => {
     if (!open) return;
@@ -87,15 +106,27 @@ export default function Sidebar() {
   if (HIDDEN_PATHS.includes(pathname)) return null;
 
   // "Mascotas" solo se resalta en la lista general;
-  // dentro de la ficha de un perro se resalta ese perro.
+  // dentro de la ficha de un perro se resalta esa página del perro.
   const isActive = (href: string) => {
     if (href === "/pets") return pathname === "/pets";
     return pathname === href || pathname.startsWith(href + "/");
   };
 
-  const isPetActive = (petId: PetItem["id"]) => {
+  const isInsidePet = (petId: PetItem["id"]) => {
     const base = `/pets/${petId}`;
     return pathname === base || pathname.startsWith(base + "/");
+  };
+
+  const togglePet = (petId: PetItem["id"]) => {
+    setExpandedPets((prev) => {
+      const next = new Set(prev);
+      if (next.has(petId)) {
+        next.delete(petId);
+      } else {
+        next.add(petId);
+      }
+      return next;
+    });
   };
 
   const handleLogout = async () => {
@@ -197,27 +228,92 @@ export default function Sidebar() {
                     {t(item.key)}
                   </Link>
 
-                  {/* Lista de perros debajo de "Mascotas" */}
+                  {/* Perros debajo de "Mascotas", cada uno desplegable */}
                   {item.key === "pets" && pets.length > 0 && (
                     <ul className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
                       {pets.map((pet) => {
-                        const petActive = isPetActive(pet.id);
+                        const base = `/pets/${pet.id}`;
+                        const onProfile = pathname === base;
+                        const inside = isInsidePet(pet.id);
+                        const expanded = expandedPets.has(pet.id);
+
+                        const subLinks = [
+                          { href: `${base}/skills`, label: tPet("skills") },
+                          { href: `${base}/groups`, label: tPet("skillGroups") },
+                          { href: `${base}/edit`, label: tPet("editPet") },
+                        ];
+
                         return (
                           <li key={pet.id}>
-                            <Link
-                              href={`/pets/${pet.id}`}
-                              onClick={() => setOpen(false)}
-                              tabIndex={open ? 0 : -1}
-                              aria-current={petActive ? "page" : undefined}
-                              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                                petActive
-                                  ? "bg-[#1e3a5f] font-semibold text-white"
-                                  : "text-gray-600 hover:bg-gray-100"
-                              }`}
-                            >
-                              <span>🐾</span>
-                              <span className="truncate">{pet.name}</span>
-                            </Link>
+                            <div className="flex items-center gap-1">
+                              <Link
+                                href={base}
+                                onClick={() => setOpen(false)}
+                                tabIndex={open ? 0 : -1}
+                                aria-current={onProfile ? "page" : undefined}
+                                className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                                  onProfile
+                                    ? "bg-[#1e3a5f] font-semibold text-white"
+                                    : inside
+                                    ? "font-semibold text-[#1e3a5f] hover:bg-gray-100"
+                                    : "text-gray-600 hover:bg-gray-100"
+                                }`}
+                              >
+                                <span>🐾</span>
+                                <span className="truncate">{pet.name}</span>
+                              </Link>
+
+                              <button
+                                type="button"
+                                onClick={() => togglePet(pet.id)}
+                                tabIndex={open ? 0 : -1}
+                                aria-expanded={expanded}
+                                aria-label={pet.name}
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={2.5}
+                                  className={`h-4 w-4 transition-transform duration-200 ${
+                                    expanded ? "rotate-90" : ""
+                                  }`}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9 6l6 6-6 6"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {expanded && (
+                              <ul className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-3">
+                                {subLinks.map((sub) => {
+                                  const subActive = pathname === sub.href;
+                                  return (
+                                    <li key={sub.href}>
+                                      <Link
+                                        href={sub.href}
+                                        onClick={() => setOpen(false)}
+                                        tabIndex={open ? 0 : -1}
+                                        aria-current={subActive ? "page" : undefined}
+                                        className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                                          subActive
+                                            ? "bg-[#1e3a5f] font-semibold text-white"
+                                            : "text-gray-600 hover:bg-gray-100"
+                                        }`}
+                                      >
+                                        {sub.label}
+                                      </Link>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
                           </li>
                         );
                       })}
