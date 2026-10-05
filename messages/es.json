@@ -64,7 +64,22 @@
     "errorPasswordsDontMatch": "Las contraseñas nuevas no coinciden.",
     "errorCurrentPasswordWrong": "La contraseña actual no es correcta.",
     "logoutButton": "Cerrar sesión",
-    "loggingOut": "Cerrando sesión..."
+    "loggingOut": "Cerrando sesión...",
+    "dangerTitle": "Zona peligrosa",
+    "deleteAccountDescription": "Borra tu cuenta y todos tus datos: mascotas, entrenamientos, habilidades creadas por ti, fotos y perfil. No se puede deshacer.",
+    "deleteAccountButton": "Borrar cuenta",
+    "deleteModalTitle": "¿Borrar tu cuenta para siempre?",
+    "deleteModalBody": "Se borrarán tu cuenta y todos tus datos: mascotas, entrenamientos, habilidades creadas por ti, fotos y perfil. Esta acción no se puede deshacer.",
+    "deletePasswordLabel": "Tu contraseña",
+    "deleteKeyword": "BORRAR",
+    "deleteConfirmLabel": "Escribe {keyword} para confirmar",
+    "deleteConfirmButton": "Borrar mi cuenta",
+    "deletingAccount": "Borrando cuenta...",
+    "cancel": "Cancelar",
+    "errorDeleteFields": "Escribe tu contraseña y {keyword}.",
+    "errorDeleteWrongPassword": "La contraseña no es correcta.",
+    "errorDeleteFailed": "No se ha podido borrar la cuenta. Inténtalo de nuevo.",
+    "errorSessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
   },
   "Dashboard": {
     "loading": "Cargando...",

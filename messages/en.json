@@ -64,7 +64,22 @@
     "errorPasswordsDontMatch": "The new passwords don't match.",
     "errorCurrentPasswordWrong": "Your current password is incorrect.",
     "logoutButton": "Log out",
-    "loggingOut": "Logging out..."
+    "loggingOut": "Logging out...",
+    "dangerTitle": "Danger zone",
+    "deleteAccountDescription": "Delete your account and all your data: dogs, training sessions, skills you created, photos and profile. This can't be undone.",
+    "deleteAccountButton": "Delete account",
+    "deleteModalTitle": "Delete your account forever?",
+    "deleteModalBody": "Your account and all your data will be deleted: dogs, training sessions, skills you created, photos and profile. This action can't be undone.",
+    "deletePasswordLabel": "Your password",
+    "deleteKeyword": "DELETE",
+    "deleteConfirmLabel": "Type {keyword} to confirm",
+    "deleteConfirmButton": "Delete my account",
+    "deletingAccount": "Deleting account...",
+    "cancel": "Cancel",
+    "errorDeleteFields": "Enter your password and type {keyword}.",
+    "errorDeleteWrongPassword": "Your password is incorrect.",
+    "errorDeleteFailed": "Your account couldn't be deleted. Please try again.",
+    "errorSessionExpired": "Your session has expired. Log in again and try once more."
   },
   "Dashboard": {
     "loading": "Loading...",

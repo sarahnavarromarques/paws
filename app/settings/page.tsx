@@ -32,6 +32,15 @@ type Feedback = { type: "success" | "error"; text: string } | null;
 // Error mínimo que devuelven Supabase Auth y la base de datos
 type SupabaseLikeError = { code?: string; message?: string };
 
+// Lee el código de error que devuelve /api/delete-account
+function readErrorCode(data: unknown): string {
+  if (typeof data === "object" && data !== null && "error" in data) {
+    const value: unknown = data.error;
+    if (typeof value === "string") return value;
+  }
+  return "";
+}
+
 const INPUT_CLASS =
   "w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-50";
 const LABEL_CLASS = "mb-2 block text-sm font-semibold text-slate-600";
@@ -94,6 +103,18 @@ export default function SettingsPage() {
 
   // Sesión
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Borrar cuenta
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const deleteKeyword = t("deleteKeyword");
+  const deleteReady =
+    deletePassword.length > 0 &&
+    deleteConfirm.trim().toUpperCase() === deleteKeyword;
 
   useEffect(() => {
     async function loadProfile() {
@@ -412,6 +433,78 @@ export default function SettingsPage() {
     await supabase.auth.signOut();
     router.replace("/login");
     router.refresh();
+  }
+
+  // ---------- BORRAR CUENTA ----------
+  function openDeleteModal() {
+    setDeletePassword("");
+    setDeleteConfirm("");
+    setDeleteError(null);
+    setDeleteOpen(true);
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteOpen(false);
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteError(null);
+
+    if (!deleteReady) {
+      setDeleteError(t("errorDeleteFields", { keyword: deleteKeyword }));
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setDeleteError(t("errorSessionExpired"));
+        return;
+      }
+
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          password: deletePassword,
+          confirmation: deleteConfirm,
+        }),
+      });
+
+      if (!response.ok) {
+        const data: unknown = await response.json().catch(() => null);
+        const code = readErrorCode(data);
+
+        if (code === "wrong_password") {
+          setDeleteError(t("errorDeleteWrongPassword"));
+        } else if (code === "rate_limited") {
+          setDeleteError(tAuth("rateLimited"));
+        } else if (code === "unauthorized") {
+          setDeleteError(t("errorSessionExpired"));
+        } else {
+          setDeleteError(t("errorDeleteFailed"));
+        }
+        return;
+      }
+
+      // Cuenta borrada: limpiar la sesión local y salir
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Error borrando cuenta:", error);
+      setDeleteError(tAuth("network"));
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (loading) {
@@ -736,11 +829,106 @@ export default function SettingsPage() {
           type="button"
           onClick={() => void handleLogout()}
           disabled={loggingOut}
-          className="mb-10 w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+          className="mb-6 w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
         >
           {loggingOut ? t("loggingOut") : t("logoutButton")}
         </button>
+
+        {/* ZONA PELIGROSA */}
+        <section className="mb-10 rounded-2xl border-2 border-red-200 bg-white p-6 md:p-8">
+          <h2 className="mb-2 text-xl font-bold text-red-700">
+            {t("dangerTitle")}
+          </h2>
+          <p className="mb-4 text-sm text-slate-600">
+            {t("deleteAccountDescription")}
+          </p>
+          <button
+            type="button"
+            onClick={openDeleteModal}
+            className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700"
+          >
+            {t("deleteAccountButton")}
+          </button>
+        </section>
       </div>
+
+      {/* MODAL BORRAR CUENTA */}
+      {deleteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={closeDeleteModal}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl md:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-2xl font-bold text-red-700">
+              {t("deleteModalTitle")}
+            </h3>
+            <p className="mb-6 text-sm text-slate-600">
+              {t("deleteModalBody")}
+            </p>
+
+            <div className="mb-4">
+              <label className={LABEL_CLASS} htmlFor="deletePassword">
+                {t("deletePasswordLabel")}
+              </label>
+              <input
+                id="deletePassword"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                disabled={deleting}
+                className={INPUT_CLASS}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className={LABEL_CLASS} htmlFor="deleteConfirm">
+                {t("deleteConfirmLabel", { keyword: deleteKeyword })}
+              </label>
+              <input
+                id="deleteConfirm"
+                type="text"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                disabled={deleting}
+                placeholder={deleteKeyword}
+                className={INPUT_CLASS}
+              />
+            </div>
+
+            {deleteError && (
+              <div className="mb-4 rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => void handleDeleteAccount()}
+                disabled={!deleteReady || deleting}
+                className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700 disabled:opacity-40"
+              >
+                {deleting ? t("deletingAccount") : t("deleteConfirmButton")}
+              </button>
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-700 disabled:opacity-50"
+              >
+                {t("cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
