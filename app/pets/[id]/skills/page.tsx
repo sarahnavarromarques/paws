@@ -551,7 +551,8 @@ export default function PetSkillsPage() {
               return (
                 <div
                   key={skill.id}
-                  className={`flex flex-col rounded-2xl bg-white p-6 shadow transition ${
+                  onClick={() => setOpenInfoId(skill.id)}
+                  className={`flex cursor-pointer flex-col rounded-2xl bg-white p-6 shadow transition hover:shadow-md hover:bg-slate-50 active:scale-[0.99] ${
                     isActive ? "ring-2 ring-blue-500" : ""
                   }`}
                 >
@@ -578,9 +579,10 @@ export default function PetSkillsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenInfoId(isInfoOpen ? null : skill.id)
-                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenInfoId(skill.id);
+                        }}
                         aria-label={t("moreInfo")}
                         className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
                           isInfoOpen
@@ -623,7 +625,10 @@ export default function PetSkillsPage() {
 
                       <button
                         type="button"
-                        onClick={() => handleRemoveSkill(skill.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRemoveSkill(skill.id);
+                        }}
                         disabled={isSaving}
                         className="w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
                       >
@@ -633,7 +638,10 @@ export default function PetSkillsPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleAddSkill(skill.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleAddSkill(skill.id);
+                      }}
                       disabled={isSaving}
                       className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                     >

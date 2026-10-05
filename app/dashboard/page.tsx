@@ -58,7 +58,9 @@ export default function DashboardPage() {
   const t = useTranslations("Dashboard");
   const locale = useLocale();
 
-  const [email, setEmail] = useState("");
+  // Nombre para el saludo: nombre → usuario → parte del correo
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [petPlans, setPetPlans] = useState<PetPlan[]>([]);
@@ -77,7 +79,19 @@ export default function DashboardPage() {
         return;
       }
 
-      setEmail(user.email ?? "");
+      // --- Perfil (nombre, usuario y foto) ---
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, username, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const emailPrefix = user.email ? user.email.split("@")[0] : "";
+      const nameFromProfile =
+        profile?.first_name?.trim() || profile?.username?.trim() || "";
+
+      setDisplayName(nameFromProfile || emailPrefix);
+      setAvatarUrl(profile?.avatar_url ?? null);
 
       const { data: petsData } = await supabase
         .from("pets")
@@ -206,28 +220,48 @@ export default function DashboardPage() {
     );
   }
 
-  const firstName = email ? email.split("@")[0] : "";
+  const avatarInitial = (displayName.trim()[0] ?? "").toUpperCase();
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-4xl">
 
         {/* CABECERA */}
-        <header className="mb-10 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              {t("greeting", { name: firstName ? `, ${firstName}` : "" })}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {t("petCount", { count: pets.length })}
-              {pendingCount > 0 ? t("pendingSuffix", { count: pendingCount }) : ""}
-            </p>
+        <header className="mb-10 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/settings"
+              aria-label={t("settings")}
+              className="shrink-0 transition hover:opacity-80"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-14 w-14 rounded-full border-2 border-white object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-700 shadow-sm">
+                  {avatarInitial || "🙂"}
+                </div>
+              )}
+            </Link>
+
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight">
+                {t("greeting", { name: displayName ? `, ${displayName}` : "" })}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                {t("petCount", { count: pets.length })}
+                {pendingCount > 0 ? t("pendingSuffix", { count: pendingCount }) : ""}
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+            className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
           >
             {t("logout")}
           </button>
