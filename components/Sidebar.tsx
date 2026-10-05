@@ -42,6 +42,12 @@ export default function Sidebar() {
     () => new Set()
   );
 
+  // Cerrar el menú cada vez que cambia la pantalla
+  // (también cuando la navegación la hace el tutorial)
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
   // Cargar los perros del usuario cada vez que se abre el menú
   useEffect(() => {
     if (!open) return;
@@ -145,6 +151,7 @@ export default function Sidebar() {
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4">
         <button
           type="button"
+          data-tour="menu-button"
           onClick={() => setOpen(true)}
           aria-label={t("openMenu")}
           aria-expanded={open}
@@ -177,6 +184,7 @@ export default function Sidebar() {
 
       {/* Panel lateral */}
       <aside
+        data-tour="sidebar-panel"
         aria-hidden={!open}
         aria-label={t("menuTitle")}
         className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-300 ${

@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import { startOnboardingTour } from "@/components/OnboardingTour";
 
 const supabase = createClient();
 
@@ -26,6 +27,23 @@ const ALLOWED_PHOTO_TYPES: Record<string, string> = {
 };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const AVATAR_BUCKET = "avatars";
+
+// Textos de la tarjeta "Tutorial" (español / inglés)
+const TUTORIAL_TEXT: Record<
+  Language,
+  { title: string; description: string; button: string }
+> = {
+  es: {
+    title: "Tutorial",
+    description: "Vuelve a ver la guía paso a paso de cómo funciona PAWS.",
+    button: "Ver tutorial de nuevo",
+  },
+  en: {
+    title: "Tutorial",
+    description: "Watch the step-by-step guide to how PAWS works again.",
+    button: "Replay tutorial",
+  },
+};
 
 type Feedback = { type: "success" | "error"; text: string } | null;
 
@@ -67,6 +85,8 @@ export default function SettingsPage() {
   const router = useRouter();
   const t = useTranslations("Settings");
   const tAuth = useTranslations("AuthErrors");
+  const locale = useLocale();
+  const tutorialText = TUTORIAL_TEXT[locale === "en" ? "en" : "es"];
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -725,6 +745,21 @@ export default function SettingsPage() {
               🇬🇧 {t("english")}
             </button>
           </div>
+        </section>
+
+        {/* TUTORIAL */}
+        <section data-tour="replay-tour" className={CARD_CLASS}>
+          <h2 className="mb-2 text-xl font-bold">🐾 {tutorialText.title}</h2>
+          <p className="mb-4 text-sm text-slate-500">
+            {tutorialText.description}
+          </p>
+          <button
+            type="button"
+            onClick={() => startOnboardingTour()}
+            className={PRIMARY_BUTTON_CLASS}
+          >
+            {tutorialText.button}
+          </button>
         </section>
 
         {/* CUENTA */}

@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import Sidebar from "@/components/Sidebar";
+import OnboardingTour from "@/components/OnboardingTour";
+import FirstStepsChecklist from "@/components/FirstStepsChecklist";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -56,6 +58,8 @@ export default async function RootLayout({
         <NextIntlClientProvider locale={locale} messages={messages}>
           <Sidebar />
           {children}
+          <FirstStepsChecklist />
+          <OnboardingTour />
         </NextIntlClientProvider>
       </body>
     </html>

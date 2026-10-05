@@ -157,9 +157,11 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           first_name: string | null
+          first_steps_dismissed: boolean
           id: string
           language: string
           last_name: string | null
+          onboarding_completed: boolean
           updated_at: string
           username: string | null
         }
@@ -168,9 +170,11 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           first_name?: string | null
+          first_steps_dismissed?: boolean
           id: string
           language?: string
           last_name?: string | null
+          onboarding_completed?: boolean
           updated_at?: string
           username?: string | null
         }
@@ -179,9 +183,11 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           first_name?: string | null
+          first_steps_dismissed?: boolean
           id?: string
           language?: string
           last_name?: string | null
+          onboarding_completed?: boolean
           updated_at?: string
           username?: string | null
         }
