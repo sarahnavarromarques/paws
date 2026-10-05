@@ -156,7 +156,11 @@ export default function ProgressAnalysis({ pet, skills, trainings }: Props) {
   }
 
   return (
-    <div className="mb-8 rounded-2xl border-2 border-teal-300 bg-teal-50 p-8 shadow">
+    // data-tour: el tutorial ilumina esta tarjeta
+    <div
+      data-tour="analyze-progress"
+      className="mb-8 rounded-2xl border-2 border-teal-300 bg-teal-50 p-8 shadow"
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-widest text-teal-600">

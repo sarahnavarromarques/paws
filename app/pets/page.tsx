@@ -215,7 +215,8 @@ export default function PetsPage() {
         {/* AÑADIR MASCOTA */}
 
         <div className="rounded-2xl bg-white p-6 shadow md:p-8">
-          <h2 className="mb-6 text-3xl font-bold">
+          {/* data-tour: el tutorial ilumina este título */}
+          <h2 data-tour="add-pet" className="mb-6 text-3xl font-bold">
             {t("addPet")}
           </h2>
 
