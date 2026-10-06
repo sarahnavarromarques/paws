@@ -323,17 +323,20 @@ export default function EditPetPage() {
               </div>
             )}
 
-            <label className="block font-semibold">
+            <label
+              className={`inline-block cursor-pointer rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 ${
+                uploading ? "pointer-events-none opacity-50" : ""
+              }`}
+            >
               {t("changePhoto")}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={uploadPhoto}
+                disabled={uploading}
+                className="hidden"
+              />
             </label>
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={uploadPhoto}
-              disabled={uploading}
-              className="mx-auto mt-3 block max-w-full"
-            />
 
             {uploading && (
               <p className="mt-2 text-sm text-blue-600">

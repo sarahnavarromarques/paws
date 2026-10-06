@@ -248,7 +248,7 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => changeMonth(-1)}
                 className="rounded-lg bg-slate-200 px-3 py-1.5 text-lg font-bold hover:bg-slate-300"
-                aria-label="previous month"
+                aria-label={t("previousMonth")}
               >
                 ←
               </button>
@@ -265,7 +265,7 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => changeMonth(1)}
                 className="rounded-lg bg-slate-200 px-3 py-1.5 text-lg font-bold hover:bg-slate-300"
-                aria-label="next month"
+                aria-label={t("nextMonth")}
               >
                 →
               </button>

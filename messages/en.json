@@ -383,6 +383,8 @@
     "alertDeleteFailed": "The dog couldn't be deleted. Please try again."
   },
   "Calendar": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
     "title": "📅 Calendar",
     "subtitle": "Organize and check your dogs' training sessions.",
     "backToDashboard": "← Back to dashboard",
