@@ -45,6 +45,69 @@ const TUTORIAL_TEXT: Record<
   },
 };
 
+// Textos de la tarjeta "Calendario del móvil" (español / inglés)
+type CalendarText = {
+  title: string;
+  description: string;
+  appleButton: string;
+  googleButton: string;
+  linkLabel: string;
+  privateHint: string;
+  copyButton: string;
+  copied: string;
+  copyError: string;
+  regenerateButton: string;
+  regenerateConfirm: string;
+  regenerated: string;
+  activateButton: string;
+  activated: string;
+  working: string;
+  saveError: string;
+};
+
+const CALENDAR_TEXT: Record<Language, CalendarText> = {
+  es: {
+    title: "Calendario del móvil",
+    description:
+      "Tus entrenamientos aparecerán automáticamente en el calendario de tu móvil. Los cambios pueden tardar un rato en verse.",
+    appleButton: "Añadir a iPhone / Mac",
+    googleButton: "Añadir a Google Calendar (Android)",
+    linkLabel: "Enlace del calendario",
+    privateHint: "Este enlace es privado: no lo compartas.",
+    copyButton: "Copiar enlace",
+    copied: "Enlace copiado.",
+    copyError: "No se pudo copiar. Selecciona el enlace y cópialo a mano.",
+    regenerateButton: "Generar enlace nuevo",
+    regenerateConfirm:
+      "El enlace actual dejará de funcionar y tendrás que volver a añadir el calendario en tu móvil. ¿Continuar?",
+    regenerated: "Enlace nuevo generado. Vuelve a añadirlo en tu móvil.",
+    activateButton: "Activar calendario",
+    activated: "Calendario activado.",
+    working: "Guardando...",
+    saveError: "No se pudo guardar. Inténtalo de nuevo.",
+  },
+  en: {
+    title: "Phone calendar",
+    description:
+      "Your trainings will show up automatically in your phone's calendar. Changes may take a while to appear.",
+    appleButton: "Add to iPhone / Mac",
+    googleButton: "Add to Google Calendar (Android)",
+    linkLabel: "Calendar link",
+    privateHint: "This link is private: don't share it.",
+    copyButton: "Copy link",
+    copied: "Link copied.",
+    copyError: "Couldn't copy. Select the link and copy it manually.",
+    regenerateButton: "Generate new link",
+    regenerateConfirm:
+      "The current link will stop working and you'll need to add the calendar to your phone again. Continue?",
+    regenerated: "New link generated. Add it to your phone again.",
+    activateButton: "Turn on calendar",
+    activated: "Calendar turned on.",
+    working: "Saving...",
+    saveError: "Couldn't save. Please try again.",
+  },
+};
+
 type Feedback = { type: "success" | "error"; text: string } | null;
 
 // Error mínimo que devuelven Supabase Auth y la base de datos
@@ -65,6 +128,8 @@ const LABEL_CLASS = "mb-2 block text-sm font-semibold text-slate-600";
 const CARD_CLASS = "mb-6 rounded-2xl bg-white p-6 shadow-sm md:p-8";
 const PRIMARY_BUTTON_CLASS =
   "w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50";
+const SECONDARY_BUTTON_CLASS =
+  "w-full rounded-xl bg-slate-100 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50";
 
 function FeedbackMessage({ feedback }: { feedback: Feedback }) {
   if (!feedback) return null;
@@ -87,6 +152,7 @@ export default function SettingsPage() {
   const tAuth = useTranslations("AuthErrors");
   const locale = useLocale();
   const tutorialText = TUTORIAL_TEXT[locale === "en" ? "en" : "es"];
+  const calendarText = CALENDAR_TEXT[locale === "en" ? "en" : "es"];
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -95,6 +161,12 @@ export default function SettingsPage() {
   // Idioma
   const [language, setLanguage] = useState<Language>("es");
   const [savingLanguage, setSavingLanguage] = useState(false);
+
+  // Calendario del móvil
+  const [calendarToken, setCalendarToken] = useState<string | null>(null);
+  const [siteOrigin, setSiteOrigin] = useState("");
+  const [calendarBusy, setCalendarBusy] = useState(false);
+  const [calendarFeedback, setCalendarFeedback] = useState<Feedback>(null);
 
   // Foto
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -151,11 +223,12 @@ export default function SettingsPage() {
 
       setUserId(user.id);
       setCurrentEmail(user.email ?? "");
+      setSiteOrigin(window.location.origin);
 
       const { data: profile } = await supabase
         .from("profiles")
         .select(
-          "language, username, first_name, last_name, avatar_url, account_type"
+          "language, username, first_name, last_name, avatar_url, account_type, calendar_token"
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -171,6 +244,7 @@ export default function SettingsPage() {
         if (isAccountType(profile.account_type)) {
           setAccountType(profile.account_type);
         }
+        setCalendarToken(profile.calendar_token ?? null);
       }
 
       setLoading(false);
@@ -213,6 +287,66 @@ export default function SettingsPage() {
 
     // Recarga completa para que el servidor sirva el nuevo idioma
     window.location.reload();
+  }
+
+  // ---------- CALENDARIO DEL MÓVIL ----------
+  const calendarHttpsUrl =
+    calendarToken && siteOrigin
+      ? `${siteOrigin}/api/calendar/${calendarToken}.ics`
+      : "";
+  const calendarWebcalUrl = calendarHttpsUrl.replace(/^https?:\/\//, "webcal://");
+  const calendarGoogleUrl = calendarWebcalUrl
+    ? `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(
+        calendarWebcalUrl
+      )}`
+    : "";
+
+  async function handleCopyCalendarLink() {
+    setCalendarFeedback(null);
+    if (!calendarHttpsUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(calendarHttpsUrl);
+      setCalendarFeedback({ type: "success", text: calendarText.copied });
+    } catch (error) {
+      console.error("Error copiando enlace del calendario:", error);
+      setCalendarFeedback({ type: "error", text: calendarText.copyError });
+    }
+  }
+
+  async function handleNewCalendarToken() {
+    if (!userId || calendarBusy) return;
+    setCalendarFeedback(null);
+
+    const isRegenerating = calendarToken !== null;
+
+    if (isRegenerating && !window.confirm(calendarText.regenerateConfirm)) {
+      return;
+    }
+
+    setCalendarBusy(true);
+
+    const newToken = crypto.randomUUID();
+
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      calendar_token: newToken,
+      updated_at: new Date().toISOString(),
+    });
+
+    setCalendarBusy(false);
+
+    if (error) {
+      console.error("Error guardando enlace del calendario:", error);
+      setCalendarFeedback({ type: "error", text: calendarText.saveError });
+      return;
+    }
+
+    setCalendarToken(newToken);
+    setCalendarFeedback({
+      type: "success",
+      text: isRegenerating ? calendarText.regenerated : calendarText.activated,
+    });
   }
 
   // ---------- FOTO ----------
@@ -745,6 +879,77 @@ export default function SettingsPage() {
               🇬🇧 {t("english")}
             </button>
           </div>
+        </section>
+
+        {/* CALENDARIO DEL MÓVIL */}
+        <section className={CARD_CLASS}>
+          <h2 className="mb-2 text-xl font-bold">📅 {calendarText.title}</h2>
+          <p className="mb-4 text-sm text-slate-500">
+            {calendarText.description}
+          </p>
+
+          {calendarHttpsUrl ? (
+            <>
+              <div className="mb-4 flex flex-col gap-3">
+                <a href={calendarWebcalUrl} className={`${PRIMARY_BUTTON_CLASS} text-center`}>
+                  🍎 {calendarText.appleButton}
+                </a>
+                <a
+                  href={calendarGoogleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${PRIMARY_BUTTON_CLASS} text-center`}
+                >
+                  🤖 {calendarText.googleButton}
+                </a>
+              </div>
+
+              <label className={LABEL_CLASS} htmlFor="calendarLink">
+                {calendarText.linkLabel}
+              </label>
+              <input
+                id="calendarLink"
+                type="text"
+                readOnly
+                value={calendarHttpsUrl}
+                onFocus={(e) => e.target.select()}
+                className={`${INPUT_CLASS} mb-1 text-xs text-slate-600`}
+              />
+              <p className="mb-4 text-xs text-slate-400">
+                🔒 {calendarText.privateHint}
+              </p>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCopyCalendarLink()}
+                  disabled={calendarBusy}
+                  className={SECONDARY_BUTTON_CLASS}
+                >
+                  {calendarText.copyButton}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleNewCalendarToken()}
+                  disabled={calendarBusy}
+                  className={SECONDARY_BUTTON_CLASS}
+                >
+                  {calendarBusy ? calendarText.working : calendarText.regenerateButton}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handleNewCalendarToken()}
+              disabled={calendarBusy}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {calendarBusy ? calendarText.working : calendarText.activateButton}
+            </button>
+          )}
+
+          <FeedbackMessage feedback={calendarFeedback} />
         </section>
 
         {/* TUTORIAL */}
