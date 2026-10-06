@@ -155,6 +155,7 @@ export type Database = {
         Row: {
           account_type: string
           avatar_url: string | null
+          calendar_token: string
           created_at: string
           first_name: string | null
           first_steps_dismissed: boolean
@@ -168,6 +169,7 @@ export type Database = {
         Insert: {
           account_type?: string
           avatar_url?: string | null
+          calendar_token?: string
           created_at?: string
           first_name?: string | null
           first_steps_dismissed?: boolean
@@ -181,6 +183,7 @@ export type Database = {
         Update: {
           account_type?: string
           avatar_url?: string | null
+          calendar_token?: string
           created_at?: string
           first_name?: string | null
           first_steps_dismissed?: boolean
