@@ -240,7 +240,7 @@ export default function CalendarPage() {
         <div className="rounded-2xl bg-white p-4 shadow md:p-6">
           {/* CONTROLES */}
 
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div data-tour="calendar-controls" className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-2xl font-bold md:text-3xl">{monthName}</h2>
 
             <div className="flex items-center gap-2">

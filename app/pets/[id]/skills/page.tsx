@@ -487,7 +487,7 @@ export default function PetSkillsPage() {
 
         {/* FILTROS DE CATEGORÍA */}
         {skills.length > 0 && (
-          <div className="mb-8 flex flex-wrap gap-3">
+          <div data-tour="skills-filters" className="mb-8 flex flex-wrap gap-3">
             {categories.map((category) => {
               const isActive = category === activeCategory;
               const label =

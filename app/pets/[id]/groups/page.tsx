@@ -808,7 +808,7 @@ export default function PetGroupsPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-2xl font-bold">
+          <h2 data-tour="groups-create" className="mb-4 text-2xl font-bold">
             {isEditing
               ? t("editingTitle", { name: editingGroup?.name ?? "" })
               : t("createNewTitle")}

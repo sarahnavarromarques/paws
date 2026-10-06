@@ -138,6 +138,7 @@ const STEPS: TourStep[] = [
     kind: "spot",
     needsPet: true,
     route: (id) => `/pets/${id}/skills`,
+    target: "skills-filters",
     icon: "🎯",
     title: { es: "Habilidades", en: "Skills" },
     body: {
@@ -150,6 +151,7 @@ const STEPS: TourStep[] = [
     kind: "spot",
     needsPet: true,
     route: (id) => `/pets/${id}/groups`,
+    target: "groups-create",
     icon: "🧩",
     title: { es: "Grupos de habilidades", en: "Skill groups" },
     body: {
@@ -186,6 +188,7 @@ const STEPS: TourStep[] = [
     id: "calendar",
     kind: "spot",
     route: () => "/calendar",
+    target: "calendar-controls",
     icon: "📅",
     title: { es: "Calendario", en: "Calendar" },
     body: {
