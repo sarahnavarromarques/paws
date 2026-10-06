@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/lib/supabase/database.types";
 
-export async function middleware(request: NextRequest) {
+// Antes "middleware": en Next.js 16 este archivo se llama "proxy".
+// Refresca la sesión de Supabase en cada petición.
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
     request,
   });
