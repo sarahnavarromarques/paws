@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const supabase = createClient();
 
@@ -227,8 +228,8 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-4xl">
 
         {/* CABECERA */}
-        <header className="mb-10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <header className="mb-10 flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <Link
               href="/settings"
               aria-label={t("settings")}
@@ -247,8 +248,8 @@ export default function DashboardPage() {
               )}
             </Link>
 
-            <div>
-              <h1 className="text-3xl font-extrabold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="break-words text-3xl font-extrabold tracking-tight">
                 {t("greeting", { name: displayName ? `, ${displayName}` : "" })}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
@@ -258,13 +259,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
-          >
-            {t("logout")}
-          </button>
+          {/* Esquina superior derecha: cerrar sesión e idioma */}
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+            >
+              {t("logout")}
+            </button>
+            <LanguageSwitcher />
+          </div>
         </header>
 
         {/* ¿QUÉ ENTRENO HOY? */}

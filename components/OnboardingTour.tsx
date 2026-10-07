@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { saveUserLanguage, type AppLanguage } from "@/lib/language";
 import PawsMascot from "@/components/PawsMascot";
 
 // Pantallas donde el tutorial nunca se muestra (sin sesión iniciada)
@@ -18,6 +19,7 @@ const HIDDEN_PATHS = [
 
 const STEP_KEY = "paws-onboarding-step";
 const DONE_KEY = "paws-onboarding-done";
+const LANG_KEY = "paws-onboarding-lang-chosen";
 export const START_TOUR_EVENT = "paws:start-onboarding";
 export const ONBOARDING_FINISHED_EVENT = "paws:onboarding-finished";
 
@@ -228,6 +230,12 @@ const LOOP_NODES: { icon: string; label: Text }[] = [
   { icon: "🏋️", label: { es: "Sesión", en: "Session" } },
   { icon: "📝", label: { es: "Registro", en: "Log" } },
   { icon: "🤖", label: { es: "IA", en: "AI" } },
+];
+
+// Opciones de la pantalla "Elige tu idioma" (se muestran en su propio idioma)
+const LANGUAGE_OPTIONS: { value: AppLanguage; flag: string; name: string }[] = [
+  { value: "es", flag: "🇪🇸", name: "Español" },
+  { value: "en", flag: "🇬🇧", name: "English" },
 ];
 
 const UI = {
@@ -502,6 +510,8 @@ export default function OnboardingTour() {
   const [rect, setRect] = useState<Rect | null>(null);
   const [checking, setChecking] = useState(false);
   const [petMessage, setPetMessage] = useState(false);
+  const [choosingLanguage, setChoosingLanguage] = useState(false);
+  const [savingLanguage, setSavingLanguage] = useState(false);
   const checkedRef = useRef(false);
   const targetRef = useRef<HTMLElement | null>(null);
 
@@ -541,9 +551,13 @@ export default function OnboardingTour() {
           : 0;
       const validStart = findValidIndex(start, 1, firstPet);
 
+      // Elegir idioma solo al empezar desde el principio y si aún no se eligió
+      const needsLanguage = start === 0 && readStorage(LANG_KEY) !== user.id;
+
       setUserId(user.id);
       setPetId(firstPet);
       setStepIndex(validStart === -1 ? 0 : validStart);
+      setChoosingLanguage(needsLanguage);
       setActive(true);
     };
 
@@ -566,6 +580,7 @@ export default function OnboardingTour() {
       setPetId(firstPet);
       setPetMessage(false);
       setStepIndex(0);
+      setChoosingLanguage(false);
       setActive(true);
     };
 
@@ -677,6 +692,32 @@ export default function OnboardingTour() {
     window.dispatchEvent(new Event(ONBOARDING_FINISHED_EVENT));
   };
 
+  // Elegir idioma antes de empezar el tutorial
+  const chooseLanguage = async (language: AppLanguage) => {
+    if (savingLanguage) return;
+
+    // Marcar como elegido para no volver a preguntar tras la recarga
+    if (userId) writeStorage(LANG_KEY, userId);
+
+    if (language === lang) {
+      setChoosingLanguage(false);
+      return;
+    }
+
+    setSavingLanguage(true);
+    const saved = await saveUserLanguage(language);
+
+    if (saved) {
+      // Recarga completa: el tutorial empieza ya en el idioma elegido
+      window.location.reload();
+      return;
+    }
+
+    // Si falla el guardado, seguimos con el idioma actual
+    setSavingLanguage(false);
+    setChoosingLanguage(false);
+  };
+
   const goNext = () => {
     const next = findValidIndex(stepIndex + 1, 1, petId);
     if (next === -1) {
@@ -717,6 +758,45 @@ export default function OnboardingTour() {
   };
 
   if (!active || HIDDEN_PATHS.includes(pathname)) return null;
+
+  // ---------- Pantalla "Elige tu idioma" (antes del tutorial) ----------
+  if (choosingLanguage) {
+    return (
+      <div className="paws-fade fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 overflow-y-auto bg-white px-6 py-8 text-center">
+        <style>{TOUR_CSS}</style>
+
+        <SpeechBubble>
+          Elige tu idioma
+          <span className="block text-base font-medium text-gray-500">
+            Choose your language
+          </span>
+        </SpeechBubble>
+
+        <div className="paws-float">
+          <PawsMascot size={150} />
+        </div>
+
+        <div className="grid w-full max-w-sm gap-3">
+          {LANGUAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              disabled={savingLanguage}
+              onClick={() => void chooseLanguage(option.value)}
+              className="rounded-xl bg-[#1e3a5f] px-6 py-4 text-lg font-bold text-white shadow-[0_4px_0_#0f2540] transition active:translate-y-1 active:shadow-none disabled:opacity-60"
+            >
+              <span className="mr-2">{option.flag}</span>
+              {option.name}
+            </button>
+          ))}
+        </div>
+
+        <p className="max-w-sm text-sm text-gray-500">
+          Podrás cambiarlo cuando quieras · You can change it any time
+        </p>
+      </div>
+    );
+  }
 
   const visibleSteps = STEPS.filter((s) => !s.needsPet || petId !== null);
   const position = visibleSteps.indexOf(step) + 1;
