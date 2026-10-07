@@ -166,10 +166,7 @@ export default function ProgressAnalysis({ pet, skills, trainings }: Props) {
           <p className="text-sm font-semibold uppercase tracking-widest text-teal-600">
             {t("sectionLabel")}
           </p>
-          <p className="mt-1 text-2xl font-bold text-teal-900">
-            {pet.name}
-          </p>
-          <p className="mt-1 text-teal-800">
+          <p className="mt-2 text-teal-800">
             {t("description", { name: pet.name })}
           </p>
         </div>

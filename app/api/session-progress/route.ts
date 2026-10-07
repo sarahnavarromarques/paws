@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+import { getAudienceInstructions } from "@/lib/account-type";
+import { getCurrentAccountType } from "@/lib/account-type-server";
+
 // Se ejecuta en el servidor de Next.js. La clave queda oculta aquí.
 export const runtime = "nodejs";
 
@@ -60,6 +63,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_data" }, { status: 400 });
   }
 
+  // Tipo de cuenta del usuario: solo cambia el tono del comentario
+  const accountType = await getCurrentAccountType();
+  const audience = getAudienceInstructions(accountType, locale === "en");
+
   const anthropic = new Anthropic({ apiKey });
 
   const catText = category ? `${category} — ` : "";
@@ -89,10 +96,13 @@ Rules:
 - A good success rate with high distraction is worth more than the same rate with low distraction.
 - The result must be between 0 and 100.
 
+Who you are writing the comment for: ${audience}
+This only affects how the comment is written, never how progress is calculated.
+
 Respond ONLY with a valid JSON object, no extra text or code blocks. Exact format:
 {"newProgress": integer between 0 and 100, "comentario": "a short sentence with the next step to work on"}
 
-Write the comment in English, addressing the trainer directly as "you".`
+Write the comment in English, addressing the reader directly as "you".`
       : `Eres un experto en adiestramiento canino. Tienes que decidir el nuevo nivel de progreso (0 a 100) de una habilidad después de una sesión de entrenamiento.
 
 Perro: ${body.petName ?? "sin nombre"}
@@ -113,10 +123,13 @@ Reglas:
 - Una buena tasa de aciertos con distracción alta vale más que con distracción baja.
 - El resultado debe estar entre 0 y 100.
 
+Para quién escribes el comentario: ${audience}
+Esto solo afecta a cómo está escrito el comentario, nunca a cómo se calcula el progreso.
+
 Responde SOLO con un objeto JSON válido, sin texto adicional ni bloques de código. Formato exacto:
 {"newProgress": número entero entre 0 y 100, "comentario": "una frase corta con el siguiente paso a trabajar"}
 
-Escribe el comentario en español, dirigiéndote al adiestrador de tú.`;
+Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
 
   try {
     const message = await anthropic.messages.create({

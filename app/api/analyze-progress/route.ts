@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+import { getAudienceInstructions } from "@/lib/account-type";
+import { getCurrentAccountType } from "@/lib/account-type-server";
+
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
 // La clave de la API queda oculta y segura aquí.
 export const runtime = "nodejs";
@@ -57,6 +60,10 @@ export async function POST(request: Request) {
   if (!pet || !pet.name) {
     return NextResponse.json({ error: "no_pet" }, { status: 400 });
   }
+
+  // Tipo de cuenta del usuario: la IA adapta su lenguaje a quien lo lee
+  const accountType = await getCurrentAccountType();
+  const audience = getAudienceInstructions(accountType, isEn);
 
   const noSkillsText = isEn ? "No skills recorded." : "Sin habilidades registradas.";
   const noSessionsRecordedText = isEn
@@ -120,10 +127,12 @@ ${skillLines}
 Sesiones recientes (de más nueva a más antigua):
 ${trainingLines}
 
+A quién te diriges: ${audience}
+
 Responde SOLO con un objeto JSON válido, sin texto adicional y sin bloques de código. Formato exacto:
 {"resumen":"2-3 frases sobre el estado general del progreso","patrones":"qué está funcionando y qué se resiste, según los datos","recomendacion":"el siguiente paso concreto a trabajar"}
 
-Escribe en español, dirigiéndote al adiestrador de tú, claro y práctico. No inventes datos que no aparezcan arriba.`;
+Escribe en español, dirigiéndote de tú a quien lo lee, claro y práctico. No inventes datos que no aparezcan arriba.`;
 
   const promptEn = `You are an expert dog training analyst. Analyze this dog's progress based ONLY on the data provided.
 
@@ -138,10 +147,12 @@ ${skillLines}
 Recent sessions (newest to oldest):
 ${trainingLines}
 
+Who you are writing for: ${audience}
+
 Reply ONLY with a valid JSON object, no extra text and no code blocks. Exact format:
 {"resumen":"2-3 sentences on the overall state of progress","patrones":"what's working and what's resisting, based on the data","recomendacion":"the concrete next step to work on"}
 
-Write in English, addressing the trainer directly, clear and practical. Don't invent data that isn't listed above.`;
+Write in English, addressing the reader directly, clear and practical. Don't invent data that isn't listed above.`;
 
   try {
     const message = await anthropic.messages.create({
