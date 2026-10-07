@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import ImageLightbox from "@/components/ImageLightbox";
 
 const supabase = createClient();
 const ADMIN_USER_ID = "ee62d6fc-b3e8-42c9-898e-4f9f9148a347";
@@ -62,6 +63,35 @@ const CATEGORY_LABELS_EN: Record<string, string> = {
   "Obediencia FCI": "FCI Obedience",
 };
 
+// Textos del visor de viñetas (español / inglés)
+type ViewerText = {
+  previous: string;
+  next: string;
+  tapToEnlarge: string;
+  rotateHint: string;
+  closeImage: string;
+};
+
+const VIEWER_TEXT: Record<"es" | "en", ViewerText> = {
+  es: {
+    previous: "← Anterior",
+    next: "Siguiente →",
+    tapToEnlarge: "🔍 Toca la viñeta para verla en grande",
+    rotateHint: "📱 Gira el móvil para verla mejor",
+    closeImage: "Cerrar imagen",
+  },
+  en: {
+    previous: "← Previous",
+    next: "Next →",
+    tapToEnlarge: "🔍 Tap the image to view it full size",
+    rotateHint: "📱 Turn your phone to see it better",
+    closeImage: "Close image",
+  },
+};
+
+// Distancia mínima (en píxeles) para considerar que el dedo ha deslizado
+const SWIPE_THRESHOLD = 50;
+
 function getCategoryLabel(category: string, locale: string): string {
   if (locale === "en" && CATEGORY_LABELS_EN[category]) {
     return CATEGORY_LABELS_EN[category];
@@ -97,7 +127,12 @@ const KNOWN_CATEGORIES = [
 
 const ALL_CATEGORIES_VALUE = "__all__";
 
+// Parámetro de la URL para abrir directamente una habilidad (?skill=ID)
+const SKILL_QUERY_PARAM = "skill";
+
 type ImageKind = "steps" | "mistakes";
+
+type ZoomedImage = { src: string; alt: string };
 
 export default function PetSkillsPage() {
   const router = useRouter();
@@ -105,6 +140,7 @@ export default function PetSkillsPage() {
   const petId = Number(params.id);
   const t = useTranslations("PetSkills");
   const locale = useLocale();
+  const viewerText = VIEWER_TEXT[locale === "en" ? "en" : "es"];
 
   function getDifficultyLabel(difficulty: string): string {
     if (difficulty === "baja") return t("difficultyLow");
@@ -122,6 +158,13 @@ export default function PetSkillsPage() {
   const [savingSkillId, setSavingSkillId] = useState<number | null>(null);
   const [openInfoId, setOpenInfoId] = useState<number | null>(null);
 
+  // Viñeta visible en la ventana de información (0 = pasos, 1 = errores)
+  const [slideIndex, setSlideIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
+  // Viñeta abierta a pantalla completa
+  const [zoomedImage, setZoomedImage] = useState<ZoomedImage | null>(null);
+
   // Subida de imágenes: guarda "skillId-kind" mientras sube
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
@@ -131,6 +174,18 @@ export default function PetSkillsPage() {
   const [newCategory, setNewCategory] = useState(KNOWN_CATEGORIES[0]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Abre la información de una habilidad empezando por la primera viñeta
+  function openSkillInfo(skillId: number) {
+    setOpenInfoId(skillId);
+    setSlideIndex(0);
+    setZoomedImage(null);
+  }
+
+  function closeSkillInfo() {
+    setOpenInfoId(null);
+    setZoomedImage(null);
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -168,7 +223,8 @@ export default function PetSkillsPage() {
         )
         .order("id", { ascending: true });
 
-      setSkills(skillsData ?? []);
+      const loadedSkills = skillsData ?? [];
+      setSkills(loadedSkills);
 
       const { data: petSkillsData } = await supabase
         .from("pet_skills")
@@ -178,6 +234,20 @@ export default function PetSkillsPage() {
         .eq("pet_id", petId);
 
       setPetSkills(petSkillsData ?? []);
+
+      // Si llegamos desde el panel con ?skill=ID, abrir esa habilidad
+      const requestedSkill = new URLSearchParams(window.location.search).get(
+        SKILL_QUERY_PARAM
+      );
+
+      if (requestedSkill !== null) {
+        const requestedSkillId = Number(requestedSkill);
+
+        if (loadedSkills.some((skill) => skill.id === requestedSkillId)) {
+          setOpenInfoId(requestedSkillId);
+          setSlideIndex(0);
+        }
+      }
 
       setLoading(false);
     }
@@ -551,7 +621,7 @@ export default function PetSkillsPage() {
               return (
                 <div
                   key={skill.id}
-                  onClick={() => setOpenInfoId(skill.id)}
+                  onClick={() => openSkillInfo(skill.id)}
                   className={`flex cursor-pointer flex-col rounded-2xl bg-white p-6 shadow transition hover:shadow-md hover:bg-slate-50 active:scale-[0.99] ${
                     isActive ? "ring-2 ring-blue-500" : ""
                   }`}
@@ -581,7 +651,7 @@ export default function PetSkillsPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpenInfoId(skill.id);
+                          openSkillInfo(skill.id);
                         }}
                         aria-label={t("moreInfo")}
                         className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
@@ -656,7 +726,7 @@ export default function PetSkillsPage() {
 
       </div>
 
-      {/* MODAL DE INFORMACIÓN DE HABILIDAD */}
+      {/* VENTANA DE INFORMACIÓN DE HABILIDAD (una viñeta cada vez) */}
       {(() => {
         const infoSkill = skills.find((s) => s.id === openInfoId);
         if (!infoSkill) return null;
@@ -670,30 +740,61 @@ export default function PetSkillsPage() {
           (infoSkill.user_id !== null &&
             infoSkill.user_id === currentUserId);
 
-        const stepsUploading = uploadingKey === `${infoSkill.id}-steps`;
-        const mistakesUploading =
-          uploadingKey === `${infoSkill.id}-mistakes`;
-
+        const skillName = getSkillName(infoSkill, locale);
         const description = getSkillDescription(infoSkill, locale);
-        const stepsImage = getStepsImage(infoSkill, locale);
-        const mistakesImage = getMistakesImage(infoSkill, locale);
+
+        const slides: {
+          kind: ImageKind;
+          title: string;
+          image: string | null;
+          emptyText: string;
+        }[] = [
+          {
+            kind: "steps",
+            title: t("howToTrainTitle"),
+            image: getStepsImage(infoSkill, locale),
+            emptyText: t("noStepsImage"),
+          },
+          {
+            kind: "mistakes",
+            title: t("commonMistakesTitle"),
+            image: getMistakesImage(infoSkill, locale),
+            emptyText: t("noMistakesImage"),
+          },
+        ];
+
+        const currentIndex = Math.min(slideIndex, slides.length - 1);
+        const slide = slides[currentIndex];
+        const isFirst = currentIndex === 0;
+        const isLast = currentIndex === slides.length - 1;
+        const isUploading = uploadingKey === `${infoSkill.id}-${slide.kind}`;
+        const slideImage = slide.image;
+        const slideAlt = `${skillName} — ${slide.title}`;
+
+        const goPrevious = () => {
+          if (!isFirst) setSlideIndex(currentIndex - 1);
+        };
+
+        const goNext = () => {
+          if (!isLast) setSlideIndex(currentIndex + 1);
+        };
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-            onClick={() => setOpenInfoId(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 sm:p-4"
+            onClick={closeSkillInfo}
           >
             <div
-              className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-8 shadow-xl"
+              className="flex h-full w-full flex-col overflow-hidden bg-white shadow-xl sm:h-auto sm:max-h-[95vh] sm:max-w-4xl sm:rounded-3xl"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Cabecera del modal */}
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl">{icon}</span>
-                  <div>
-                    <h3 className="text-2xl font-bold">
-                      {getSkillName(infoSkill, locale)}
+              {/* Cabecera */}
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="text-3xl">{icon}</span>
+                  <div className="min-w-0">
+                    <h3 className="text-xl font-bold leading-tight sm:text-2xl">
+                      {skillName}
                     </h3>
                     <p className="text-sm text-slate-500">
                       {infoSkill.category
@@ -704,96 +805,90 @@ export default function PetSkillsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setOpenInfoId(null)}
+                  onClick={closeSkillInfo}
                   aria-label={t("close")}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-bold text-slate-600 transition hover:bg-slate-200"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl font-bold text-slate-600 transition hover:bg-slate-200"
                 >
                   ✕
                 </button>
               </div>
 
-              {description && (
-                <p className="mb-6 text-slate-700">
-                  {description}
-                </p>
-              )}
+              {/* Contenido: descripción + una viñeta */}
+              <div
+                className="flex-1 overflow-y-auto px-2 py-3 sm:px-6 sm:py-5"
+                onTouchStart={(e) => {
+                  touchStartX.current = e.touches[0]?.clientX ?? null;
+                }}
+                onTouchEnd={(e) => {
+                  const start = touchStartX.current;
+                  touchStartX.current = null;
+                  const end = e.changedTouches[0]?.clientX;
+                  if (start === null || end === undefined) return;
+                  const distance = end - start;
+                  if (distance <= -SWIPE_THRESHOLD) goNext();
+                  if (distance >= SWIPE_THRESHOLD) goPrevious();
+                }}
+              >
+                {description && currentIndex === 0 && (
+                  <p className="mb-4 px-2 text-slate-700 sm:px-0">
+                    {description}
+                  </p>
+                )}
 
-              {/* Imagen de pasos (idioma activo) */}
-              <div className="mb-8">
-                <p className="mb-3 text-lg font-bold text-slate-800">
-                  {t("howToTrainTitle")}
-                </p>
-                {stepsImage ? (
-                  <img
-                    src={stepsImage}
-                    alt={getSkillName(infoSkill, locale)}
-                    className="w-full rounded-xl border border-slate-200"
-                  />
+                <div className="mb-3 flex items-center justify-between gap-3 px-2 sm:px-0">
+                  <p className="text-lg font-bold text-slate-800">
+                    {slide.title}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                    {currentIndex + 1} / {slides.length}
+                  </span>
+                </div>
+
+                {slideImage ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setZoomedImage({ src: slideImage, alt: slideAlt })
+                      }
+                      aria-label={viewerText.tapToEnlarge}
+                      className="block w-full cursor-zoom-in"
+                    >
+                      <img
+                        key={slideImage}
+                        src={slideImage}
+                        alt={slideAlt}
+                        className="h-auto w-full rounded-xl border border-slate-200 object-contain"
+                      />
+                    </button>
+                    <p className="mt-2 text-center text-sm font-semibold text-blue-600">
+                      {viewerText.tapToEnlarge}
+                    </p>
+                  </>
                 ) : (
-                  <p className="text-sm italic text-slate-400">
-                    {t("noStepsImage")}
+                  <p className="px-2 py-10 text-center text-sm italic text-slate-400 sm:px-0">
+                    {slide.emptyText}
                   </p>
                 )}
 
                 {canEditImages && (
-                  <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    {stepsUploading
+                  <label className="mx-2 mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:mx-0">
+                    {isUploading
                       ? t("uploading")
-                      : stepsImage
+                      : slideImage
                       ? t("replaceImage")
                       : t("uploadImage")}
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      disabled={stepsUploading}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          void handleUploadImage(infoSkill, "steps", file, locale);
-                        }
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Imagen de errores comunes (idioma activo) */}
-              <div>
-                <p className="mb-3 text-lg font-bold text-slate-800">
-                  {t("commonMistakesTitle")}
-                </p>
-                {mistakesImage ? (
-                  <img
-                    src={mistakesImage}
-                    alt={getSkillName(infoSkill, locale)}
-                    className="w-full rounded-xl border border-slate-200"
-                  />
-                ) : (
-                  <p className="text-sm italic text-slate-400">
-                    {t("noMistakesImage")}
-                  </p>
-                )}
-
-                {canEditImages && (
-                  <label className="mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                    {mistakesUploading
-                      ? t("uploading")
-                      : mistakesImage
-                      ? t("replaceImage")
-                      : t("uploadImage")}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={mistakesUploading}
+                      disabled={isUploading}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
                           void handleUploadImage(
                             infoSkill,
-                            "mistakes",
+                            slide.kind,
                             file,
                             locale
                           );
@@ -804,10 +899,53 @@ export default function PetSkillsPage() {
                   </label>
                 )}
               </div>
+
+              {/* Navegación entre viñetas */}
+              <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-6">
+                <button
+                  type="button"
+                  onClick={goPrevious}
+                  disabled={isFirst}
+                  className="rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:invisible"
+                >
+                  {viewerText.previous}
+                </button>
+
+                <div className="flex items-center gap-2" aria-hidden="true">
+                  {slides.map((s, index) => (
+                    <span
+                      key={s.kind}
+                      className={`h-2.5 w-2.5 rounded-full transition ${
+                        index === currentIndex ? "bg-blue-600" : "bg-slate-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={isLast}
+                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:invisible"
+                >
+                  {viewerText.next}
+                </button>
+              </div>
             </div>
           </div>
         );
       })()}
+
+      {/* VIÑETA A PANTALLA COMPLETA */}
+      {zoomedImage && (
+        <ImageLightbox
+          src={zoomedImage.src}
+          alt={zoomedImage.alt}
+          onClose={() => setZoomedImage(null)}
+          closeLabel={viewerText.closeImage}
+          rotateHint={viewerText.rotateHint}
+        />
+      )}
 
       {/* MODAL CREAR HABILIDAD */}
       {createOpen && (

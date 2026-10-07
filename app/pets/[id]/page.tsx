@@ -18,6 +18,9 @@ type PageProps = {
 
 type TFunction = Awaited<ReturnType<typeof getTranslations>>;
 
+// Marca de la tarjeta "Analizar progreso" (el panel enlaza aquí con #ai-progress)
+const AI_PROGRESS_ANCHOR = "ai-progress";
+
 function calculateAge(birthDate: string | null, t: TFunction): string {
   if (!birthDate) {
     return t("noBirthDate");
@@ -258,6 +261,7 @@ export default async function PetProfile({
     title: string;
     body: string;
     cta: string;
+    href: string;
   };
 
   if (petSkillsWithNames.length === 0) {
@@ -265,6 +269,7 @@ export default async function PetProfile({
       title: t("startAddingSkillsTitle"),
       body: t("startAddingSkillsBody"),
       cta: t("addSkillsCta"),
+      href: `/pets/${pet.id}/skills`,
     };
   } else {
     const lowest = [...petSkillsWithNames].sort(
@@ -275,6 +280,8 @@ export default async function PetProfile({
       title: t("reinforceTitle", { skill: lowest.name }),
       body: t("reinforceBody", { progress: lowest.progress }),
       cta: t("viewSkillsCta"),
+      // Abre directamente la información de esa habilidad
+      href: `/pets/${pet.id}/skills?skill=${lowest.skillId}`,
     };
   }
 
@@ -464,7 +471,7 @@ export default async function PetProfile({
                 </div>
 
                 <Link
-                  href={`/pets/${pet.id}/skills`}
+                  href={recommendation.href}
                   className="shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
                 >
                   {recommendation.cta}
@@ -474,28 +481,30 @@ export default async function PetProfile({
 
             {/* ANÁLISIS DE PROGRESO (IA) */}
 
-            <ProgressAnalysis
-              pet={{
-                name: pet.name,
-                breed: pet.breed ?? null,
-                objective: pet.objective ?? null,
-                level: pet.level ?? null,
-              }}
-              skills={petSkillsWithNames.map((item) => ({
-                name: item.name,
-                category: item.category,
-                progress: item.progress,
-                sessionCount: item.sessionCount,
-                lastTrainedDays: item.lastTrainedDays,
-                isGoal: false,
-              }))}
-              trainings={completedTrainings.slice(0, 15).map((training) => ({
-                title: training.title ?? null,
-                date: training.date ?? null,
-                duration: training.duration ?? null,
-                notes: training.notes ?? null,
-              }))}
-            />
+            <div id={AI_PROGRESS_ANCHOR} className="scroll-mt-6">
+              <ProgressAnalysis
+                pet={{
+                  name: pet.name,
+                  breed: pet.breed ?? null,
+                  objective: pet.objective ?? null,
+                  level: pet.level ?? null,
+                }}
+                skills={petSkillsWithNames.map((item) => ({
+                  name: item.name,
+                  category: item.category,
+                  progress: item.progress,
+                  sessionCount: item.sessionCount,
+                  lastTrainedDays: item.lastTrainedDays,
+                  isGoal: false,
+                }))}
+                trainings={completedTrainings.slice(0, 15).map((training) => ({
+                  title: training.title ?? null,
+                  date: training.date ?? null,
+                  duration: training.duration ?? null,
+                  notes: training.notes ?? null,
+                }))}
+              />
+            </div>
 
             {/* HABILIDADES DEL PERRO */}
 

@@ -10,6 +10,12 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const supabase = createClient();
 
+// Texto del botón "Ver progreso de IA" (español / inglés)
+const AI_PROGRESS_LABEL: Record<"es" | "en", string> = {
+  es: "🤖 Ver progreso de IA",
+  en: "🤖 View AI progress",
+};
+
 type Pet = {
   id: number;
   name: string;
@@ -43,6 +49,7 @@ type PetPlan = {
   // Recomendación del día
   todayTrainingId: number | null;
   todayTrainingTitle: string | null;
+  reinforceSkillId: number | null;
   reinforceSkillName: string | null;
 };
 
@@ -58,6 +65,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const t = useTranslations("Dashboard");
   const locale = useLocale();
+  const aiProgressLabel = AI_PROGRESS_LABEL[locale === "en" ? "en" : "es"];
 
   // Nombre para el saludo: nombre → usuario → parte del correo
   const [displayName, setDisplayName] = useState("");
@@ -176,6 +184,7 @@ export default function DashboardPage() {
           ) ?? null;
 
         // 2) Si no, la habilidad con menor progreso
+        let reinforceSkillId: number | null = null;
         let reinforceSkillName: string | null = null;
         if (!todayTraining && skillCount > 0) {
           const lowest = [...rows].sort(
@@ -183,6 +192,7 @@ export default function DashboardPage() {
               (a.auto_progress ?? 0) - (b.auto_progress ?? 0)
           )[0];
           const skill = skillsMap.get(lowest.skill_id);
+          reinforceSkillId = lowest.skill_id;
           reinforceSkillName =
             locale === "en" && skill?.name_en ? skill.name_en : skill?.name ?? null;
         }
@@ -194,6 +204,7 @@ export default function DashboardPage() {
           averageProgress,
           todayTrainingId: todayTraining?.id ?? null,
           todayTrainingTitle: todayTraining?.title ?? null,
+          reinforceSkillId,
           reinforceSkillName,
         };
       });
@@ -311,7 +322,11 @@ export default function DashboardPage() {
                 } else if (plan.reinforceSkillName) {
                   message = t("reinforce", { skill: plan.reinforceSkillName });
                   actionLabel = t("viewSkills");
-                  actionHref = `/pets/${plan.petId}/skills`;
+                  // Abre directamente la información de la habilidad a reforzar
+                  actionHref =
+                    plan.reinforceSkillId !== null
+                      ? `/pets/${plan.petId}/skills?skill=${plan.reinforceSkillId}`
+                      : `/pets/${plan.petId}/skills`;
                 } else {
                   message = t("allDone");
                   actionLabel = t("viewPet");
@@ -336,12 +351,21 @@ export default function DashboardPage() {
 
                     <p className="mb-5 text-slate-600">{message}</p>
 
-                    <Link
-                      href={actionHref}
-                      className="mt-auto rounded-xl bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700"
-                    >
-                      {actionLabel}
-                    </Link>
+                    <div className="mt-auto flex flex-col gap-2">
+                      <Link
+                        href={actionHref}
+                        className="rounded-xl bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700"
+                      >
+                        {actionLabel}
+                      </Link>
+
+                      <Link
+                        href={`/pets/${plan.petId}#ai-progress`}
+                        className="rounded-xl border-2 border-blue-600 px-4 py-2.5 text-center font-semibold text-blue-600 transition hover:bg-blue-50"
+                      >
+                        {aiProgressLabel}
+                      </Link>
+                    </div>
                   </div>
                 );
               })}
