@@ -1,0 +1,16 @@
+{
+  "Dashboard": {
+    "petCount": "{count, plural, one {# dog in your care} other {# dogs in your care}}",
+    "todayTitle": "Today's training plan"
+  },
+  "Pets": {
+    "title": "🐶 Dogs in my care",
+    "subtitle": "Manage the dogs you train and track their progress."
+  },
+  "PetProfile": {
+    "backToPets": "← Dogs in my care"
+  },
+  "Calendar": {
+    "subtitle": "Organize and check the training sessions of the dogs you train."
+  }
+}

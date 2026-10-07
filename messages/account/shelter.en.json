@@ -1,0 +1,16 @@
+{
+  "Dashboard": {
+    "petCount": "{count, plural, one {# dog at the shelter} other {# dogs at the shelter}}",
+    "todayTitle": "Today at the shelter"
+  },
+  "Pets": {
+    "title": "🐶 Shelter dogs",
+    "subtitle": "Manage the shelter's dogs and track their progress."
+  },
+  "PetProfile": {
+    "backToPets": "← Shelter dogs"
+  },
+  "Calendar": {
+    "subtitle": "Organize and check the training sessions of the shelter's dogs."
+  }
+}

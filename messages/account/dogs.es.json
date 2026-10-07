@@ -1,0 +1,51 @@
+{
+  "Dashboard": {
+    "pets": "Perros",
+    "petCount": "{count, plural, one {# perro a tu cargo} other {# perros a tu cargo}}",
+    "todayTitle": "Plan de entrenamiento de hoy"
+  },
+  "Pets": {
+    "title": "🐶 Perros a mi cargo",
+    "subtitle": "Gestiona los perros que entrenas y consulta su progreso.",
+    "yourPets": "Tus perros",
+    "petCount": "{count, plural, one {# perro} other {# perros}}",
+    "loading": "Cargando perros...",
+    "noPetsTitle": "Todavía no hay perros",
+    "noPetsSubtitle": "Añade el primero usando el formulario de abajo.",
+    "addPet": "Añadir perro"
+  },
+  "AddPetForm": {
+    "namePlaceholder": "Nombre del perro",
+    "photoLabel": "Foto del perro",
+    "save": "Guardar perro",
+    "alertSaveError": "No se ha podido guardar el perro. Inténtalo de nuevo."
+  },
+  "PetProfile": {
+    "backToPets": "← Perros a mi cargo",
+    "editPet": "✏️ Editar perro"
+  },
+  "PetSkills": {
+    "backToPet": "← Volver al perro",
+    "addToMyPet": "+ Añadir a este perro"
+  },
+  "PetGroups": {
+    "backToPet": "← Volver al perro",
+    "viewSkills": "🎯 Habilidades del perro"
+  },
+  "EditPet": {
+    "loading": "Cargando perro...",
+    "title": "Editar perro",
+    "subtitle": "Actualiza la información del perro.",
+    "deletePetButton": "🗑 Eliminar perro",
+    "alertNoUpdate": "No se ha actualizado ningún perro.",
+    "confirmDeletePet": "¿Seguro que quieres eliminar este perro? También se eliminarán sus entrenamientos.",
+    "alertDeleteFailed": "No se ha podido eliminar el perro. Inténtalo de nuevo."
+  },
+  "Calendar": {
+    "subtitle": "Organiza y consulta los entrenamientos de los perros que entrenas.",
+    "defaultPetName": "Perro"
+  },
+  "Sidebar": {
+    "pets": "Perros"
+  }
+}

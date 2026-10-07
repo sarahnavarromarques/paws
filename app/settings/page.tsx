@@ -178,6 +178,9 @@ export default function SettingsPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("particular");
+  // Tipo de cuenta guardado: si cambia al guardar, se refrescan los textos de la app
+  const [savedAccountType, setSavedAccountType] =
+    useState<AccountType>("particular");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<Feedback>(null);
 
@@ -243,6 +246,7 @@ export default function SettingsPage() {
         setAvatarUrl(profile.avatar_url ?? null);
         if (isAccountType(profile.account_type)) {
           setAccountType(profile.account_type);
+          setSavedAccountType(profile.account_type);
         }
         setCalendarToken(profile.calendar_token ?? null);
       }
@@ -490,6 +494,13 @@ export default function SettingsPage() {
     setFirstName(firstName.trim());
     setLastName(lastName.trim());
     setProfileFeedback({ type: "success", text: t("profileSaved") });
+
+    // Si cambió el tipo de cuenta, refrescar para que los textos de toda la app
+    // ("mascotas" / "perros") se actualicen al momento
+    if (accountType !== savedAccountType) {
+      setSavedAccountType(accountType);
+      router.refresh();
+    }
   }
 
   // ---------- CORREO ----------

@@ -1,0 +1,16 @@
+{
+  "Dashboard": {
+    "petCount": "{count, plural, one {# perro en el refugio} other {# perros en el refugio}}",
+    "todayTitle": "Hoy en el refugio"
+  },
+  "Pets": {
+    "title": "🐶 Perros del refugio",
+    "subtitle": "Gestiona los perros del refugio y consulta su progreso."
+  },
+  "PetProfile": {
+    "backToPets": "← Perros del refugio"
+  },
+  "Calendar": {
+    "subtitle": "Organiza y consulta los entrenamientos de los perros del refugio."
+  }
+}
