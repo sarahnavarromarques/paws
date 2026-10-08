@@ -14,10 +14,10 @@ import {
 
 const supabase = createClient();
 
-// Texto del botón "Ver progreso de IA" (español / inglés)
-const AI_PROGRESS_LABEL: Record<"es" | "en", string> = {
-  es: "🤖 Ver progreso de IA",
-  en: "🤖 View AI progress",
+// Texto del botón "Ver progreso" (español / inglés)
+const PROGRESS_LABEL: Record<"es" | "en", string> = {
+  es: "📈 Ver progreso",
+  en: "📈 View progress",
 };
 
 type Pet = {
@@ -84,7 +84,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const t = useTranslations("Dashboard");
   const locale = useLocale();
-  const aiProgressLabel = AI_PROGRESS_LABEL[locale === "en" ? "en" : "es"];
+  const progressLabel = PROGRESS_LABEL[locale === "en" ? "en" : "es"];
 
   // Nombre para el saludo: nombre → usuario → parte del correo
   const [displayName, setDisplayName] = useState("");
@@ -448,7 +448,7 @@ export default function DashboardPage() {
                         href={`/pets/${plan.petId}#ai-progress`}
                         className="rounded-xl border-2 border-blue-600 px-4 py-2.5 text-center font-semibold text-blue-600 transition hover:bg-blue-50"
                       >
-                        {aiProgressLabel}
+                        {progressLabel}
                       </Link>
                     </div>
                   </div>
