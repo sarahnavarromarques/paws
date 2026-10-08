@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+import { createClient } from "@/lib/supabase/server";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 
 // Se ejecuta en el servidor de Next.js. La clave queda oculta aquí.
 export const runtime = "nodejs";
+
+// Cuántas preguntas del chat se pasan como contexto, y su longitud máxima
+const CHAT_CONTEXT_LIMIT = 10;
+const CHAT_CONTEXT_MAX_CHARS = 300;
 
 type Answers = {
   attempts: number;
@@ -15,6 +20,7 @@ type Answers = {
 };
 
 type Body = {
+  trainingId?: number;
   skillName?: string;
   category?: string | null;
   currentProgress?: number;
@@ -37,6 +43,35 @@ const MOOD_LABELS: Record<string, { es: string; en: string }> = {
   normal: { es: "normal", en: "normal" },
   alto: { es: "alto", en: "high" },
 };
+
+// Preguntas que el usuario hizo en el chat de esta sesión (solo las suyas).
+// Si algo falla, devuelve una lista vacía: el progreso se calcula igual.
+async function loadChatQuestions(trainingId: number | undefined): Promise<string[]> {
+  if (typeof trainingId !== "number" || !Number.isInteger(trainingId)) {
+    return [];
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const { data } = await supabase
+      .from("training_chat_messages")
+      .select("content")
+      .eq("training_id", trainingId)
+      .eq("role", "user")
+      .order("created_at", { ascending: true })
+      .limit(CHAT_CONTEXT_LIMIT);
+
+    return (data ?? []).map((row) =>
+      row.content.length > CHAT_CONTEXT_MAX_CHARS
+        ? `${row.content.slice(0, CHAT_CONTEXT_MAX_CHARS)}…`
+        : row.content
+    );
+  } catch (error) {
+    console.error("Error leyendo el chat (session-progress):", error);
+    return [];
+  }
+}
 
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -67,12 +102,32 @@ export async function POST(request: Request) {
   const accountType = await getCurrentAccountType();
   const audience = getAudienceInstructions(accountType, locale === "en");
 
+  const chatQuestions = await loadChatQuestions(body.trainingId);
+
   const anthropic = new Anthropic({ apiKey });
 
   const catText = category ? `${category} — ` : "";
   const distractionLabel =
     DISTRACTION_LABELS[answers.distraction]?.[locale] ?? answers.distraction;
   const moodLabel = MOOD_LABELS[answers.mood]?.[locale] ?? answers.mood;
+
+  const chatBlockEn =
+    chatQuestions.length > 0
+      ? `
+
+Questions the reader asked during the session (context only):
+${chatQuestions.map((q) => `- ${q}`).join("\n")}
+Use them only as context (for example, to understand difficulties). The progress is based mainly on the answers above.`
+      : "";
+
+  const chatBlockEs =
+    chatQuestions.length > 0
+      ? `
+
+Preguntas que hizo durante la sesión (solo como contexto):
+${chatQuestions.map((q) => `- ${q}`).join("\n")}
+Úsalas solo como contexto (por ejemplo, para entender las dificultades). El progreso se basa sobre todo en las respuestas de arriba.`
+      : "";
 
   const prompt =
     locale === "en"
@@ -89,7 +144,7 @@ How the session went:
 - Total attempts: ${answers.attempts}
 - Successes: ${answers.successes}
 - Environment distraction level: ${distractionLabel}
-- Dog's mood: ${moodLabel}
+- Dog's mood: ${moodLabel}${chatBlockEn}
 
 Rules:
 - Progress evolves gradually. It goes up if the session was good, stays about the same, or drops slightly if it was bad. Never make huge jumps in a single session (max about 15 points up or down).
@@ -116,7 +171,7 @@ Cómo ha ido la sesión:
 - Intentos totales: ${answers.attempts}
 - Aciertos: ${answers.successes}
 - Nivel de distracción del entorno: ${distractionLabel}
-- Estado de ánimo del perro: ${moodLabel}
+- Estado de ánimo del perro: ${moodLabel}${chatBlockEs}
 
 Reglas:
 - El progreso evoluciona poco a poco. Sube si la sesión fue buena, se mantiene o baja ligeramente si fue mala. Nunca des saltos enormes en una sola sesión (máximo unos 15 puntos arriba o abajo).

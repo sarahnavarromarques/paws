@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import SessionGuide from "@/components/SessionGuide";
 
 const supabase = createClient();
 
@@ -57,6 +58,9 @@ export default function EditTrainingPage() {
 
   const [skills, setSkills] = useState<Skill[]>([]);
   const [skillId, setSkillId] = useState<string>("");
+
+  // Habilidad guardada en la base de datos (la que usa la sesión guiada)
+  const [savedSkillId, setSavedSkillId] = useState<string>("");
 
   // Estado inicial del entrenamiento al cargar (para saber si ya estaba completado)
   const [wasCompleted, setWasCompleted] = useState(false);
@@ -114,6 +118,11 @@ export default function EditTrainingPage() {
       return;
     }
 
+    const loadedSkillId =
+      data.skill_id !== null && data.skill_id !== undefined
+        ? String(data.skill_id)
+        : "";
+
     setPetId(data.pet_id ?? null);
     setTitle(data.title ?? "");
     setDate(data.date ?? "");
@@ -122,11 +131,8 @@ export default function EditTrainingPage() {
     setStatus(data.status ?? "pending");
     setWasCompleted(data.status === "completed");
     setNotes(data.notes ?? "");
-    setSkillId(
-      data.skill_id !== null && data.skill_id !== undefined
-        ? String(data.skill_id)
-        : ""
-    );
+    setSkillId(loadedSkillId);
+    setSavedSkillId(loadedSkillId);
 
     setLoading(false);
   }
@@ -215,6 +221,8 @@ export default function EditTrainingPage() {
       alert(t("alertSaveError"));
       return;
     }
+
+    setSavedSkillId(skillId);
 
     // 2) Si estamos completando, calcular el nuevo progreso con la IA
     if (showSessionQuestions && petId !== null) {
@@ -313,6 +321,8 @@ export default function EditTrainingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Para que la IA lea también las dudas del chat de esta sesión
+          trainingId: Number(id),
           skillName: chosenSkill ? getSkillName(chosenSkill, locale) : "",
           category: chosenSkill?.category
             ? getCategoryLabel(chosenSkill.category, locale)
@@ -553,6 +563,15 @@ export default function EditTrainingPage() {
             </div>
 
           </div>
+
+          {/* SESIÓN GUIADA Y DUDAS (solo si el entrenamiento estaba pendiente) */}
+          {!wasCompleted && !aiResult && (
+            <SessionGuide
+              trainingId={Number(id)}
+              hasSkill={savedSkillId !== ""}
+              skillChanged={skillId !== savedSkillId}
+            />
+          )}
 
           {/* PREGUNTAS DE LA SESIÓN (solo al completar) */}
           {showSessionQuestions && (

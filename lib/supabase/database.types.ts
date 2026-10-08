@@ -333,6 +333,82 @@ export type Database = {
         }
         Relationships: []
       }
+      training_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: number
+          role: string
+          training_id: number
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: never
+          role: string
+          training_id: number
+          user_id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: never
+          role?: string
+          training_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_chat_messages_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_guides: {
+        Row: {
+          created_at: string
+          data: Json
+          id: number
+          locale: string
+          training_id: number
+          updated_at: string
+          used_fallback: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: never
+          locale?: string
+          training_id: number
+          updated_at?: string
+          used_fallback?: boolean
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: never
+          locale?: string
+          training_id?: number
+          updated_at?: string
+          used_fallback?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_guides_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: true
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_order_recommendations: {
         Row: {
           created_at: string
