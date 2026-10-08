@@ -333,6 +333,44 @@ export type Database = {
         }
         Relationships: []
       }
+      training_order_recommendations: {
+        Row: {
+          created_at: string
+          data: Json
+          id: number
+          pet_id: number
+          updated_at: string
+          used_fallback: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: never
+          pet_id: number
+          updated_at?: string
+          used_fallback?: boolean
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: never
+          pet_id?: number
+          updated_at?: string
+          used_fallback?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_order_recommendations_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: true
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_sessions: {
         Row: {
           date: string | null

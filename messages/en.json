@@ -248,6 +248,28 @@
     "localRecommendationLowest": "Reinforce \"{lowest}\", which is the skill with the least progress.",
     "localRecommendationNone": "Add skills and log sessions to get recommendations."
   },
+  "TrainingOrder": {
+    "sectionLabel": "🧭 Recommended order",
+    "description": "The AI orders {name}'s groups and skills based on their progress, which skills are the foundation for others, and their goal.",
+    "calculate": "Calculate order",
+    "recalculate": "Recalculate order",
+    "calculating": "Calculating...",
+    "nextLabel": "Next skill to work on",
+    "viewSkill": "View skill",
+    "summaryLabel": "Why this order",
+    "orderLabel": "Full order",
+    "masteredTag": "Mastered",
+    "noSkillsInGroup": "This group has no skills.",
+    "updatedAt": "Calculated on {date}",
+    "fallbackNote": "Basic order calculated without connecting to the AI.",
+    "outdatedNote": "You've changed the groups since the last calculation. Recalculate the order to include the changes.",
+    "noGroupsTitle": "Create groups to order the training",
+    "noGroupsBody": "The AI orders {name}'s skill groups. Create at least one to get started.",
+    "createGroupsCta": "Create groups",
+    "notCalculatedHint": "You haven't calculated the order yet. Meanwhile, here's the basic suggestion:",
+    "errorCalculate": "The order couldn't be calculated. Please try again.",
+    "errorNotSaved": "The order was calculated but couldn't be saved. It will be lost when you reload the page."
+  },
   "PetSkills": {
     "loading": "Loading skills...",
     "backToPet": "← Back to dog",

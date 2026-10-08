@@ -5,7 +5,12 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
 import ProgressAnalysis from "@/components/ProgressAnalysis";
+import TrainingOrder, {
+  type TrainingOrderFallback,
+  type TrainingOrderGroupView,
+} from "@/components/TrainingOrder";
 import { getBreedLabel, getColorLabel } from "@/lib/breeds";
+import { parseStoredOrder } from "@/lib/training-order";
 
 type PageProps = {
   params: Promise<{
@@ -171,6 +176,71 @@ export default async function PetProfile({
 
   const petSkillList = petSkillRows ?? [];
 
+  // --- Grupos de habilidades del perro (para el orden recomendado) ---
+
+  const { data: groupRows } = await supabase
+    .from("skill_groups")
+    .select("id, name")
+    .eq("pet_id", pet.id)
+    .order("created_at", { ascending: true });
+
+  const groupList = groupRows ?? [];
+
+  const { data: groupItemRows } =
+    groupList.length > 0
+      ? await supabase
+          .from("skill_group_items")
+          .select("group_id, skill_id")
+          .in(
+            "group_id",
+            groupList.map((group) => group.id)
+          )
+      : { data: [] };
+
+  const groupItems = groupItemRows ?? [];
+
+  // Una sola consulta de nombres para las habilidades del perro y las de sus grupos
+  const allSkillIds = Array.from(
+    new Set([
+      ...petSkillList.map((row) => row.skill_id),
+      ...groupItems.map((item) => item.skill_id),
+    ])
+  );
+
+  const { data: skillsData } =
+    allSkillIds.length > 0
+      ? await supabase
+          .from("skills")
+          .select("id, name, name_en, category, category_en")
+          .in("id", allSkillIds)
+      : { data: [] };
+
+  const skillsMap = new Map(
+    (skillsData ?? []).map((skill) => [skill.id, skill])
+  );
+
+  function localizedSkillName(skillId: number): string {
+    const skill = skillsMap.get(skillId);
+
+    if (!skill) {
+      return t("genericSkillName");
+    }
+
+    return locale === "en" && skill.name_en ? skill.name_en : skill.name;
+  }
+
+  function localizedSkillCategory(skillId: number): string | null {
+    const skill = skillsMap.get(skillId);
+
+    if (!skill) {
+      return null;
+    }
+
+    return locale === "en" && skill.category_en
+      ? skill.category_en
+      : skill.category ?? null;
+  }
+
   // Resumen de entrenamientos por habilidad (solo completados)
   const trainingStatsBySkill = new Map<number, { count: number; lastDate: string | null }>();
 
@@ -197,53 +267,27 @@ export default async function PetProfile({
     trainingStatsBySkill.set(training.skill_id, current);
   }
 
-  let petSkillsWithNames: {
+  const petSkillsWithNames: {
     skillId: number;
     name: string;
     category: string | null;
     progress: number;
     sessionCount: number;
     lastTrainedDays: number | null;
-  }[] = [];
+  }[] = petSkillList
+    .map((row) => {
+      const stats = trainingStatsBySkill.get(row.skill_id);
 
-  if (petSkillList.length > 0) {
-    const skillIds = petSkillList.map((row) => row.skill_id);
-
-    const { data: skillsData } = await supabase
-      .from("skills")
-      .select("id, name, name_en, category, category_en")
-      .in("id", skillIds);
-
-    const skillsMap = new Map(
-      (skillsData ?? []).map((skill) => [skill.id, skill])
-    );
-
-    petSkillsWithNames = petSkillList
-      .map((row) => {
-        const skill = skillsMap.get(row.skill_id);
-        const stats = trainingStatsBySkill.get(row.skill_id);
-
-        const name =
-          locale === "en" && skill?.name_en
-            ? skill.name_en
-            : skill?.name ?? t("genericSkillName");
-
-        const category =
-          locale === "en" && skill?.category_en
-            ? skill.category_en
-            : skill?.category ?? null;
-
-        return {
-          skillId: row.skill_id,
-          name,
-          category,
-          progress: row.auto_progress ?? 0,
-          sessionCount: stats?.count ?? 0,
-          lastTrainedDays: daysSince(stats?.lastDate ?? null),
-        };
-      })
-      .sort((a, b) => b.progress - a.progress);
-  }
+      return {
+        skillId: row.skill_id,
+        name: localizedSkillName(row.skill_id),
+        category: localizedSkillCategory(row.skill_id),
+        progress: row.auto_progress ?? 0,
+        sessionCount: stats?.count ?? 0,
+        lastTrainedDays: daysSince(stats?.lastDate ?? null),
+      };
+    })
+    .sort((a, b) => b.progress - a.progress);
 
   const averageSkillProgress =
     petSkillsWithNames.length === 0
@@ -255,14 +299,36 @@ export default async function PetProfile({
           ) / petSkillsWithNames.length
         );
 
-  // --- Plan recomendado (reglas simples) ---
+  // --- Datos para la tarjeta "Orden recomendado" ---
 
-  let recommendation: {
-    title: string;
-    body: string;
-    cta: string;
-    href: string;
-  };
+  const progressBySkill = new Map(
+    petSkillList.map((row) => [row.skill_id, row.auto_progress ?? 0])
+  );
+
+  const orderGroups: TrainingOrderGroupView[] = groupList.map((group) => ({
+    groupId: group.id,
+    name: group.name,
+    skills: groupItems
+      .filter((item) => item.group_id === group.id)
+      .map((item) => ({
+        skillId: item.skill_id,
+        name: localizedSkillName(item.skill_id),
+        progress: progressBySkill.get(item.skill_id) ?? 0,
+      })),
+  }));
+
+  const { data: savedOrderRow } = await supabase
+    .from("training_order_recommendations")
+    .select("data, used_fallback, updated_at")
+    .eq("pet_id", pet.id)
+    .maybeSingle();
+
+  const savedOrder = savedOrderRow
+    ? parseStoredOrder(savedOrderRow.data)
+    : null;
+
+  // Sugerencia básica (reglas simples) mientras no se haya calculado el orden
+  let recommendation: TrainingOrderFallback;
 
   if (petSkillsWithNames.length === 0) {
     recommendation = {
@@ -454,30 +520,17 @@ export default async function PetProfile({
 
           <div className="px-10">
 
-            {/* PLAN RECOMENDADO */}
+            {/* ORDEN RECOMENDADO (IA) */}
 
-            <div className="mb-8 rounded-2xl border-2 border-indigo-300 bg-indigo-50 p-8 shadow">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="max-w-2xl">
-                  <p className="text-sm font-semibold uppercase tracking-widest text-indigo-600">
-                    {t("recommendedPlan")}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-indigo-900">
-                    {recommendation.title}
-                  </p>
-                  <p className="mt-2 text-indigo-800">
-                    {recommendation.body}
-                  </p>
-                </div>
-
-                <Link
-                  href={recommendation.href}
-                  className="shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
-                >
-                  {recommendation.cta}
-                </Link>
-              </div>
-            </div>
+            <TrainingOrder
+              petId={pet.id}
+              petName={pet.name}
+              groups={orderGroups}
+              initialOrder={savedOrder}
+              initialUpdatedAt={savedOrderRow?.updated_at ?? null}
+              initialUsedFallback={savedOrderRow?.used_fallback ?? false}
+              fallback={recommendation}
+            />
 
             {/* ANÁLISIS DE PROGRESO (IA) */}
 

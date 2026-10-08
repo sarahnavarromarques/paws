@@ -7,6 +7,10 @@ import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import {
+  parseStoredOrder,
+  resolveNextSkillId,
+} from "@/lib/training-order";
 
 const supabase = createClient();
 
@@ -39,6 +43,21 @@ type SkillInfo = {
   id: number;
   name: string;
   name_en: string | null;
+};
+
+type GroupRow = {
+  id: number;
+  pet_id: number | null;
+};
+
+type GroupItemRow = {
+  group_id: number;
+  skill_id: number;
+};
+
+type OrderRow = {
+  pet_id: number;
+  data: unknown;
 };
 
 type PetPlan = {
@@ -128,11 +147,14 @@ export default function DashboardPage() {
       const pending = trainings.filter((tr) => tr.status !== "completed");
       setPendingCount(pending.length);
 
-      // --- Habilidades y progreso por perro (auto_progress) ---
+      // --- Habilidades, grupos y orden recomendado por perro ---
       const petIds = petList.map((p) => p.id);
 
       let petSkills: PetSkillRow[] = [];
       let skillsInfo: SkillInfo[] = [];
+      let groupRows: GroupRow[] = [];
+      let groupItemRows: GroupItemRow[] = [];
+      let orderRows: OrderRow[] = [];
 
       if (petIds.length > 0) {
         const { data: petSkillsData } = await supabase
@@ -146,8 +168,38 @@ export default function DashboardPage() {
           auto_progress: row.auto_progress,
         }));
 
+        const { data: groupsData } = await supabase
+          .from("skill_groups")
+          .select("id, pet_id")
+          .in("pet_id", petIds);
+
+        groupRows = groupsData ?? [];
+
+        if (groupRows.length > 0) {
+          const { data: itemsData } = await supabase
+            .from("skill_group_items")
+            .select("group_id, skill_id")
+            .in(
+              "group_id",
+              groupRows.map((g) => g.id)
+            );
+
+          groupItemRows = itemsData ?? [];
+        }
+
+        const { data: ordersData } = await supabase
+          .from("training_order_recommendations")
+          .select("pet_id, data")
+          .in("pet_id", petIds);
+
+        orderRows = ordersData ?? [];
+
+        // Nombres de las habilidades del perro y de sus grupos
         const skillIds = Array.from(
-          new Set(petSkills.map((ps) => ps.skill_id))
+          new Set([
+            ...petSkills.map((ps) => ps.skill_id),
+            ...groupItemRows.map((item) => item.skill_id),
+          ])
         );
 
         if (skillIds.length > 0) {
@@ -162,6 +214,14 @@ export default function DashboardPage() {
 
       const skillsMap = new Map(skillsInfo.map((s) => [s.id, s]));
       const today = todayISO();
+
+      function skillName(skillId: number): string | null {
+        const skill = skillsMap.get(skillId);
+        if (!skill) {
+          return null;
+        }
+        return locale === "en" && skill.name_en ? skill.name_en : skill.name;
+      }
 
       const plans: PetPlan[] = petList.map((pet) => {
         const rows = petSkills.filter((ps) => ps.pet_id === pet.id);
@@ -183,18 +243,42 @@ export default function DashboardPage() {
             (tr) => tr.pet_id === pet.id && tr.date === today
           ) ?? null;
 
-        // 2) Si no, la habilidad con menor progreso
         let reinforceSkillId: number | null = null;
-        let reinforceSkillName: string | null = null;
+
         if (!todayTraining && skillCount > 0) {
-          const lowest = [...rows].sort(
-            (a, b) =>
-              (a.auto_progress ?? 0) - (b.auto_progress ?? 0)
-          )[0];
-          const skill = skillsMap.get(lowest.skill_id);
-          reinforceSkillId = lowest.skill_id;
-          reinforceSkillName =
-            locale === "en" && skill?.name_en ? skill.name_en : skill?.name ?? null;
+          // 2) Si hay orden calculado, la siguiente según ese orden
+          const orderRow = orderRows.find((row) => row.pet_id === pet.id);
+          const order = orderRow ? parseStoredOrder(orderRow.data) : null;
+
+          if (order) {
+            const currentGroups = groupRows
+              .filter((g) => g.pet_id === pet.id)
+              .map((g) => ({
+                groupId: g.id,
+                skillIds: groupItemRows
+                  .filter((item) => item.group_id === g.id)
+                  .map((item) => item.skill_id),
+              }));
+
+            const progressById = new Map(
+              rows.map((r) => [r.skill_id, r.auto_progress ?? 0])
+            );
+
+            reinforceSkillId = resolveNextSkillId(
+              order,
+              currentGroups,
+              progressById
+            );
+          }
+
+          // 3) Si no hay orden, la habilidad con menor progreso
+          if (reinforceSkillId === null) {
+            const lowest = [...rows].sort(
+              (a, b) =>
+                (a.auto_progress ?? 0) - (b.auto_progress ?? 0)
+            )[0];
+            reinforceSkillId = lowest.skill_id;
+          }
         }
 
         return {
@@ -205,7 +289,8 @@ export default function DashboardPage() {
           todayTrainingId: todayTraining?.id ?? null,
           todayTrainingTitle: todayTraining?.title ?? null,
           reinforceSkillId,
-          reinforceSkillName,
+          reinforceSkillName:
+            reinforceSkillId !== null ? skillName(reinforceSkillId) : null,
         };
       });
 
@@ -322,7 +407,7 @@ export default function DashboardPage() {
                 } else if (plan.reinforceSkillName) {
                   message = t("reinforce", { skill: plan.reinforceSkillName });
                   actionLabel = t("viewSkills");
-                  // Abre directamente la información de la habilidad a reforzar
+                  // Abre directamente la información de la habilidad a trabajar
                   actionHref =
                     plan.reinforceSkillId !== null
                       ? `/pets/${plan.petId}/skills?skill=${plan.reinforceSkillId}`
