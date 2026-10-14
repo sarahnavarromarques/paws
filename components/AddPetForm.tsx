@@ -9,7 +9,8 @@ import SearchableSelect from "@/components/SearchableSelect";
 const supabase = createClient();
 
 type AddPetFormProps = {
-  onAddPet?: () => Promise<void> | void;
+  // Recibe el id de la mascota recién creada.
+  onAddPet?: (petId: number) => Promise<void> | void;
 };
 
 const ALLOWED_PHOTO_TYPES = [
@@ -149,7 +150,7 @@ export default function AddPetForm({
       photoUrl = data.publicUrl;
     }
 
-    const { error } = await supabase
+    const { data: newPet, error } = await supabase
       .from("pets")
       .insert({
         user_id: user.id,
@@ -160,11 +161,13 @@ export default function AddPetForm({
         weight: weight ? `${weight} kg` : null,
         color: color || null,
         photo: photoUrl,
-      });
+      })
+      .select("id")
+      .single();
 
     setSaving(false);
 
-    if (error) {
+    if (error || !newPet) {
       console.error("Error guardando mascota:", error);
       alert(t("alertSaveError"));
       return;
@@ -180,7 +183,7 @@ export default function AddPetForm({
     setPhoto(null);
     setPhotoError("");
 
-    await onAddPet?.();
+    await onAddPet?.(newPet.id);
   }
 
   const breedOptions = BREEDS.includes("Otro")

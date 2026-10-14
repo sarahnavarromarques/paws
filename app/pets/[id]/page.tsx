@@ -11,6 +11,10 @@ import TrainingOrder, {
 } from "@/components/TrainingOrder";
 import { getBreedLabel, getColorLabel } from "@/lib/breeds";
 import { parseStoredOrder } from "@/lib/training-order";
+import {
+  questionnaireText,
+  toQuestionnaireLocale,
+} from "@/lib/pet-questionnaire";
 
 type PageProps = {
   params: Promise<{
@@ -104,6 +108,7 @@ export default async function PetProfile({
   const { training: selectedTraining } = await searchParams;
 
   const locale = await getLocale();
+  const qLocale = toQuestionnaireLocale(locale);
   const t = await getTranslations("PetProfile");
   const tPets = await getTranslations("Pets");
   const tAddPetForm = await getTranslations("AddPetForm");
@@ -408,6 +413,13 @@ export default async function PetProfile({
           >
             {t("skillGroups")}
           </Link>
+
+          <Link
+            href={`/pets/${pet.id}/questionnaire`}
+            className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700"
+          >
+            {questionnaireText(qLocale, "profileButton")}
+          </Link>
         </div>
 
         <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
@@ -484,6 +496,13 @@ export default async function PetProfile({
               </h2>
 
               <div className="space-y-5">
+
+                <p>
+                  {questionnaireText(qLocale, "objectiveLabel")}:{" "}
+                  <strong>
+                    {pet.objective ?? t("noData")}
+                  </strong>
+                </p>
 
                 <p>
                   {t("lastTraining")}{" "}

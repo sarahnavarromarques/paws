@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
@@ -60,6 +61,7 @@ function calculateAge(birthDate: string | null, t: TFunction): string {
 export default function PetsPage() {
   const t = useTranslations("Pets");
   const locale = useLocale();
+  const router = useRouter();
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +95,11 @@ export default function PetsPage() {
     }
 
     setLoading(false);
+  }
+
+  // Tras crear una mascota, se abre su cuestionario inicial (se puede saltar).
+  function handlePetAdded(petId: number) {
+    router.push(`/pets/${petId}/questionnaire`);
   }
 
   useEffect(() => {
@@ -220,7 +227,7 @@ export default function PetsPage() {
             {t("addPet")}
           </h2>
 
-          <AddPetForm onAddPet={loadPets} />
+          <AddPetForm onAddPet={handlePetAdded} />
         </div>
 
       </div>

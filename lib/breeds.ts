@@ -2,7 +2,8 @@
 // Un único origen de datos evita que las listas se desincronicen entre pantallas.
 
 // Razas basadas en la nomenclatura FCI (10 grupos),
-// más algunas populares no reconocidas por la FCI.
+// más razas españolas reconocidas por la RSCE y algunas populares
+// no reconocidas por la FCI.
 const FCI_BREEDS = [
   // Grupo 1 — Pastores y boyeros
   "Bearded Collie",
@@ -267,6 +268,19 @@ const FCI_BREEDS = [
   "Saluki",
   "Sloughi",
   "Whippet",
+
+  // Razas españolas reconocidas por la RSCE (no todas por la FCI)
+  "Alano Español",
+  "Ca de Bestiar (Pastor Mallorquín)",
+  "Can de Palleiro",
+  "Carea Leonés",
+  "Pachón Navarro",
+  "Pastor Garafiano",
+  "Pastor Vasco",
+  "Perro Majorero",
+  "Ratonero Bodeguero Andaluz",
+  "Ratonero Mallorquín",
+  "Ratonero Valenciano",
 
   // Populares no reconocidas por la FCI
   "American Bully",
@@ -535,6 +549,18 @@ const BREED_EN: Record<string, string> = {
   "Saluki": "Saluki",
   "Sloughi": "Sloughi",
   "Whippet": "Whippet",
+
+  "Alano Español": "Spanish Alano",
+  "Ca de Bestiar (Pastor Mallorquín)": "Majorca Shepherd Dog (Ca de Bestiar)",
+  "Can de Palleiro": "Can de Palleiro (Galician Shepherd)",
+  "Carea Leonés": "Leonese Sheepdog (Carea Leonés)",
+  "Pachón Navarro": "Navarre Pointer (Pachón Navarro)",
+  "Pastor Garafiano": "Garafian Shepherd",
+  "Pastor Vasco": "Basque Shepherd Dog",
+  "Perro Majorero": "Majorero Dog",
+  "Ratonero Bodeguero Andaluz": "Andalusian Ratter (Bodeguero)",
+  "Ratonero Mallorquín": "Majorcan Ratter (Ca Rater)",
+  "Ratonero Valenciano": "Valencian Ratter (Gos Rater Valencià)",
 
   "American Bully": "American Bully",
   "Bulldog Americano": "American Bulldog",
