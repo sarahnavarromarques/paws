@@ -321,6 +321,8 @@ export type Database = {
           steps_image: string | null
           steps_image_en: string | null
           user_id: string | null
+          video_url: string | null
+          video_url_en: string | null
         }
         Insert: {
           category?: string | null
@@ -337,6 +339,8 @@ export type Database = {
           steps_image?: string | null
           steps_image_en?: string | null
           user_id?: string | null
+          video_url?: string | null
+          video_url_en?: string | null
         }
         Update: {
           category?: string | null
@@ -353,6 +357,8 @@ export type Database = {
           steps_image?: string | null
           steps_image_en?: string | null
           user_id?: string | null
+          video_url?: string | null
+          video_url_en?: string | null
         }
         Relationships: []
       }

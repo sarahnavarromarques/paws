@@ -11,6 +11,9 @@ import ImageLightbox from "@/components/ImageLightbox";
 const supabase = createClient();
 const ADMIN_USER_ID = "ee62d6fc-b3e8-42c9-898e-4f9f9148a347";
 
+const SKILL_COLUMNS =
+  "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image, steps_image_en, mistakes_image_en, video_url, video_url_en";
+
 type Skill = {
   id: number;
   name: string;
@@ -24,6 +27,8 @@ type Skill = {
   mistakes_image: string | null;
   steps_image_en: string | null;
   mistakes_image_en: string | null;
+  video_url: string | null;
+  video_url_en: string | null;
 };
 
 type PetSkillRow = {
@@ -63,13 +68,24 @@ const CATEGORY_LABELS_EN: Record<string, string> = {
   "Obediencia FCI": "FCI Obedience",
 };
 
-// Textos del visor de viñetas (español / inglés)
+// Textos del visor de viñetas y vídeo (español / inglés)
 type ViewerText = {
   previous: string;
   next: string;
   tapToEnlarge: string;
   rotateHint: string;
   closeImage: string;
+  videoTitle: string;
+  noVideo: string;
+  videoPlaceholder: string;
+  saveVideo: string;
+  replaceVideo: string;
+  savingVideo: string;
+  removeVideo: string;
+  confirmRemoveVideo: string;
+  invalidVideo: string;
+  videoSaveError: string;
+  videoLanguageNote: string;
 };
 
 const VIEWER_TEXT: Record<"es" | "en", ViewerText> = {
@@ -79,6 +95,17 @@ const VIEWER_TEXT: Record<"es" | "en", ViewerText> = {
     tapToEnlarge: "🔍 Toca la viñeta para verla en grande",
     rotateHint: "📱 Gira el móvil para verla mejor",
     closeImage: "Cerrar imagen",
+    videoTitle: "🎬 Vídeo: cómo enseñarla",
+    noVideo: "Todavía no hay vídeo para esta habilidad en español.",
+    videoPlaceholder: "Pega aquí el enlace de YouTube",
+    saveVideo: "Guardar vídeo",
+    replaceVideo: "Cambiar vídeo",
+    savingVideo: "Guardando…",
+    removeVideo: "Quitar vídeo",
+    confirmRemoveVideo: "¿Quitar el vídeo en español de esta habilidad?",
+    invalidVideo: "El enlace no es de YouTube o no es válido.",
+    videoSaveError: "No se pudo guardar el vídeo. Inténtalo de nuevo.",
+    videoLanguageNote: "Se guarda para el idioma actual: español.",
   },
   en: {
     previous: "← Previous",
@@ -86,6 +113,17 @@ const VIEWER_TEXT: Record<"es" | "en", ViewerText> = {
     tapToEnlarge: "🔍 Tap the image to view it full size",
     rotateHint: "📱 Turn your phone to see it better",
     closeImage: "Close image",
+    videoTitle: "🎬 Video: how to teach it",
+    noVideo: "There is no English video for this skill yet.",
+    videoPlaceholder: "Paste the YouTube link here",
+    saveVideo: "Save video",
+    replaceVideo: "Change video",
+    savingVideo: "Saving…",
+    removeVideo: "Remove video",
+    confirmRemoveVideo: "Remove the English video from this skill?",
+    invalidVideo: "The link is not a valid YouTube link.",
+    videoSaveError: "The video could not be saved. Please try again.",
+    videoLanguageNote: "It is saved for the current language: English.",
   },
 };
 
@@ -117,6 +155,39 @@ function getMistakesImage(skill: Skill, locale: string): string | null {
   return locale === "en" ? skill.mistakes_image_en : skill.mistakes_image;
 }
 
+// Devuelve SOLO el vídeo del idioma activo (sin fallback a otro idioma)
+function getVideoUrl(skill: Skill, locale: string): string | null {
+  return locale === "en" ? skill.video_url_en : skill.video_url;
+}
+
+// Saca el identificador de un enlace de YouTube (normal, corto, Shorts o embed)
+function getYouTubeId(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl.trim());
+    const host = url.hostname.replace(/^(www\.|m\.)/, "");
+    let id: string | null = null;
+
+    if (host === "youtu.be") {
+      id = url.pathname.slice(1).split("/")[0] ?? null;
+    } else if (
+      host === "youtube.com" ||
+      host === "youtube-nocookie.com" ||
+      host === "music.youtube.com"
+    ) {
+      if (url.pathname === "/watch") {
+        id = url.searchParams.get("v");
+      } else {
+        const match = url.pathname.match(/^\/(embed|shorts|live|v)\/([^/?#]+)/);
+        id = match ? match[2] : null;
+      }
+    }
+
+    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 const KNOWN_CATEGORIES = [
   "Posiciones",
   "Control",
@@ -131,6 +202,20 @@ const ALL_CATEGORIES_VALUE = "__all__";
 const SKILL_QUERY_PARAM = "skill";
 
 type ImageKind = "steps" | "mistakes";
+
+type Slide =
+  | {
+      kind: "video";
+      title: string;
+      videoId: string | null;
+      emptyText: string;
+    }
+  | {
+      kind: ImageKind;
+      title: string;
+      image: string | null;
+      emptyText: string;
+    };
 
 type ZoomedImage = { src: string; alt: string };
 
@@ -158,7 +243,7 @@ export default function PetSkillsPage() {
   const [savingSkillId, setSavingSkillId] = useState<number | null>(null);
   const [openInfoId, setOpenInfoId] = useState<number | null>(null);
 
-  // Viñeta visible en la ventana de información (0 = pasos, 1 = errores)
+  // Diapositiva visible en la ventana de información (vídeo, pasos, errores)
   const [slideIndex, setSlideIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
 
@@ -168,6 +253,11 @@ export default function PetSkillsPage() {
   // Subida de imágenes: guarda "skillId-kind" mientras sube
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
+  // Enlace de vídeo (solo quien puede editar)
+  const [videoInput, setVideoInput] = useState("");
+  const [savingVideo, setSavingVideo] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+
   // Crear habilidad
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -175,16 +265,20 @@ export default function PetSkillsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Abre la información de una habilidad empezando por la primera viñeta
+  // Abre la información de una habilidad empezando por la primera diapositiva
   function openSkillInfo(skillId: number) {
     setOpenInfoId(skillId);
     setSlideIndex(0);
     setZoomedImage(null);
+    setVideoInput("");
+    setVideoError(null);
   }
 
   function closeSkillInfo() {
     setOpenInfoId(null);
     setZoomedImage(null);
+    setVideoInput("");
+    setVideoError(null);
   }
 
   useEffect(() => {
@@ -218,9 +312,7 @@ export default function PetSkillsPage() {
 
       const { data: skillsData } = await supabase
         .from("skills")
-        .select(
-          "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image, steps_image_en, mistakes_image_en"
-        )
+        .select(SKILL_COLUMNS)
         .order("id", { ascending: true });
 
       const loadedSkills = skillsData ?? [];
@@ -394,6 +486,48 @@ export default function PetSkillsPage() {
     }
   }
 
+  // Guardar (o quitar, con null) el enlace del vídeo en el idioma activo
+  async function handleSaveVideo(skill: Skill, rawUrl: string | null) {
+    setVideoError(null);
+
+    let value: string | null = null;
+
+    if (rawUrl !== null) {
+      const videoId = getYouTubeId(rawUrl);
+
+      if (!videoId) {
+        setVideoError(viewerText.invalidVideo);
+        return;
+      }
+
+      // Se guarda siempre con el mismo formato, venga como venga el enlace
+      value = `https://www.youtube.com/watch?v=${videoId}`;
+    }
+
+    setSavingVideo(true);
+
+    const updatePayload =
+      locale === "en" ? { video_url_en: value } : { video_url: value };
+
+    const { error } = await supabase
+      .from("skills")
+      .update(updatePayload)
+      .eq("id", skill.id);
+
+    setSavingVideo(false);
+
+    if (error) {
+      console.error("Error guardando el vídeo:", error);
+      setVideoError(viewerText.videoSaveError);
+      return;
+    }
+
+    setSkills((prev) =>
+      prev.map((s) => (s.id === skill.id ? { ...s, ...updatePayload } : s))
+    );
+    setVideoInput("");
+  }
+
   async function handleCreateSkill() {
     setCreateError(null);
 
@@ -429,9 +563,7 @@ export default function PetSkillsPage() {
         category: newCategory,
         user_id: currentUserId,
       })
-      .select(
-        "id, name, name_en, category, difficulty, description, description_en, user_id, steps_image, mistakes_image, steps_image_en, mistakes_image_en"
-      )
+      .select(SKILL_COLUMNS)
       .single();
 
     if (skillError || !skillData) {
@@ -726,7 +858,7 @@ export default function PetSkillsPage() {
 
       </div>
 
-      {/* VENTANA DE INFORMACIÓN DE HABILIDAD (una viñeta cada vez) */}
+      {/* VENTANA DE INFORMACIÓN DE HABILIDAD (vídeo + una viñeta cada vez) */}
       {(() => {
         const infoSkill = skills.find((s) => s.id === openInfoId);
         if (!infoSkill) return null;
@@ -743,12 +875,22 @@ export default function PetSkillsPage() {
         const skillName = getSkillName(infoSkill, locale);
         const description = getSkillDescription(infoSkill, locale);
 
-        const slides: {
-          kind: ImageKind;
-          title: string;
-          image: string | null;
-          emptyText: string;
-        }[] = [
+        const videoUrl = getVideoUrl(infoSkill, locale);
+        const videoId = videoUrl ? getYouTubeId(videoUrl) : null;
+
+        const slides: Slide[] = [];
+
+        // El vídeo va primero. Sin vídeo, solo lo ve quien puede añadirlo.
+        if (videoId || canEditImages) {
+          slides.push({
+            kind: "video",
+            title: viewerText.videoTitle,
+            videoId,
+            emptyText: viewerText.noVideo,
+          });
+        }
+
+        slides.push(
           {
             kind: "steps",
             title: t("howToTrainTitle"),
@@ -760,16 +902,13 @@ export default function PetSkillsPage() {
             title: t("commonMistakesTitle"),
             image: getMistakesImage(infoSkill, locale),
             emptyText: t("noMistakesImage"),
-          },
-        ];
+          }
+        );
 
         const currentIndex = Math.min(slideIndex, slides.length - 1);
         const slide = slides[currentIndex];
         const isFirst = currentIndex === 0;
         const isLast = currentIndex === slides.length - 1;
-        const isUploading = uploadingKey === `${infoSkill.id}-${slide.kind}`;
-        const slideImage = slide.image;
-        const slideAlt = `${skillName} — ${slide.title}`;
 
         const goPrevious = () => {
           if (!isFirst) setSlideIndex(currentIndex - 1);
@@ -813,7 +952,7 @@ export default function PetSkillsPage() {
                 </button>
               </div>
 
-              {/* Contenido: descripción + una viñeta */}
+              {/* Contenido: descripción + vídeo o viñeta */}
               <div
                 className="flex-1 overflow-y-auto px-2 py-3 sm:px-6 sm:py-5"
                 onTouchStart={(e) => {
@@ -844,63 +983,144 @@ export default function PetSkillsPage() {
                   </span>
                 </div>
 
-                {slideImage ? (
+                {slide.kind === "video" ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setZoomedImage({ src: slideImage, alt: slideAlt })
-                      }
-                      aria-label={viewerText.tapToEnlarge}
-                      className="block w-full cursor-zoom-in"
-                    >
-                      <img
-                        key={slideImage}
-                        src={slideImage}
-                        alt={slideAlt}
-                        className="h-auto w-full rounded-xl border border-slate-200 object-contain"
-                      />
-                    </button>
-                    <p className="mt-2 text-center text-sm font-semibold text-blue-600">
-                      {viewerText.tapToEnlarge}
-                    </p>
+                    {slide.videoId ? (
+                      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+                        <iframe
+                          key={slide.videoId}
+                          src={`https://www.youtube-nocookie.com/embed/${slide.videoId}?rel=0&modestbranding=1&playsinline=1`}
+                          title={`${skillName} — ${slide.title}`}
+                          className="h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : (
+                      <p className="px-2 py-10 text-center text-sm italic text-slate-400 sm:px-0">
+                        {slide.emptyText}
+                      </p>
+                    )}
+
+                    {canEditImages && (
+                      <div className="mx-2 mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:mx-0">
+                        <p className="mb-2 text-xs font-semibold text-slate-500">
+                          {viewerText.videoLanguageNote}
+                        </p>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input
+                            type="url"
+                            value={videoInput}
+                            onChange={(e) => setVideoInput(e.target.value)}
+                            placeholder={viewerText.videoPlaceholder}
+                            disabled={savingVideo}
+                            className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                          />
+                          <button
+                            type="button"
+                            disabled={savingVideo || videoInput.trim() === ""}
+                            onClick={() =>
+                              void handleSaveVideo(infoSkill, videoInput)
+                            }
+                            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {savingVideo
+                              ? viewerText.savingVideo
+                              : slide.videoId
+                              ? viewerText.replaceVideo
+                              : viewerText.saveVideo}
+                          </button>
+                        </div>
+
+                        {slide.videoId && (
+                          <button
+                            type="button"
+                            disabled={savingVideo}
+                            onClick={() => {
+                              if (window.confirm(viewerText.confirmRemoveVideo)) {
+                                void handleSaveVideo(infoSkill, null);
+                              }
+                            }}
+                            className="mt-3 rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                          >
+                            {viewerText.removeVideo}
+                          </button>
+                        )}
+
+                        {videoError && (
+                          <p className="mt-2 text-sm font-semibold text-red-600">
+                            ⚠️ {videoError}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <p className="px-2 py-10 text-center text-sm italic text-slate-400 sm:px-0">
-                    {slide.emptyText}
-                  </p>
-                )}
+                  <>
+                    {slide.image ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (slide.image) {
+                              setZoomedImage({
+                                src: slide.image,
+                                alt: `${skillName} — ${slide.title}`,
+                              });
+                            }
+                          }}
+                          aria-label={viewerText.tapToEnlarge}
+                          className="block w-full cursor-zoom-in"
+                        >
+                          <img
+                            key={slide.image}
+                            src={slide.image}
+                            alt={`${skillName} — ${slide.title}`}
+                            className="h-auto w-full rounded-xl border border-slate-200 object-contain"
+                          />
+                        </button>
+                        <p className="mt-2 text-center text-sm font-semibold text-blue-600">
+                          {viewerText.tapToEnlarge}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="px-2 py-10 text-center text-sm italic text-slate-400 sm:px-0">
+                        {slide.emptyText}
+                      </p>
+                    )}
 
-                {canEditImages && (
-                  <label className="mx-2 mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:mx-0">
-                    {isUploading
-                      ? t("uploading")
-                      : slideImage
-                      ? t("replaceImage")
-                      : t("uploadImage")}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={isUploading}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          void handleUploadImage(
-                            infoSkill,
-                            slide.kind,
-                            file,
-                            locale
-                          );
-                        }
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
+                    {canEditImages && (
+                      <label className="mx-2 mt-3 inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:mx-0">
+                        {uploadingKey === `${infoSkill.id}-${slide.kind}`
+                          ? t("uploading")
+                          : slide.image
+                          ? t("replaceImage")
+                          : t("uploadImage")}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingKey === `${infoSkill.id}-${slide.kind}`}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              void handleUploadImage(
+                                infoSkill,
+                                slide.kind,
+                                file,
+                                locale
+                              );
+                            }
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+                  </>
                 )}
               </div>
 
-              {/* Navegación entre viñetas */}
+              {/* Navegación entre diapositivas */}
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-6">
                 <button
                   type="button"
