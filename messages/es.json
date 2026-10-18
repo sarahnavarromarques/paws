@@ -162,6 +162,7 @@
     "skillGroups": "📂 Grupos de habilidades",
     "progress": "📈 Progreso",
     "viewProgress": "📈 Ver progreso",
+    "history": "🗂️ Historial",
     "infoTitle": "Información",
     "birthDateLabel": "Fecha de nacimiento:",
     "noData": "Sin datos",
@@ -605,5 +606,23 @@
     "backToPet": "← Volver a la ficha",
     "title": "📈 Progreso de {name}",
     "subtitle": "Análisis de la IA y evolución de cada habilidad."
+  },
+  "PetHistory": {
+    "backToPet": "← Volver a la ficha",
+    "title": "🗂️ Historial de {name}",
+    "subtitle": "Todos sus entrenamientos, del más reciente al más antiguo.",
+    "filterAll": "Todos",
+    "filterCompleted": "Completados",
+    "filterPending": "Pendientes",
+    "count": "{count, plural, one {# entrenamiento} other {# entrenamientos}}",
+    "emptyAll": "Todavía no hay entrenamientos registrados.",
+    "emptyCompleted": "No hay entrenamientos completados.",
+    "emptyPending": "No hay entrenamientos pendientes.",
+    "skillLabel": "Habilidad",
+    "allSkills": "Todas las habilidades",
+    "dateFrom": "Desde",
+    "dateTo": "Hasta",
+    "clearFilters": "Quitar filtros",
+    "emptyFiltered": "No hay entrenamientos con estos filtros."
   }
 }

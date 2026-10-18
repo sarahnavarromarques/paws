@@ -162,6 +162,7 @@
     "skillGroups": "📂 Skill groups",
     "progress": "📈 Progress",
     "viewProgress": "📈 View progress",
+    "history": "🗂️ History",
     "infoTitle": "Information",
     "birthDateLabel": "Date of birth:",
     "noData": "No data",
@@ -605,5 +606,23 @@
     "backToPet": "← Back to profile",
     "title": "📈 {name}'s progress",
     "subtitle": "AI analysis and how each skill is evolving."
+  },
+  "PetHistory": {
+    "backToPet": "← Back to profile",
+    "title": "🗂️ {name}'s history",
+    "subtitle": "All their training sessions, from newest to oldest.",
+    "filterAll": "All",
+    "filterCompleted": "Completed",
+    "filterPending": "Pending",
+    "count": "{count, plural, one {# training session} other {# training sessions}}",
+    "emptyAll": "No training sessions recorded yet.",
+    "emptyCompleted": "No completed training sessions.",
+    "emptyPending": "No pending training sessions.",
+    "skillLabel": "Skill",
+    "allSkills": "All skills",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "clearFilters": "Clear filters",
+    "emptyFiltered": "No training sessions match these filters."
   }
 }

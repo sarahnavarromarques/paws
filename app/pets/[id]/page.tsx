@@ -4,17 +4,13 @@ import { getTranslations, getLocale } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
-import SkillProgressList from "@/components/SkillProgressList";
 import TrainingOrder, {
   type TrainingOrderFallback,
   type TrainingOrderGroupView,
 } from "@/components/TrainingOrder";
 import { getBreedLabel, getColorLabel } from "@/lib/breeds";
 import { parseStoredOrder } from "@/lib/training-order";
-import {
-  averageSkillProgress,
-  buildSkillProgressItems,
-} from "@/lib/pet-skill-progress";
+import { buildSkillProgressItems } from "@/lib/pet-skill-progress";
 import {
   questionnaireText,
   toQuestionnaireLocale,
@@ -23,9 +19,6 @@ import {
 type PageProps = {
   params: Promise<{
     id: string;
-  }>;
-  searchParams: Promise<{
-    training?: string;
   }>;
 };
 
@@ -70,12 +63,8 @@ function calculateAge(birthDate: string | null, t: TFunction): string {
   return t("ageYearsMonths", { years, months });
 }
 
-export default async function PetProfile({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function PetProfile({ params }: PageProps) {
   const { id } = await params;
-  const { training: selectedTraining } = await searchParams;
 
   const locale = await getLocale();
   const qLocale = toQuestionnaireLocale(locale);
@@ -125,22 +114,6 @@ export default async function PetProfile({
 
   const latestTraining =
     allTrainings.length > 0 ? allTrainings[0] : null;
-
-  const selectedTrainingId = selectedTraining
-    ? Number(selectedTraining)
-    : null;
-
-  const orderedTrainings = [...allTrainings].sort((a, b) => {
-    if (a.id === selectedTrainingId) {
-      return -1;
-    }
-
-    if (b.id === selectedTrainingId) {
-      return 1;
-    }
-
-    return 0;
-  });
 
   // --- Habilidades del perro ---
 
@@ -216,15 +189,14 @@ export default async function PetProfile({
       : skill.category ?? null;
   }
 
-  // Progreso de cada habilidad (cálculo compartido con la pantalla de progreso)
+  // Progreso de cada habilidad (se usa para la sugerencia básica del orden;
+  // las barras de cada habilidad están en la pantalla de progreso)
   const petSkillsWithNames = buildSkillProgressItems(
     petSkillList,
     completedTrainings,
     localizedSkillName,
     localizedSkillCategory
   );
-
-  const averageProgress = averageSkillProgress(petSkillsWithNames);
 
   // --- Datos para la tarjeta "Orden recomendado" ---
 
@@ -303,6 +275,9 @@ export default async function PetProfile({
       ? tAddPetForm("female")
       : null;
 
+  // Texto del lápiz sin el emoji (para el lector de pantalla y el aviso al pasar el ratón)
+  const editLabel = t("editPet").replace(/^\S+\s/, "");
+
   return (
     <main className="min-h-screen bg-slate-100 p-10">
       <div className="mx-auto max-w-6xl">
@@ -313,13 +288,6 @@ export default async function PetProfile({
             className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
             {t("backToPets")}
-          </Link>
-
-          <Link
-            href={`/pets/${pet.id}/edit`}
-            className="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-white transition hover:bg-amber-600"
-          >
-            {t("editPet")}
           </Link>
 
           {/* Habilidades y grupos están en la misma página (pestañas) */}
@@ -340,6 +308,13 @@ export default async function PetProfile({
           </Link>
 
           <Link
+            href={`/pets/${pet.id}/history`}
+            className="rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
+          >
+            {t("history")}
+          </Link>
+
+          <Link
             href={`/pets/${pet.id}/questionnaire`}
             className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700"
           >
@@ -349,8 +324,32 @@ export default async function PetProfile({
 
         <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
 
-          <div className="bg-blue-600 p-10 text-white">
-            <div className="flex items-center gap-6">
+          <div className="relative bg-blue-600 p-10 text-white">
+
+            {/* Lápiz para editar la mascota (esquina de la ficha) */}
+            <Link
+              href={`/pets/${pet.id}/edit`}
+              aria-label={editLabel}
+              title={editLabel}
+              className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </Link>
+
+            <div className="flex items-center gap-6 pr-12">
 
               {pet.photo ? (
                 <img
@@ -476,13 +475,7 @@ export default async function PetProfile({
               fallback={recommendation}
             />
 
-            {/* HABILIDADES DEL PERRO */}
-
-            <SkillProgressList
-              petId={pet.id}
-              items={petSkillsWithNames}
-              average={averageProgress}
-            />
+            {/* NUEVO ENTRENAMIENTO (el historial está en su propia pantalla) */}
 
             <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
 
@@ -494,119 +487,6 @@ export default async function PetProfile({
 
             </div>
 
-            <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
-
-              <h2 className="mb-6 text-3xl font-bold">
-                {t("trainingHistoryTitle")}
-              </h2>
-
-              {orderedTrainings.length > 0 ? (
-
-                <div className="space-y-4">
-
-                  {orderedTrainings.map((training) => {
-
-                    const isSelected =
-                      training.id === selectedTrainingId;
-
-                    return (
-                      <div
-                        key={training.id}
-                        id={`training-${training.id}`}
-                        className={`rounded-xl border p-5 transition ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-300"
-                            : "border-slate-300 bg-white"
-                        }`}
-                      >
-
-                        {isSelected && (
-                          <div className="mb-4 rounded-lg bg-blue-600 px-4 py-2 font-bold text-white">
-                            {t("selectedTrainingBanner")}
-                          </div>
-                        )}
-
-                        <div className="flex items-start justify-between gap-6">
-
-                          <div>
-
-                            <h3 className="text-xl font-bold">
-                              {training.title ??
-                                t("trainingDefaultTitle")}
-                            </h3>
-
-                            <p>
-                              📅{" "}
-                              {training.date ??
-                                t("noDate")}
-                            </p>
-
-                            <p>
-                              🕒{" "}
-                              {training.time
-                                ? training.time.substring(
-                                    0,
-                                    5
-                                  )
-                                : "--:--"}
-                            </p>
-
-                            <p>
-                              ⏱{" "}
-                              {training.duration ??
-                                "-"}{" "}
-                              min
-                            </p>
-
-                            <p>
-                              {t("statusLabel")}{" "}
-                              <span
-                                className={
-                                  training.status ===
-                                  "completed"
-                                    ? "font-bold text-green-600"
-                                    : "font-bold text-orange-600"
-                                }
-                              >
-                                {training.status ===
-                                "completed"
-                                  ? t("completedStatus")
-                                  : t("pendingStatus")}
-                              </span>
-                            </p>
-
-                            {training.notes && (
-                              <p className="mt-2 text-slate-600">
-                                {training.notes}
-                              </p>
-                            )}
-
-                          </div>
-
-                          <Link
-                            href={`/trainings/${training.id}/edit`}
-                            className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 font-semibold text-white transition hover:bg-amber-600"
-                          >
-                            {t("editLink")}
-                          </Link>
-
-                        </div>
-
-                      </div>
-                    );
-                  })}
-
-                </div>
-
-              ) : (
-
-                <p className="text-slate-500">
-                  {t("noTrainingsRecorded")}
-                </p>
-
-              )}
-
-            </div>
           </div>
         </div>
       </div>

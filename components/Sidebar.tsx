@@ -38,7 +38,7 @@ type PetItem = Pick<PetRow, "id" | "name">;
 
 export default function Sidebar() {
   const t = useTranslations("Sidebar");
-  // Reutilizamos los textos de la ficha del perro (Habilidades, Progreso, Editar)
+  // Reutilizamos los textos de la ficha del perro (Habilidades, Progreso, Historial, Editar)
   const tPet = useTranslations("PetProfile");
   const pathname = usePathname();
   const router = useRouter();
@@ -256,6 +256,7 @@ export default function Sidebar() {
                         const subLinks = [
                           { href: `${base}/skills`, label: tPet("skills") },
                           { href: `${base}/progress`, label: tPet("progress") },
+                          { href: `${base}/history`, label: tPet("history") },
                           { href: `${base}/edit`, label: tPet("editPet") },
                         ];
 
