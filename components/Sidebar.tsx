@@ -38,7 +38,7 @@ type PetItem = Pick<PetRow, "id" | "name">;
 
 export default function Sidebar() {
   const t = useTranslations("Sidebar");
-  // Reutilizamos los textos de la ficha del perro (Habilidades, Grupos, Editar)
+  // Reutilizamos los textos de la ficha del perro (Habilidades, Progreso, Editar)
   const tPet = useTranslations("PetProfile");
   const pathname = usePathname();
   const router = useRouter();
@@ -252,9 +252,10 @@ export default function Sidebar() {
                         const inside = isInsidePet(pet.id);
                         const expanded = expandedPets.has(pet.id);
 
+                        // Habilidades incluye los grupos (pestañas en la misma página)
                         const subLinks = [
                           { href: `${base}/skills`, label: tPet("skills") },
-                          { href: `${base}/groups`, label: tPet("skillGroups") },
+                          { href: `${base}/progress`, label: tPet("progress") },
                           { href: `${base}/edit`, label: tPet("editPet") },
                         ];
 

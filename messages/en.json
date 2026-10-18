@@ -160,6 +160,8 @@
     "editPet": "✏️ Edit dog",
     "skills": "🎯 Skills",
     "skillGroups": "📂 Skill groups",
+    "progress": "📈 Progress",
+    "viewProgress": "📈 View progress",
     "infoTitle": "Information",
     "birthDateLabel": "Date of birth:",
     "noData": "No data",
@@ -598,5 +600,10 @@
     "vibrationUnsupported": "This device doesn't allow vibration from the web. The clicker will only make a sound.",
     "soundHint": "If you can't hear it, turn up the volume and switch off silent mode.",
     "tip": "Tip: click exactly when the dog completes the position, never after, and give the treat right away."
+  },
+  "PetProgress": {
+    "backToPet": "← Back to profile",
+    "title": "📈 {name}'s progress",
+    "subtitle": "AI analysis and how each skill is evolving."
   }
 }

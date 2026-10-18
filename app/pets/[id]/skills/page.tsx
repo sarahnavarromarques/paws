@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import ImageLightbox from "@/components/ImageLightbox";
+import PetGroupsManager from "@/components/PetGroupsManager";
 
 const supabase = createClient();
 const ADMIN_USER_ID = "ee62d6fc-b3e8-42c9-898e-4f9f9148a347";
@@ -201,6 +202,12 @@ const ALL_CATEGORIES_VALUE = "__all__";
 // Parámetro de la URL para abrir directamente una habilidad (?skill=ID)
 const SKILL_QUERY_PARAM = "skill";
 
+// Parámetro de la URL para abrir la pestaña de grupos (?tab=groups)
+const TAB_QUERY_PARAM = "tab";
+const GROUPS_TAB_VALUE = "groups";
+
+type Tab = "skills" | "groups";
+
 type ImageKind = "steps" | "mistakes";
 
 type Slide =
@@ -222,10 +229,18 @@ type ZoomedImage = { src: string; alt: string };
 export default function PetSkillsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const petId = Number(params.id);
   const t = useTranslations("PetSkills");
+  // Nombres de las pestañas (ya existen en la ficha del perro)
+  const tPet = useTranslations("PetProfile");
   const locale = useLocale();
   const viewerText = VIEWER_TEXT[locale === "en" ? "en" : "es"];
+
+  // La pestaña activa la decide la dirección (?tab=groups).
+  // Así funciona al entrar, al cambiar de pestaña y cuando navega el tutorial.
+  const activeTab: Tab =
+    searchParams.get(TAB_QUERY_PARAM) === GROUPS_TAB_VALUE ? "groups" : "skills";
 
   function getDifficultyLabel(difficulty: string): string {
     if (difficulty === "baja") return t("difficultyLow");
@@ -281,6 +296,20 @@ export default function PetSkillsPage() {
     setVideoError(null);
   }
 
+  // Cambia de pestaña cambiando la dirección (sin recargar la página)
+  function changeTab(tab: Tab) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete(SKILL_QUERY_PARAM);
+
+    if (tab === "groups") {
+      url.searchParams.set(TAB_QUERY_PARAM, GROUPS_TAB_VALUE);
+    } else {
+      url.searchParams.delete(TAB_QUERY_PARAM);
+    }
+
+    router.replace(`${url.pathname}${url.search}`, { scroll: false });
+  }
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -327,7 +356,7 @@ export default function PetSkillsPage() {
 
       setPetSkills(petSkillsData ?? []);
 
-      // Si llegamos desde el panel con ?skill=ID, abrir esa habilidad
+      // Si llegamos con ?skill=ID, abrir esa habilidad
       const requestedSkill = new URLSearchParams(window.location.search).get(
         SKILL_QUERY_PARAM
       );
@@ -635,19 +664,21 @@ export default function PetSkillsPage() {
           >
             {t("backToPet")}
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              setCreateOpen(true);
-              setCreateError(null);
-            }}
-            className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
-          >
-            {t("createSkillButton")}
-          </button>
+          {activeTab === "skills" && (
+            <button
+              type="button"
+              onClick={() => {
+                setCreateOpen(true);
+                setCreateError(null);
+              }}
+              className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
+            >
+              {t("createSkillButton")}
+            </button>
+          )}
         </div>
 
-        <header className="mb-8 flex flex-col gap-6 rounded-3xl bg-white p-8 shadow md:flex-row md:items-center md:justify-between">
+        <header className="mb-6 flex flex-col gap-6 rounded-3xl bg-white p-8 shadow md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-5">
             {pet?.photo ? (
               <img
@@ -687,173 +718,212 @@ export default function PetSkillsPage() {
           </div>
         </header>
 
-        {/* FILTROS DE CATEGORÍA */}
-        {skills.length > 0 && (
-          <div data-tour="skills-filters" className="mb-8 flex flex-wrap gap-3">
-            {categories.map((category) => {
-              const isActive = category === activeCategory;
-              const label =
-                category === ALL_CATEGORIES_VALUE
-                  ? t("allCategories")
-                  : getCategoryLabel(category, locale);
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                  className={
-                    isActive
-                      ? "rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
-                      : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                  }
-                >
-                  {category !== ALL_CATEGORIES_VALUE && CATEGORY_ICONS[category]
-                    ? `${CATEGORY_ICONS[category]} `
-                    : ""}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* PESTAÑAS: HABILIDADES | GRUPOS */}
+        <div
+          role="tablist"
+          className="mb-8 grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "skills"}
+            onClick={() => changeTab("skills")}
+            className={`rounded-xl px-4 py-3 font-semibold transition ${
+              activeTab === "skills"
+                ? "bg-blue-600 text-white shadow"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {tPet("skills")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "groups"}
+            onClick={() => changeTab("groups")}
+            className={`rounded-xl px-4 py-3 font-semibold transition ${
+              activeTab === "groups"
+                ? "bg-purple-600 text-white shadow"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {tPet("skillGroups")}
+          </button>
+        </div>
 
-        {/* LISTA DE HABILIDADES */}
-        {skills.length === 0 ? (
-          <div className="rounded-2xl bg-white p-10 text-center shadow">
-            <div className="text-5xl">📚</div>
-            <h3 className="mt-4 text-2xl font-bold">
-              {t("noSkillsAvailableTitle")}
-            </h3>
-            <p className="mt-2 text-slate-500">
-              {t("noSkillsAvailableBody")}
-            </p>
-          </div>
-        ) : filteredSkills.length === 0 ? (
-          <div className="rounded-2xl bg-white p-10 text-center shadow">
-            <p className="text-slate-500">
-              {t("noSkillsInCategory")}
-            </p>
-          </div>
+        {activeTab === "groups" ? (
+          <PetGroupsManager petId={petId} />
         ) : (
-          <div className="grid gap-5 md:grid-cols-2">
-            {filteredSkills.map((skill) => {
-              const difficulty = skill.difficulty ?? "baja";
-              const difficultyStyle =
-                DIFFICULTY_STYLES[difficulty] ??
-                "bg-slate-100 text-slate-700";
-              const icon = skill.category
-                ? CATEGORY_ICONS[skill.category] ?? "🐾"
-                : "🐾";
-              const isActive = isSkillActive(skill.id);
-              const progress = getProgressForSkill(skill.id);
-              const isSaving = savingSkillId === skill.id;
-              const isInfoOpen = openInfoId === skill.id;
-              const isMine = skill.user_id !== null;
-
-              return (
-                <div
-                  key={skill.id}
-                  onClick={() => openSkillInfo(skill.id)}
-                  className={`flex cursor-pointer flex-col rounded-2xl bg-white p-6 shadow transition hover:shadow-md hover:bg-slate-50 active:scale-[0.99] ${
-                    isActive ? "ring-2 ring-blue-500" : ""
-                  }`}
-                >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{icon}</span>
-                      <div>
-                        <h2 className="text-xl font-bold">
-                          {getSkillName(skill, locale)}
-                          {isMine && (
-                            <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 align-middle">
-                              {t("mine")}
-                            </span>
-                          )}
-                        </h2>
-                        <p className="text-sm text-slate-500">
-                          {skill.category
-                            ? getCategoryLabel(skill.category, locale)
-                            : t("noCategory")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openSkillInfo(skill.id);
-                        }}
-                        aria-label={t("moreInfo")}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
-                          isInfoOpen
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        ℹ
-                      </button>
-
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${difficultyStyle}`}
-                      >
-                        {getDifficultyLabel(difficulty)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {isActive ? (
-                    <div className="mt-1">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-slate-600">
-                          {t("progressLabel")}
-                        </span>
-                        <span className="text-lg font-bold text-blue-600">
-                          {progress}%
-                        </span>
-                      </div>
-
-                      <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full bg-blue-600 transition-all"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-
-                      <p className="mb-4 text-xs font-medium text-slate-400">
-                        {t("progressAutoNote")}
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleRemoveSkill(skill.id);
-                        }}
-                        disabled={isSaving}
-                        className="w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
-                      >
-                        {isSaving ? t("saving") : t("removeSkill")}
-                      </button>
-                    </div>
-                  ) : (
+          <>
+            {/* FILTROS DE CATEGORÍA */}
+            {skills.length > 0 && (
+              <div data-tour="skills-filters" className="mb-8 flex flex-wrap gap-3">
+                {categories.map((category) => {
+                  const isActive = category === activeCategory;
+                  const label =
+                    category === ALL_CATEGORIES_VALUE
+                      ? t("allCategories")
+                      : getCategoryLabel(category, locale);
+                  return (
                     <button
+                      key={category}
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleAddSkill(skill.id);
-                      }}
-                      disabled={isSaving}
-                      className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                      onClick={() => setActiveCategory(category)}
+                      className={
+                        isActive
+                          ? "rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
+                          : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                      }
                     >
-                      {isSaving ? t("adding") : t("addToMyPet")}
+                      {category !== ALL_CATEGORIES_VALUE && CATEGORY_ICONS[category]
+                        ? `${CATEGORY_ICONS[category]} `
+                        : ""}
+                      {label}
                     </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* LISTA DE HABILIDADES */}
+            {skills.length === 0 ? (
+              <div className="rounded-2xl bg-white p-10 text-center shadow">
+                <div className="text-5xl">📚</div>
+                <h3 className="mt-4 text-2xl font-bold">
+                  {t("noSkillsAvailableTitle")}
+                </h3>
+                <p className="mt-2 text-slate-500">
+                  {t("noSkillsAvailableBody")}
+                </p>
+              </div>
+            ) : filteredSkills.length === 0 ? (
+              <div className="rounded-2xl bg-white p-10 text-center shadow">
+                <p className="text-slate-500">
+                  {t("noSkillsInCategory")}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2">
+                {filteredSkills.map((skill) => {
+                  const difficulty = skill.difficulty ?? "baja";
+                  const difficultyStyle =
+                    DIFFICULTY_STYLES[difficulty] ??
+                    "bg-slate-100 text-slate-700";
+                  const icon = skill.category
+                    ? CATEGORY_ICONS[skill.category] ?? "🐾"
+                    : "🐾";
+                  const isActive = isSkillActive(skill.id);
+                  const progress = getProgressForSkill(skill.id);
+                  const isSaving = savingSkillId === skill.id;
+                  const isInfoOpen = openInfoId === skill.id;
+                  const isMine = skill.user_id !== null;
+
+                  return (
+                    <div
+                      key={skill.id}
+                      onClick={() => openSkillInfo(skill.id)}
+                      className={`flex cursor-pointer flex-col rounded-2xl bg-white p-6 shadow transition hover:shadow-md hover:bg-slate-50 active:scale-[0.99] ${
+                        isActive ? "ring-2 ring-blue-500" : ""
+                      }`}
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{icon}</span>
+                          <div>
+                            <h2 className="text-xl font-bold">
+                              {getSkillName(skill, locale)}
+                              {isMine && (
+                                <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 align-middle">
+                                  {t("mine")}
+                                </span>
+                              )}
+                            </h2>
+                            <p className="text-sm text-slate-500">
+                              {skill.category
+                                ? getCategoryLabel(skill.category, locale)
+                                : t("noCategory")}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openSkillInfo(skill.id);
+                            }}
+                            aria-label={t("moreInfo")}
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
+                              isInfoOpen
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            }`}
+                          >
+                            ℹ
+                          </button>
+
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${difficultyStyle}`}
+                          >
+                            {getDifficultyLabel(difficulty)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isActive ? (
+                        <div className="mt-1">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-slate-600">
+                              {t("progressLabel")}
+                            </span>
+                            <span className="text-lg font-bold text-blue-600">
+                              {progress}%
+                            </span>
+                          </div>
+
+                          <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className="h-full bg-blue-600 transition-all"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+
+                          <p className="mb-4 text-xs font-medium text-slate-400">
+                            {t("progressAutoNote")}
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRemoveSkill(skill.id);
+                            }}
+                            disabled={isSaving}
+                            className="w-full rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                          >
+                            {isSaving ? t("saving") : t("removeSkill")}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleAddSkill(skill.id);
+                          }}
+                          disabled={isSaving}
+                          className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isSaving ? t("adding") : t("addToMyPet")}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
 
       </div>

@@ -160,6 +160,8 @@
     "editPet": "✏️ Editar mascota",
     "skills": "🎯 Habilidades",
     "skillGroups": "📂 Grupos de habilidades",
+    "progress": "📈 Progreso",
+    "viewProgress": "📈 Ver progreso",
     "infoTitle": "Información",
     "birthDateLabel": "Fecha de nacimiento:",
     "noData": "Sin datos",
@@ -598,5 +600,10 @@
     "vibrationUnsupported": "Este dispositivo no permite vibrar desde la web. El clicker solo sonará.",
     "soundHint": "Si no lo oyes, sube el volumen y quita el modo silencio.",
     "tip": "Consejo: haz clic exactamente cuando el perro completa la posición, nunca después, y dale el premio justo a continuación."
+  },
+  "PetProgress": {
+    "backToPet": "← Volver a la ficha",
+    "title": "📈 Progreso de {name}",
+    "subtitle": "Análisis de la IA y evolución de cada habilidad."
   }
 }

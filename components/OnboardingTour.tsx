@@ -81,8 +81,8 @@ const STEPS: TourStep[] = [
     icon: "🏠",
     title: { es: "Tu inicio", en: "Your home" },
     body: {
-      es: "Esta es la primera pantalla que verás al entrar. Aquí tienes de un vistazo lo más importante de tus mascotas.",
-      en: "This is the first screen you'll see when you log in. It gives you an overview of what matters most about your pets.",
+      es: "Esta es la primera pantalla que verás al entrar. Desde aquí llegas rápido a tus mascotas, al calendario y a los ajustes.",
+      en: "This is the first screen you'll see when you log in. From here you can quickly reach your pets, the calendar and your settings.",
     },
   },
   {
@@ -107,8 +107,8 @@ const STEPS: TourStep[] = [
     icon: "🧭",
     title: { es: "Todo a mano", en: "Everything at hand" },
     body: {
-      es: "Inicio, Mascotas, Calendario, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, Grupos o Editar.",
-      en: "Home, Pets, Calendar, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, Groups or Edit.",
+      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso o Editar.",
+      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress or Edit.",
     },
   },
   {
@@ -119,8 +119,8 @@ const STEPS: TourStep[] = [
     icon: "🐶",
     title: { es: "Tus mascotas", en: "Your pets" },
     body: {
-      es: "Aquí están todas tus mascotas. Desde esta pantalla añades una nueva y entras en su ficha.",
-      en: "All your pets live here. From this screen you add a new one and open its profile.",
+      es: "Aquí están todas tus mascotas. En cada una ves qué te recomienda reforzar hoy y su progreso. Desde esta pantalla también añades una nueva.",
+      en: "All your pets live here. For each one you'll see what to reinforce today and its progress. You can also add a new one from this screen.",
     },
   },
   {
@@ -152,13 +152,14 @@ const STEPS: TourStep[] = [
     id: "groups",
     kind: "spot",
     needsPet: true,
-    route: (id) => `/pets/${id}/groups`,
+    // Los grupos están en la pestaña "Grupos" de la página de habilidades
+    route: (id) => `/pets/${id}/skills?tab=groups`,
     target: "groups-create",
     icon: "🧩",
     title: { es: "Grupos de habilidades", en: "Skill groups" },
     body: {
-      es: "Junta habilidades en grupos para entrenarlas a la vez. Si no se te ocurre un nombre, la IA te sugiere uno.",
-      en: "Put skills into groups to train them together. If you can't think of a name, the AI suggests one.",
+      es: "En la pestaña Grupos juntas habilidades para entrenarlas a la vez. Si no se te ocurre un nombre, la IA te sugiere uno.",
+      en: "In the Groups tab you put skills together to train them at the same time. If you can't think of a name, the AI suggests one.",
     },
   },
   {
@@ -180,10 +181,10 @@ const STEPS: TourStep[] = [
     route: (id) => `/pets/${id}`,
     target: "analyze-progress",
     icon: "📊",
-    title: { es: "Analizar progreso", en: "Analyze progress" },
+    title: { es: "Ver progreso", en: "View progress" },
     body: {
-      es: "La IA estudia el historial de tu perro y te da un resumen, los patrones que detecta y qué trabajar después.",
-      en: "The AI studies your dog's history and gives you a summary, the patterns it detects and what to work on next.",
+      es: "Pulsa aquí para ver el progreso de tu perro. La IA estudia su historial y te da un resumen, los patrones que detecta y qué trabajar después.",
+      en: "Tap here to see your dog's progress. The AI studies its history and gives you a summary, the patterns it detects and what to work on next.",
     },
   },
   {
@@ -606,13 +607,16 @@ export default function OnboardingTour() {
     if (next !== -1) setStepIndex(next);
   }, [waitingForPet, pathname, stepIndex]);
 
-  // 5) Llevar al usuario a la pantalla de cada paso
+  // 5) Llevar al usuario a la pantalla de cada paso.
+  // Se compara la dirección completa (incluido "?tab=groups"), porque
+  // Habilidades y Grupos son la misma página con distinta pestaña.
   useEffect(() => {
     if (!active) return;
     if (step.needsPet && petId === null) return;
     if (waitingForPet && pathname.startsWith("/pets/")) return;
     const route = step.route(petId);
-    if (pathname !== route) router.push(route);
+    const currentPath = `${pathname}${window.location.search}`;
+    if (currentPath !== route) router.push(route);
   }, [active, step, petId, pathname, router, waitingForPet]);
 
   // 6) Preparar el menú lateral y buscar el elemento a iluminar

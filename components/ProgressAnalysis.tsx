@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 
 type Skill = {
@@ -36,6 +36,8 @@ type Props = {
   pet: Pet;
   skills: Skill[];
   trainings: Training[];
+  // Si es true, analiza automáticamente al abrir la pantalla
+  autoAnalyze?: boolean;
 };
 
 type TFunction = ReturnType<typeof useTranslations>;
@@ -103,13 +105,21 @@ function buildLocalAnalysis(
   return { resumen, patrones, recomendacion };
 }
 
-export default function ProgressAnalysis({ pet, skills, trainings }: Props) {
+export default function ProgressAnalysis({
+  pet,
+  skills,
+  trainings,
+  autoAnalyze = false,
+}: Props) {
   const t = useTranslations("ProgressAnalysis");
   const locale = useLocale();
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(autoAnalyze);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
+
+  // Evita analizar dos veces al abrir (React puede montar el componente dos veces en desarrollo)
+  const autoStartedRef = useRef(false);
 
   const hasData = skills.length > 0 || trainings.length > 0;
 
@@ -154,6 +164,16 @@ export default function ProgressAnalysis({ pet, skills, trainings }: Props) {
       setLoading(false);
     }
   }
+
+  // Análisis automático al abrir la pantalla de progreso
+  useEffect(() => {
+    if (!autoAnalyze || autoStartedRef.current) {
+      return;
+    }
+    autoStartedRef.current = true;
+    void handleAnalyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAnalyze]);
 
   return (
     // data-tour: el tutorial ilumina esta tarjeta

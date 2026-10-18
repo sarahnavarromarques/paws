@@ -4,13 +4,17 @@ import { getTranslations, getLocale } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
-import ProgressAnalysis from "@/components/ProgressAnalysis";
+import SkillProgressList from "@/components/SkillProgressList";
 import TrainingOrder, {
   type TrainingOrderFallback,
   type TrainingOrderGroupView,
 } from "@/components/TrainingOrder";
 import { getBreedLabel, getColorLabel } from "@/lib/breeds";
 import { parseStoredOrder } from "@/lib/training-order";
+import {
+  averageSkillProgress,
+  buildSkillProgressItems,
+} from "@/lib/pet-skill-progress";
 import {
   questionnaireText,
   toQuestionnaireLocale,
@@ -26,9 +30,6 @@ type PageProps = {
 };
 
 type TFunction = Awaited<ReturnType<typeof getTranslations>>;
-
-// Marca de la tarjeta "Analizar progreso" (el panel enlaza aquí con #ai-progress)
-const AI_PROGRESS_ANCHOR = "ai-progress";
 
 function calculateAge(birthDate: string | null, t: TFunction): string {
   if (!birthDate) {
@@ -67,37 +68,6 @@ function calculateAge(birthDate: string | null, t: TFunction): string {
   }
 
   return t("ageYearsMonths", { years, months });
-}
-
-function daysSince(dateStr: string | null): number | null {
-  if (!dateStr) {
-    return null;
-  }
-
-  const then = new Date(`${dateStr}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const diffMs = today.getTime() - then.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  return diffDays >= 0 ? diffDays : null;
-}
-
-function formatDaysSince(days: number | null, t: TFunction): string {
-  if (days === null) {
-    return t("daysSinceNever");
-  }
-
-  if (days === 0) {
-    return t("daysSinceToday");
-  }
-
-  if (days === 1) {
-    return t("daysSinceOneDay");
-  }
-
-  return t("daysSinceMultiple", { days });
 }
 
 export default async function PetProfile({
@@ -246,63 +216,15 @@ export default async function PetProfile({
       : skill.category ?? null;
   }
 
-  // Resumen de entrenamientos por habilidad (solo completados)
-  const trainingStatsBySkill = new Map<number, { count: number; lastDate: string | null }>();
+  // Progreso de cada habilidad (cálculo compartido con la pantalla de progreso)
+  const petSkillsWithNames = buildSkillProgressItems(
+    petSkillList,
+    completedTrainings,
+    localizedSkillName,
+    localizedSkillCategory
+  );
 
-  for (const training of completedTrainings) {
-    if (training.skill_id === null || training.skill_id === undefined) {
-      continue;
-    }
-
-    const current = trainingStatsBySkill.get(training.skill_id) ?? {
-      count: 0,
-      lastDate: null,
-    };
-
-    current.count += 1;
-
-    // allTrainings viene ordenado por fecha desc, pero comparamos por seguridad
-    if (
-      training.date &&
-      (current.lastDate === null || training.date > current.lastDate)
-    ) {
-      current.lastDate = training.date;
-    }
-
-    trainingStatsBySkill.set(training.skill_id, current);
-  }
-
-  const petSkillsWithNames: {
-    skillId: number;
-    name: string;
-    category: string | null;
-    progress: number;
-    sessionCount: number;
-    lastTrainedDays: number | null;
-  }[] = petSkillList
-    .map((row) => {
-      const stats = trainingStatsBySkill.get(row.skill_id);
-
-      return {
-        skillId: row.skill_id,
-        name: localizedSkillName(row.skill_id),
-        category: localizedSkillCategory(row.skill_id),
-        progress: row.auto_progress ?? 0,
-        sessionCount: stats?.count ?? 0,
-        lastTrainedDays: daysSince(stats?.lastDate ?? null),
-      };
-    })
-    .sort((a, b) => b.progress - a.progress);
-
-  const averageSkillProgress =
-    petSkillsWithNames.length === 0
-      ? 0
-      : Math.round(
-          petSkillsWithNames.reduce(
-            (sum, item) => sum + item.progress,
-            0
-          ) / petSkillsWithNames.length
-        );
+  const averageProgress = averageSkillProgress(petSkillsWithNames);
 
   // --- Datos para la tarjeta "Orden recomendado" ---
 
@@ -400,6 +322,7 @@ export default async function PetProfile({
             {t("editPet")}
           </Link>
 
+          {/* Habilidades y grupos están en la misma página (pestañas) */}
           <Link
             href={`/pets/${pet.id}/skills`}
             className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
@@ -407,11 +330,13 @@ export default async function PetProfile({
             {t("skills")}
           </Link>
 
+          {/* data-tour: el tutorial ilumina este botón (antes, la tarjeta de análisis) */}
           <Link
-            href={`/pets/${pet.id}/groups`}
-            className="rounded-xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700"
+            href={`/pets/${pet.id}/progress`}
+            data-tour="analyze-progress"
+            className="rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700"
           >
-            {t("skillGroups")}
+            {t("viewProgress")}
           </Link>
 
           <Link
@@ -551,113 +476,13 @@ export default async function PetProfile({
               fallback={recommendation}
             />
 
-            {/* ANÁLISIS DE PROGRESO (IA) */}
-
-            <div id={AI_PROGRESS_ANCHOR} className="scroll-mt-6">
-              <ProgressAnalysis
-                pet={{
-                  name: pet.name,
-                  breed: pet.breed ?? null,
-                  objective: pet.objective ?? null,
-                  level: pet.level ?? null,
-                }}
-                skills={petSkillsWithNames.map((item) => ({
-                  name: item.name,
-                  category: item.category,
-                  progress: item.progress,
-                  sessionCount: item.sessionCount,
-                  lastTrainedDays: item.lastTrainedDays,
-                  isGoal: false,
-                }))}
-                trainings={completedTrainings.slice(0, 15).map((training) => ({
-                  title: training.title ?? null,
-                  date: training.date ?? null,
-                  duration: training.duration ?? null,
-                  notes: training.notes ?? null,
-                }))}
-              />
-            </div>
-
             {/* HABILIDADES DEL PERRO */}
 
-            <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
-
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-3xl font-bold">
-                  {t("dogSkillsTitle")}
-                </h2>
-
-                <div className="flex items-center gap-4">
-                  {petSkillsWithNames.length > 0 && (
-                    <div className="rounded-xl bg-slate-100 px-4 py-2 text-center">
-                      <span className="text-2xl font-bold text-blue-600">
-                        {averageSkillProgress}%
-                      </span>
-                      <span className="ml-2 text-sm font-semibold text-slate-500">
-                        {t("average")}
-                      </span>
-                    </div>
-                  )}
-
-                  <Link
-                    href={`/pets/${pet.id}/skills`}
-                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-                  >
-                    {t("manage")}
-                  </Link>
-                </div>
-              </div>
-
-              {petSkillsWithNames.length > 0 ? (
-
-                <div className="space-y-5">
-
-                  {petSkillsWithNames.map((item) => (
-                    <div key={item.skillId}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="font-semibold">
-                          {item.category
-                            ? `${item.category} — `
-                            : ""}
-                          {item.name}
-                        </span>
-                        <span className="font-bold text-blue-600">
-                          {item.progress}%
-                        </span>
-                      </div>
-
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full bg-blue-600 transition-all"
-                          style={{ width: `${item.progress}%` }}
-                        />
-                      </div>
-
-                      <p className="mt-1 text-xs font-medium text-slate-500">
-                        {item.sessionCount === 0
-                          ? t("noSessionsRecorded")
-                          : `${t("sessionCount", { count: item.sessionCount })} · ${formatDaysSince(item.lastTrainedDays, t)}`}
-                      </p>
-                    </div>
-                  ))}
-
-                </div>
-
-              ) : (
-
-                <p className="text-slate-500">
-                  {t("noSkillsYet")}{" "}
-                  <Link
-                    href={`/pets/${pet.id}/skills`}
-                    className="font-semibold text-blue-600 hover:underline"
-                  >
-                    {t("addSkillsCta")}
-                  </Link>
-                </p>
-
-              )}
-
-            </div>
+            <SkillProgressList
+              petId={pet.id}
+              items={petSkillsWithNames}
+              average={averageProgress}
+            />
 
             <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
 
