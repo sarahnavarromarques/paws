@@ -16,12 +16,19 @@ const HIDDEN_PATHS = [
   "/update-password",
 ];
 
-type NavKey = "dashboard" | "pets" | "calendar" | "settings" | "credits";
+type NavKey =
+  | "dashboard"
+  | "pets"
+  | "calendar"
+  | "clicker"
+  | "settings"
+  | "credits";
 
 const NAV_ITEMS: { href: string; key: NavKey; icon: string }[] = [
   { href: "/dashboard", key: "dashboard", icon: "🏠" },
   { href: "/pets", key: "pets", icon: "🐶" },
   { href: "/calendar", key: "calendar", icon: "📅" },
+  { href: "/clicker", key: "clicker", icon: "🔔" },
   { href: "/settings", key: "settings", icon: "⚙️" },
   { href: "/credits", key: "credits", icon: "📚" },
 ];

@@ -580,9 +580,23 @@
     "dashboard": "Dashboard",
     "pets": "Dogs",
     "calendar": "Calendar",
+    "clicker": "Clicker",
     "settings": "Settings",
     "credits": "Credits & sources",
     "logout": "Log out",
     "loggingOut": "Logging out..."
+  },
+  "Clicker": {
+    "title": "🔔 Clicker",
+    "subtitle": "Press the button right at the moment your dog does the right thing.",
+    "backToDashboard": "← Back to dashboard",
+    "tapToClick": "Tap to click",
+    "buttonAria": "Click",
+    "vibrationLabel": "Vibration",
+    "vibrationOn": "On",
+    "vibrationOff": "Off",
+    "vibrationUnsupported": "This device doesn't allow vibration from the web. The clicker will only make a sound.",
+    "soundHint": "If you can't hear it, turn up the volume and switch off silent mode.",
+    "tip": "Tip: click exactly when the dog completes the position, never after, and give the treat right away."
   }
 }

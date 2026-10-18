@@ -580,9 +580,23 @@
     "dashboard": "Panel",
     "pets": "Mascotas",
     "calendar": "Calendario",
+    "clicker": "Clicker",
     "settings": "Ajustes",
     "credits": "Créditos y fuentes",
     "logout": "Cerrar sesión",
     "loggingOut": "Cerrando sesión..."
+  },
+  "Clicker": {
+    "title": "🔔 Clicker",
+    "subtitle": "Pulsa el botón justo en el momento en que tu perro hace lo correcto.",
+    "backToDashboard": "← Volver al panel",
+    "tapToClick": "Pulsa para hacer clic",
+    "buttonAria": "Hacer clic",
+    "vibrationLabel": "Vibración",
+    "vibrationOn": "Activada",
+    "vibrationOff": "Desactivada",
+    "vibrationUnsupported": "Este dispositivo no permite vibrar desde la web. El clicker solo sonará.",
+    "soundHint": "Si no lo oyes, sube el volumen y quita el modo silencio.",
+    "tip": "Consejo: haz clic exactamente cuando el perro completa la posición, nunca después, y dale el premio justo a continuación."
   }
 }
