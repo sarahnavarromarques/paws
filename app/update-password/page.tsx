@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -10,15 +10,65 @@ import { getAuthErrorKey } from "@/lib/auth-errors";
 
 const supabase = createClient();
 
+type LinkStatus = "checking" | "ready" | "invalid";
+
 export default function UpdatePasswordPage() {
   const router = useRouter();
   const t = useTranslations("UpdatePassword");
   const tErrors = useTranslations("AuthErrors");
 
+  const [status, setStatus] = useState<LinkStatus>("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Al abrir la página, crea la sesión temporal a partir del enlace del email.
+  // Acepta dos tipos de enlace:
+  // 1. El nuevo (?token_hash=...): funciona desde cualquier móvil o navegador.
+  // 2. El antiguo (?code=... o #access_token=...): Supabase lo procesa solo.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function prepareSession() {
+      const params = new URLSearchParams(window.location.search);
+      const tokenHash = params.get("token_hash");
+
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "recovery",
+        });
+
+        // Quita el token de la barra de direcciones.
+        window.history.replaceState(null, "", window.location.pathname);
+
+        if (!cancelled) setStatus(error ? "invalid" : "ready");
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+
+      if (!cancelled) setStatus(data.session ? "ready" : "invalid");
+    }
+
+    prepareSession();
+
+    // Por si Supabase termina de procesar el enlace antiguo un poco después.
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (cancelled) return;
+        if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
+          setStatus("ready");
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,13 +105,30 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-[420px] rounded-2xl bg-white p-10 shadow-xl">
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-10 shadow-xl">
         <h1 className="mb-2 text-center text-3xl font-bold">
           {t("title")}
         </h1>
 
-        {done ? (
+        {status === "checking" && (
+          <p className="mt-6 text-center text-slate-500">{t("verifying")}</p>
+        )}
+
+        {status === "invalid" && (
+          <div className="mt-6 text-center">
+            <p className="mb-6 text-slate-600">{t("invalidLink")}</p>
+
+            <Link
+              href="/login"
+              className="block w-full rounded-lg bg-blue-600 py-3 text-white transition hover:bg-blue-700"
+            >
+              {t("backToLogin")}
+            </Link>
+          </div>
+        )}
+
+        {status === "ready" && done && (
           <div className="mt-6 text-center">
             <p className="mb-6 text-slate-600">{t("successMessage")}</p>
 
@@ -76,7 +143,9 @@ export default function UpdatePasswordPage() {
               {t("goToLogin")}
             </button>
           </div>
-        ) : (
+        )}
+
+        {status === "ready" && !done && (
           <form onSubmit={handleUpdate}>
             <p className="mb-6 mt-2 text-center text-sm text-slate-500">
               {t("instructions")}

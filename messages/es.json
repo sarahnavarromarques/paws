@@ -548,7 +548,9 @@
     "backToLogin": "Volver a iniciar sesión",
     "alertEnterPassword": "Introduce una contraseña nueva.",
     "alertPasswordTooShort": "La contraseña debe tener al menos 6 caracteres.",
-    "alertPasswordsDontMatch": "Las contraseñas no coinciden."
+    "alertPasswordsDontMatch": "Las contraseñas no coinciden.",
+    "verifying": "Comprobando el enlace...",
+    "invalidLink": "El enlace no es válido o ha caducado. Vuelve a iniciar sesión y pulsa «¿Olvidaste tu contraseña?» para recibir uno nuevo."
   },
   "AuthErrors": {
     "invalidCredentials": "Correo o contraseña incorrectos.",

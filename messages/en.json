@@ -548,7 +548,9 @@
     "backToLogin": "Back to log in",
     "alertEnterPassword": "Enter a new password.",
     "alertPasswordTooShort": "Your password must be at least 6 characters long.",
-    "alertPasswordsDontMatch": "The passwords don't match."
+    "alertPasswordsDontMatch": "The passwords don't match.",
+    "verifying": "Checking the link...",
+    "invalidLink": "This link isn't valid or has expired. Go back to log in and tap \"Forgot your password?\" to get a new one."
   },
   "AuthErrors": {
     "invalidCredentials": "Incorrect email or password.",
