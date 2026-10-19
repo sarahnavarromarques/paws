@@ -21,8 +21,13 @@ import {
 // Se ejecuta en el servidor: la clave de la IA nunca llega al navegador.
 export const runtime = "nodejs";
 
-// Margen para Vercel mientras la IA prepara la propuesta.
-export const maxDuration = 60;
+// La explicación no tiene límite de longitud y la IA puede tardar más de un
+// minuto en escribirla. Vercel (Fluid) permite hasta 300 segundos.
+export const maxDuration = 300;
+
+// Tope de texto que puede escribir la IA. Si se alcanza, la respuesta llega
+// cortada y se usa la propuesta local de respaldo.
+const MAX_OUTPUT_TOKENS = 16000;
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -124,9 +129,11 @@ Guarda el resultado con la herramienta ${TOOL_NAME}. No inventes habilidades ni 
 async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
   const anthropic = new Anthropic({ apiKey });
 
+  const startedAt = Date.now();
+
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 8000,
+    max_tokens: MAX_OUTPUT_TOKENS,
     tools: [
       {
         name: TOOL_NAME,
@@ -173,11 +180,25 @@ async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
     messages: [{ role: "user", content: prompt }],
   });
 
+  const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+
+  // Siempre (también en producción): resumen de la llamada para los logs de Vercel.
+  console.log(
+    `[pet-questionnaire] stop_reason=${message.stop_reason} output_tokens=${message.usage.output_tokens} segundos=${seconds}`
+  );
+
+  // Si la IA llegó al tope, la respuesta está cortada y no se puede usar.
+  if (message.stop_reason === "max_tokens") {
+    console.error(
+      `[pet-questionnaire] La IA alcanzó el tope de ${MAX_OUTPUT_TOKENS} tokens: respuesta cortada, se usa la propuesta de respaldo.`
+    );
+    return null;
+  }
+
   const toolBlock = message.content.find((block) => block.type === "tool_use");
 
   // Solo en local: ver qué devuelve la IA exactamente
   if (IS_DEV) {
-    console.log("[pet-questionnaire] stop_reason:", message.stop_reason);
     console.log(
       "[pet-questionnaire] Respuesta de la IA:\n",
       toolBlock && toolBlock.type === "tool_use"
@@ -187,6 +208,7 @@ async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
   }
 
   if (!toolBlock || toolBlock.type !== "tool_use") {
+    console.error("[pet-questionnaire] La IA no devolvió la herramienta.");
     return null;
   }
 
@@ -277,7 +299,9 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (apiKey) {
+  if (!apiKey) {
+    console.error("[pet-questionnaire] Falta ANTHROPIC_API_KEY.");
+  } else {
     try {
       const accountType = await getCurrentAccountType();
       const audience = getAudienceInstructions(accountType, false);
@@ -300,11 +324,17 @@ export async function POST(request: Request) {
         )
       );
 
-      const sanitized = sanitizeProposal(raw, catalog, locale);
+      if (raw) {
+        const sanitized = sanitizeProposal(raw, catalog, locale);
 
-      if (sanitized) {
-        proposal = sanitized;
-        usedFallback = false;
+        if (sanitized) {
+          proposal = sanitized;
+          usedFallback = false;
+        } else {
+          console.error(
+            "[pet-questionnaire] La respuesta de la IA no pasó la validación; se usa la propuesta de respaldo."
+          );
+        }
       }
     } catch (error) {
       console.error("Error llamando a la IA (pet-questionnaire):", error);
