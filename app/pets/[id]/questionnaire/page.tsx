@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import Pawsi from "@/components/Pawsi";
+import PawsiLoading from "@/components/PawsiLoading";
 import { buildGroupSignature } from "@/lib/skill-group-names";
 import {
   EMPTY_ANSWERS,
@@ -145,6 +147,34 @@ export default function PetQuestionnairePage() {
   const isLast = index === total - 1;
   const canContinue = question ? isQuestionAnswered(question, answers) : false;
 
+  // --- Guardar el objetivo en la ficha del perro ("Goal") ---
+  // Se llama en cuanto la IA genera el objetivo, y otra vez al aceptar o saltar
+  // (por si el usuario lo ha editado). Si falla, no bloquea el cuestionario.
+
+  async function saveObjectiveToPet(text: string): Promise<boolean> {
+    const clean = text.trim();
+    if (!clean) return false;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return false;
+
+    const { error: updateError } = await supabase
+      .from("pets")
+      .update({ objective: clean })
+      .eq("id", petId)
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error("Error guardando el objetivo en la ficha:", updateError);
+      return false;
+    }
+
+    return true;
+  }
+
   // --- Respuestas ---
 
   function setSingle(id: SingleQuestionId, value: string) {
@@ -180,7 +210,11 @@ export default function PetQuestionnairePage() {
     });
   }
 
-  function handleSkip() {
+  async function handleSkip() {
+    // Si ya hay un objetivo generado (pantalla de revisión), se guarda antes de salir.
+    if (stage === "review") {
+      await saveObjectiveToPet(objective);
+    }
     router.push(`/pets/${petId}`);
   }
 
@@ -233,6 +267,10 @@ export default function PetQuestionnairePage() {
           removed: [],
         }))
       );
+
+      // El objetivo pasa a la ficha automáticamente, sin esperar a "Aceptar".
+      await saveObjectiveToPet(data.proposal.objective);
+
       setStage("review");
     } catch (err) {
       console.error("Error generando la propuesta:", err);
@@ -281,7 +319,7 @@ export default function PetQuestionnairePage() {
     [reviewGroups]
   );
 
-  // --- Aceptar: guardar objetivo, crear grupos y calcular el primer orden ---
+  // --- Aceptar: guardar objetivo, crear grupos, añadir habilidades y calcular el primer orden ---
 
   async function handleAccept() {
     setError(null);
@@ -389,12 +427,46 @@ export default function PetQuestionnairePage() {
         usedSignatures.add(signature);
       }
 
+      // Añadir al perro las habilidades de los grupos elegidos (progreso 0).
+      // Las que ya tiene no se tocan, para no perder su progreso.
+      const planSkillIds = Array.from(
+        new Set(finalGroups.flatMap((group) => group.skillIds))
+      );
+
+      const { data: currentPetSkills, error: petSkillsError } = await supabase
+        .from("pet_skills")
+        .select("skill_id")
+        .eq("pet_id", petId);
+
+      if (petSkillsError) throw petSkillsError;
+
+      const alreadyHas = new Set(
+        (currentPetSkills ?? []).map((row) => row.skill_id)
+      );
+
+      const missingSkillIds = planSkillIds.filter((id) => !alreadyHas.has(id));
+
+      if (missingSkillIds.length > 0) {
+        const { error: addSkillsError } = await supabase
+          .from("pet_skills")
+          .insert(
+            missingSkillIds.map((skillId) => ({
+              pet_id: petId,
+              skill_id: skillId,
+              manual_progress: 0,
+              auto_progress: 0,
+            }))
+          );
+
+        if (addSkillsError) throw addSkillsError;
+      }
+
       await supabase
         .from("pet_questionnaires")
         .update({ status: "accepted", updated_at: new Date().toISOString() })
         .eq("pet_id", petId);
 
-      // Primer orden recomendado (si falla, se puede recalcular desde la ficha).
+      // Primer orden recomendado (si falla, se puede recalcular desde Habilidades).
       try {
         await fetch("/api/training-order", {
           method: "POST",
@@ -420,18 +492,15 @@ export default function PetQuestionnairePage() {
   // --- Pantallas ---
 
   if (stage === "loading") {
-    return (
-      <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <p className="text-center text-slate-500">{tx("loading")}</p>
-      </main>
-    );
+    return <PawsiLoading text={tx("loading")} />;
   }
 
   if (stage === "notFound") {
     return (
       <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow">
-          <p className="mb-6 text-slate-600">{tx("noPet")}</p>
+        <div className="mx-auto flex max-w-xl flex-col items-center rounded-2xl bg-white p-8 text-center shadow">
+          <Pawsi pose="triste" size={120} />
+          <p className="mb-6 mt-4 text-slate-600">{tx("noPet")}</p>
           <Link
             href="/pets"
             className="rounded-xl bg-slate-700 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
@@ -446,9 +515,14 @@ export default function PetQuestionnairePage() {
   if (stage === "generating" || stage === "saving") {
     return (
       <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <div className="mx-auto max-w-xl rounded-2xl bg-white p-10 text-center shadow">
-          <div className="mb-4 animate-bounce text-6xl">🐶</div>
-          <p className="text-lg font-semibold text-blue-700">
+        <div className="mx-auto flex max-w-xl flex-col items-center rounded-2xl bg-white p-10 text-center shadow">
+          {/* Pawsi piensa mientras la IA prepara el plan, y celebra al guardarlo */}
+          <Pawsi
+            pose={stage === "generating" ? "piensa" : "celebra"}
+            size={150}
+            float
+          />
+          <p className="mt-4 text-lg font-semibold text-blue-700">
             {stage === "generating" ? tx("generating") : tx("accepting")}
           </p>
         </div>
@@ -552,7 +626,7 @@ export default function PetQuestionnairePage() {
           <div className="mt-8 flex flex-col gap-3 md:flex-row">
             <button
               type="button"
-              onClick={handleAccept}
+              onClick={() => void handleAccept()}
               className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
             >
               {tx("accept")}
@@ -577,7 +651,7 @@ export default function PetQuestionnairePage() {
             </button>
             <button
               type="button"
-              onClick={handleSkip}
+              onClick={() => void handleSkip()}
               className="rounded-xl px-6 py-3 font-semibold text-slate-500 transition hover:text-slate-700"
             >
               {tx("skip")}
@@ -602,7 +676,7 @@ export default function PetQuestionnairePage() {
           </div>
           <button
             type="button"
-            onClick={handleSkip}
+            onClick={() => void handleSkip()}
             className="shrink-0 rounded-xl bg-white px-4 py-2 font-semibold text-slate-600 shadow transition hover:bg-slate-50"
           >
             {tx("skip")}

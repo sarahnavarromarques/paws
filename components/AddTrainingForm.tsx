@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import SearchableSelect from "@/components/SearchableSelect";
+import PawsiLoading from "@/components/PawsiLoading";
 
 const supabase = createClient();
 
@@ -250,7 +251,7 @@ export default function AddTrainingForm({ petId }: Props) {
   }
 
   if (loading) {
-    return <p className="text-slate-500">{t("loading")}</p>;
+    return <PawsiLoading text={t("loading")} variant="card" />;
   }
 
   return (
@@ -269,8 +270,9 @@ export default function AddTrainingForm({ petId }: Props) {
               <p className="text-slate-600">
                 {t("noGroupsMessage")}
               </p>
+              {/* Los grupos están en la pestaña "Grupos" de la página de habilidades */}
               <Link
-                href={`/pets/${petId}/groups`}
+                href={`/pets/${petId}/skills?tab=groups`}
                 className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-blue-700"
               >
                 {t("createGroups")}

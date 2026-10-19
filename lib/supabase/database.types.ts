@@ -197,6 +197,7 @@ export type Database = {
           account_type: string
           avatar_url: string | null
           calendar_token: string
+          clicker_settings: Json | null
           created_at: string
           first_name: string | null
           first_steps_dismissed: boolean
@@ -211,6 +212,7 @@ export type Database = {
           account_type?: string
           avatar_url?: string | null
           calendar_token?: string
+          clicker_settings?: Json | null
           created_at?: string
           first_name?: string | null
           first_steps_dismissed?: boolean
@@ -225,6 +227,7 @@ export type Database = {
           account_type?: string
           avatar_url?: string | null
           calendar_token?: string
+          clicker_settings?: Json | null
           created_at?: string
           first_name?: string | null
           first_steps_dismissed?: boolean

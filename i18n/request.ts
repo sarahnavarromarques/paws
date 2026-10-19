@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 import type { AbstractIntlMessages } from "next-intl";
 
 import { createClient } from "../lib/supabase/server";
+import { LANGUAGE_COOKIE } from "../lib/language-cookie";
 import {
   DEFAULT_ACCOUNT_TYPE,
   isAccountType,
@@ -60,8 +62,21 @@ async function loadAccountOverrides(
   return layers;
 }
 
+// Idioma guardado en el navegador (cookie). Se usa cuando no hay sesión
+// o cuando el perfil todavía no tiene idioma.
+async function readCookieLocale(): Promise<Locale | null> {
+  try {
+    const cookieStore = await cookies();
+    const value = cookieStore.get(LANGUAGE_COOKIE)?.value;
+    return isLocale(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export default getRequestConfig(async () => {
-  let locale: Locale = DEFAULT_LOCALE;
+  // Orden de prioridad: perfil del usuario → cookie del navegador → español
+  let locale: Locale = (await readCookieLocale()) ?? DEFAULT_LOCALE;
   let accountType: AccountType = DEFAULT_ACCOUNT_TYPE;
 
   try {

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { saveUserLanguage, type AppLanguage } from "@/lib/language";
-import PawsMascot from "@/components/PawsMascot";
+import Pawsi from "@/components/Pawsi";
 
 // Pantallas donde el tutorial nunca se muestra (sin sesión iniciada)
 const HIDDEN_PATHS = [
@@ -52,8 +52,8 @@ const STEPS: TourStep[] = [
     route: () => "/dashboard",
     icon: "👋",
     title: {
-      es: "¡Hola! Soy Paws, tu ayudante de entrenamiento",
-      en: "Hi! I'm Paws, your training buddy",
+      es: "¡Hola! Soy Pawsi, tu ayudante de entrenamiento",
+      en: "Hi! I'm Pawsi, your training buddy",
     },
     body: {
       es: "Te enseño en un par de minutos cómo funciona la app. Puedes saltarlo cuando quieras y repetirlo desde Ajustes.",
@@ -262,6 +262,17 @@ const UI = {
 const NAVY = "#1e3a5f";
 const CARD_HEIGHT = 300;
 
+// Cada cuánto se comprueba si ya estamos en la pantalla del paso (ms)
+const POLL_MS = 100;
+// Máximo de comprobaciones antes de mostrar la tarjeta centrada (≈ 6 s)
+const MAX_TRIES = 60;
+// Para saber si el elemento ya dejó de moverse (la página terminó de cargar)
+const STABLE_CHECK_MS = 120;
+const STABLE_CHECKS_NEEDED = 3;
+const MAX_STABLE_ATTEMPTS = 30;
+// Alto aproximado de la barra superior fija de la app
+const TOP_BAR_HEIGHT = 64;
+
 // Animaciones del tutorial
 const TOUR_CSS = `
 @keyframes paws-pop { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -337,6 +348,43 @@ function closeMenu() {
   if (isMenuOpen()) {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   }
+}
+
+// Posición del elemento dentro de la página (no cambia al desplazarse,
+// solo cuando la página se recoloca porque carga contenido)
+function pagePosition(el: HTMLElement): string {
+  const r = el.getBoundingClientRect();
+  return [
+    Math.round(r.top + window.scrollY),
+    Math.round(r.left + window.scrollX),
+    Math.round(r.width),
+    Math.round(r.height),
+  ].join(",");
+}
+
+// ¿Se ve el elemento en la pantalla?
+function isInViewport(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight;
+
+  // Elementos muy altos: basta con que su parte de arriba se vea
+  if (r.height > vh - TOP_BAR_HEIGHT - 32) {
+    return r.top >= 0 && r.top < vh / 2;
+  }
+
+  return r.top >= TOP_BAR_HEIGHT && r.bottom <= vh - 16;
+}
+
+// Desplaza la página (sin animación) para dejar el elemento en el centro
+function centerOnScreen(el: HTMLElement) {
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const target =
+    r.height > vh - TOP_BAR_HEIGHT - 32
+      ? window.scrollY + r.top - TOP_BAR_HEIGHT - 16
+      : window.scrollY + r.top - (vh - r.height) / 2;
+
+  window.scrollTo({ top: Math.max(0, target), behavior: "instant" });
 }
 
 // Decide dónde colocar la tarjeta respecto al elemento iluminado
@@ -421,8 +469,9 @@ function LoopDiagram({ lang }: { lang: Lang }) {
         />
       </svg>
 
+      {/* Pawsi pensando en el centro del ciclo */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <PawsMascot size={92} />
+        <Pawsi pose="piensa" size={110} />
       </div>
 
       {LOOP_NODES.map((node, i) => {
@@ -509,6 +558,8 @@ export default function OnboardingTour() {
   const [userId, setUserId] = useState<string | null>(null);
   const [petId, setPetId] = useState<number | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
+  // true cuando la pantalla del paso ya está lista y se puede enseñar la tarjeta
+  const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(false);
   const [petMessage, setPetMessage] = useState(false);
   const [choosingLanguage, setChoosingLanguage] = useState(false);
@@ -619,25 +670,21 @@ export default function OnboardingTour() {
     if (currentPath !== route) router.push(route);
   }, [active, step, petId, pathname, router, waitingForPet]);
 
-  // 6) Preparar el menú lateral y buscar el elemento a iluminar
+  // 6) Preparar el paso: esperar a estar en su pantalla, abrir/cerrar el menú,
+  // esperar a que el elemento deje de moverse (la página termina de cargar),
+  // bajar la pantalla hasta él y entonces mostrar la tarjeta. Así aparece
+  // UNA sola vez, en su sitio y a la vista.
   useEffect(() => {
     setRect(null);
+    setReady(false);
     targetRef.current = null;
     if (!active) return;
+    if (step.needsPet && petId === null) return;
 
-    if (step.openMenu) {
-      if (!isMenuOpen()) {
-        document
-          .querySelector<HTMLElement>('[data-tour="menu-button"]')
-          ?.click();
-      }
-    } else if (step.kind === "spot") {
-      closeMenu();
-    }
-
-    if (!step.target) return;
-
+    const route = step.route(petId);
     let tries = 0;
+    let menuHandled = false;
+    let cancelled = false;
     const timeouts: number[] = [];
 
     const measure = () => {
@@ -647,34 +694,134 @@ export default function OnboardingTour() {
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     };
 
+    // Si el elemento no se ve, baja la pantalla hasta él y lo vuelve a medir
+    const keepVisible = () => {
+      const el = targetRef.current;
+      if (!el || step.openMenu) return;
+      if (!isInViewport(el)) {
+        centerOnScreen(el);
+      }
+    };
+
+    // Espera a que el elemento lleve un rato sin moverse y lo muestra
+    const waitUntilStable = (
+      el: HTMLElement,
+      previous: string,
+      stableCount: number,
+      attempts: number
+    ) => {
+      if (cancelled) return;
+
+      const current = pagePosition(el);
+      const nextStable = current === previous ? stableCount + 1 : 0;
+
+      if (nextStable >= STABLE_CHECKS_NEEDED || attempts >= MAX_STABLE_ATTEMPTS) {
+        if (!step.openMenu) {
+          centerOnScreen(el);
+        }
+
+        // Comprobación: si algo deshizo el desplazamiento, se vuelve a bajar
+        timeouts.push(
+          window.setTimeout(() => {
+            if (cancelled) return;
+            keepVisible();
+            measure();
+            setReady(true);
+          }, 150)
+        );
+
+        // Segunda comprobación por si la página aún se movió después
+        timeouts.push(
+          window.setTimeout(() => {
+            if (cancelled) return;
+            keepVisible();
+            measure();
+          }, 600)
+        );
+        return;
+      }
+
+      timeouts.push(
+        window.setTimeout(
+          () => waitUntilStable(el, current, nextStable, attempts + 1),
+          STABLE_CHECK_MS
+        )
+      );
+    };
+
     const interval = window.setInterval(() => {
       tries += 1;
+
+      // a) Esperar a que la app haya llegado a la pantalla de este paso
+      const currentPath = `${window.location.pathname}${window.location.search}`;
+      if (currentPath !== route) {
+        if (tries >= MAX_TRIES) {
+          window.clearInterval(interval);
+          setReady(true);
+        }
+        return;
+      }
+
+      // b) Abrir o cerrar el menú lateral (una sola vez)
+      if (!menuHandled) {
+        menuHandled = true;
+        if (step.openMenu) {
+          if (!isMenuOpen()) {
+            document
+              .querySelector<HTMLElement>('[data-tour="menu-button"]')
+              ?.click();
+          }
+        } else if (step.kind === "spot") {
+          closeMenu();
+        }
+      }
+
+      // c) Paso sin elemento que iluminar: ya se puede mostrar
+      if (!step.target) {
+        window.clearInterval(interval);
+        setReady(true);
+        return;
+      }
+
+      // d) Buscar el elemento y esperar a que se quede quieto
       const el = document.querySelector<HTMLElement>(
         `[data-tour="${step.target}"]`
       );
+
       if (el) {
         window.clearInterval(interval);
         targetRef.current = el;
-        if (!step.openMenu) {
-          el.scrollIntoView({ block: "center", behavior: "smooth" });
-        }
-        timeouts.push(window.setTimeout(measure, 400));
-        timeouts.push(window.setTimeout(measure, 800));
-      } else if (tries >= 20) {
+        waitUntilStable(el, pagePosition(el), 0, 0);
+      } else if (tries >= MAX_TRIES) {
+        // No se encontró: se muestra la tarjeta centrada
         window.clearInterval(interval);
+        setReady(true);
       }
-    }, 150);
+    }, POLL_MS);
+
+    // Si la página cambia de tamaño después (fotos que cargan, etc.),
+    // se asegura de que el elemento siga a la vista y recoloca el recuadro
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            keepVisible();
+            measure();
+          })
+        : null;
+    resizeObserver?.observe(document.body);
 
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
 
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
       timeouts.forEach((t) => window.clearTimeout(t));
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [active, step, pathname]);
+  }, [active, step, petId]);
 
   const finish = async () => {
     setActive(false);
@@ -777,7 +924,7 @@ export default function OnboardingTour() {
         </SpeechBubble>
 
         <div className="paws-float">
-          <PawsMascot size={150} />
+          <Pawsi pose="hola" size={170} />
         </div>
 
         <div className="grid w-full max-w-sm gap-3">
@@ -853,7 +1000,8 @@ export default function OnboardingTour() {
             <LoopDiagram lang={lang} />
           ) : (
             <div className="paws-float">
-              <PawsMascot size={170} />
+              {/* Bienvenida: Pawsi saluda · Final: Pawsi celebra */}
+              <Pawsi pose={isFinish ? "celebra" : "hola"} size={190} />
             </div>
           )}
 
@@ -897,7 +1045,7 @@ export default function OnboardingTour() {
     );
   }
 
-  // ---------- Tarjeta azul con el perro guía ----------
+  // ---------- Tarjeta azul con Pawsi señalando ----------
   const position_ = rect && !waitingForPet ? computeCardPosition(rect) : null;
 
   const card = (
@@ -918,8 +1066,8 @@ export default function OnboardingTour() {
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white">
-            <PawsMascot size={50} />
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white">
+            <Pawsi pose="senala" size={56} />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-200">
@@ -1024,6 +1172,16 @@ export default function OnboardingTour() {
     );
   }
 
+  // Mientras se prepara el paso: solo la pantalla oscurecida, sin tarjeta
+  if (!ready) {
+    return (
+      <div
+        className="fixed inset-0 z-[60] bg-slate-900/60"
+        aria-hidden="true"
+      />
+    );
+  }
+
   // Paso con un elemento iluminado
   if (rect && position_) {
     return (
@@ -1032,7 +1190,7 @@ export default function OnboardingTour() {
         <div className="fixed inset-0 z-[60]" aria-hidden="true" />
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-[60] rounded-xl ring-2 ring-white transition-all duration-300"
+          className="pointer-events-none fixed z-[60] rounded-xl ring-2 ring-white"
           style={{
             top: rect.top - 8,
             left: rect.left - 8,
@@ -1088,7 +1246,7 @@ export default function OnboardingTour() {
 
   // Paso sin elemento iluminado: tarjeta centrada
   return (
-    <div className="paws-fade fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4">
       <style>{TOUR_CSS}</style>
       {card}
     </div>

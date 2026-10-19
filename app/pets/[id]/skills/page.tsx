@@ -8,6 +8,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import ImageLightbox from "@/components/ImageLightbox";
 import PetGroupsManager from "@/components/PetGroupsManager";
+import TrainingOrderTab from "@/components/TrainingOrderTab";
 
 const supabase = createClient();
 const ADMIN_USER_ID = "ee62d6fc-b3e8-42c9-898e-4f9f9148a347";
@@ -67,6 +68,12 @@ const CATEGORY_LABELS_EN: Record<string, string> = {
   Llamada: "Recall",
   Paseo: "Heel",
   "Obediencia FCI": "FCI Obedience",
+};
+
+// Nombre de la pestaña "Orden recomendado" (español / inglés)
+const ORDER_TAB_LABEL: Record<"es" | "en", string> = {
+  es: "Orden recomendado",
+  en: "Recommended order",
 };
 
 // Textos del visor de viñetas y vídeo (español / inglés)
@@ -202,11 +209,12 @@ const ALL_CATEGORIES_VALUE = "__all__";
 // Parámetro de la URL para abrir directamente una habilidad (?skill=ID)
 const SKILL_QUERY_PARAM = "skill";
 
-// Parámetro de la URL para abrir la pestaña de grupos (?tab=groups)
+// Parámetro de la URL para elegir pestaña (?tab=groups / ?tab=order)
 const TAB_QUERY_PARAM = "tab";
 const GROUPS_TAB_VALUE = "groups";
+const ORDER_TAB_VALUE = "order";
 
-type Tab = "skills" | "groups";
+type Tab = "skills" | "groups" | "order";
 
 type ImageKind = "steps" | "mistakes";
 
@@ -236,11 +244,20 @@ export default function PetSkillsPage() {
   const tPet = useTranslations("PetProfile");
   const locale = useLocale();
   const viewerText = VIEWER_TEXT[locale === "en" ? "en" : "es"];
+  const orderTabLabel = ORDER_TAB_LABEL[locale === "en" ? "en" : "es"];
 
-  // La pestaña activa la decide la dirección (?tab=groups).
+  // La pestaña activa la decide la dirección (?tab=groups / ?tab=order).
   // Así funciona al entrar, al cambiar de pestaña y cuando navega el tutorial.
+  const tabParam = searchParams.get(TAB_QUERY_PARAM);
   const activeTab: Tab =
-    searchParams.get(TAB_QUERY_PARAM) === GROUPS_TAB_VALUE ? "groups" : "skills";
+    tabParam === GROUPS_TAB_VALUE
+      ? "groups"
+      : tabParam === ORDER_TAB_VALUE
+      ? "order"
+      : "skills";
+
+  // Habilidad pedida en la dirección (?skill=ID)
+  const requestedSkillParam = searchParams.get(SKILL_QUERY_PARAM);
 
   function getDifficultyLabel(difficulty: string): string {
     if (difficulty === "baja") return t("difficultyLow");
@@ -261,6 +278,9 @@ export default function PetSkillsPage() {
   // Diapositiva visible en la ventana de información (vídeo, pasos, errores)
   const [slideIndex, setSlideIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
+
+  // Última habilidad de la dirección que ya se abrió (para no reabrirla sola)
+  const handledSkillParam = useRef<string | null>(null);
 
   // Viñeta abierta a pantalla completa
   const [zoomedImage, setZoomedImage] = useState<ZoomedImage | null>(null);
@@ -303,6 +323,8 @@ export default function PetSkillsPage() {
 
     if (tab === "groups") {
       url.searchParams.set(TAB_QUERY_PARAM, GROUPS_TAB_VALUE);
+    } else if (tab === "order") {
+      url.searchParams.set(TAB_QUERY_PARAM, ORDER_TAB_VALUE);
     } else {
       url.searchParams.delete(TAB_QUERY_PARAM);
     }
@@ -344,8 +366,7 @@ export default function PetSkillsPage() {
         .select(SKILL_COLUMNS)
         .order("id", { ascending: true });
 
-      const loadedSkills = skillsData ?? [];
-      setSkills(loadedSkills);
+      setSkills(skillsData ?? []);
 
       const { data: petSkillsData } = await supabase
         .from("pet_skills")
@@ -356,20 +377,6 @@ export default function PetSkillsPage() {
 
       setPetSkills(petSkillsData ?? []);
 
-      // Si llegamos con ?skill=ID, abrir esa habilidad
-      const requestedSkill = new URLSearchParams(window.location.search).get(
-        SKILL_QUERY_PARAM
-      );
-
-      if (requestedSkill !== null) {
-        const requestedSkillId = Number(requestedSkill);
-
-        if (loadedSkills.some((skill) => skill.id === requestedSkillId)) {
-          setOpenInfoId(requestedSkillId);
-          setSlideIndex(0);
-        }
-      }
-
       setLoading(false);
     }
 
@@ -377,6 +384,30 @@ export default function PetSkillsPage() {
       void loadData();
     }
   }, [petId, router]);
+
+  // Si la dirección pide una habilidad (?skill=ID), se abre.
+  // Funciona al entrar en la página y también al llegar desde "Orden recomendado".
+  useEffect(() => {
+    if (loading) return;
+
+    if (requestedSkillParam === null) {
+      handledSkillParam.current = null;
+      return;
+    }
+
+    if (handledSkillParam.current === requestedSkillParam) return;
+    handledSkillParam.current = requestedSkillParam;
+
+    const requestedSkillId = Number(requestedSkillParam);
+
+    if (skills.some((skill) => skill.id === requestedSkillId)) {
+      setOpenInfoId(requestedSkillId);
+      setSlideIndex(0);
+      setZoomedImage(null);
+      setVideoInput("");
+      setVideoError(null);
+    }
+  }, [requestedSkillParam, loading, skills]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
@@ -718,17 +749,17 @@ export default function PetSkillsPage() {
           </div>
         </header>
 
-        {/* PESTAÑAS: HABILIDADES | GRUPOS */}
+        {/* PESTAÑAS: HABILIDADES | GRUPOS | ORDEN RECOMENDADO */}
         <div
           role="tablist"
-          className="mb-8 grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow"
+          className="mb-8 grid grid-cols-3 gap-2 rounded-2xl bg-white p-2 shadow"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "skills"}
             onClick={() => changeTab("skills")}
-            className={`rounded-xl px-4 py-3 font-semibold transition ${
+            className={`rounded-xl px-2 py-3 text-sm font-semibold transition sm:px-4 sm:text-base ${
               activeTab === "skills"
                 ? "bg-blue-600 text-white shadow"
                 : "text-slate-600 hover:bg-slate-100"
@@ -741,7 +772,7 @@ export default function PetSkillsPage() {
             role="tab"
             aria-selected={activeTab === "groups"}
             onClick={() => changeTab("groups")}
-            className={`rounded-xl px-4 py-3 font-semibold transition ${
+            className={`rounded-xl px-2 py-3 text-sm font-semibold transition sm:px-4 sm:text-base ${
               activeTab === "groups"
                 ? "bg-purple-600 text-white shadow"
                 : "text-slate-600 hover:bg-slate-100"
@@ -749,10 +780,25 @@ export default function PetSkillsPage() {
           >
             {tPet("skillGroups")}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "order"}
+            onClick={() => changeTab("order")}
+            className={`rounded-xl px-2 py-3 text-sm font-semibold transition sm:px-4 sm:text-base ${
+              activeTab === "order"
+                ? "bg-indigo-600 text-white shadow"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {orderTabLabel}
+          </button>
         </div>
 
         {activeTab === "groups" ? (
           <PetGroupsManager petId={petId} />
+        ) : activeTab === "order" ? (
+          <TrainingOrderTab petId={petId} petName={pet?.name ?? ""} />
         ) : (
           <>
             {/* FILTROS DE CATEGORÍA */}

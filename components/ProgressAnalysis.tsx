@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 
+import Pawsi from "@/components/Pawsi";
+
 type Skill = {
   name: string;
   category: string | null;
@@ -204,7 +206,15 @@ export default function ProgressAnalysis({
         </button>
       </div>
 
-      {analysis && (
+      {/* Mientras la IA analiza: Pawsi pensando */}
+      {loading && (
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl bg-white p-6 text-center shadow-sm">
+          <Pawsi pose="piensa" size={130} float />
+          <p className="font-semibold text-teal-700">{t("analyzing")}</p>
+        </div>
+      )}
+
+      {!loading && analysis && (
         <div className="mt-6 space-y-5">
           <div className="rounded-xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-widest text-teal-600">

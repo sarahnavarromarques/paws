@@ -5,6 +5,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import Sidebar from "@/components/Sidebar";
 import OnboardingTour from "@/components/OnboardingTour";
 import FirstStepsChecklist from "@/components/FirstStepsChecklist";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,6 +58,13 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider locale={locale} messages={messages}>
           <Sidebar />
+
+          {/* Bandera de idioma en todas las páginas (arriba a la derecha).
+              Es "fixed": se queda siempre visible aunque bajes la página. */}
+          <div className="fixed right-4 top-4 z-40">
+            <LanguageSwitcher />
+          </div>
+
           {children}
           <FirstStepsChecklist />
           <OnboardingTour />

@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { BREEDS, COLORS, WEIGHTS, getBreedLabel, getColorLabel } from "@/lib/breeds";
 import type { Database } from "@/lib/supabase/database.types";
 import SearchableSelect from "@/components/SearchableSelect";
+import PawsiLoading from "@/components/PawsiLoading";
 
 const supabase = createClient();
 
@@ -266,15 +267,7 @@ export default function EditPetPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-100 p-10">
-        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 shadow-xl">
-          <p className="text-slate-500">
-            {t("loading")}
-          </p>
-        </div>
-      </main>
-    );
+    return <PawsiLoading text={t("loading")} />;
   }
 
   const breedOptions = withCurrent(BREEDS, breed);

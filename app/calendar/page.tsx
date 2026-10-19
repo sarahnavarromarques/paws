@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import Pawsi from "@/components/Pawsi";
+import PawsiLoading from "@/components/PawsiLoading";
 
 const supabase = createClient();
 
@@ -273,9 +275,7 @@ export default function CalendarPage() {
           </div>
 
           {loading ? (
-            <div className="py-16 text-center text-lg text-slate-500">
-              {t("loading")}
-            </div>
+            <PawsiLoading text={t("loading")} variant="card" />
           ) : (
             <>
               {/* DÍAS DE LA SEMANA */}
@@ -385,8 +385,9 @@ export default function CalendarPage() {
                 </h3>
 
                 {selectedTrainings.length === 0 ? (
-                  <div className="py-4 text-center text-2xl text-slate-300">
-                    —
+                  // Día sin entrenamientos: Pawsi descansando
+                  <div className="flex justify-center py-2">
+                    <Pawsi pose="espera" size={80} />
                   </div>
                 ) : (
                   <div className="space-y-2">

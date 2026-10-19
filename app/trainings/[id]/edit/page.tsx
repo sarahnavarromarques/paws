@@ -6,6 +6,8 @@ import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import SessionGuide from "@/components/SessionGuide";
+import Pawsi from "@/components/Pawsi";
+import PawsiLoading from "@/components/PawsiLoading";
 
 const supabase = createClient();
 
@@ -427,14 +429,17 @@ export default function EditTrainingPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 shadow-xl">
-          <p className="text-slate-500">{t("loading")}</p>
-        </div>
-      </main>
-    );
+    return <PawsiLoading text={t("loading")} />;
   }
+
+  // Pawsi del resultado: celebra si sube, saluda si se queda igual, triste si baja
+  const resultPose = aiResult
+    ? aiResult.to > aiResult.from
+      ? "celebra"
+      : aiResult.to < aiResult.from
+      ? "triste"
+      : "hola"
+    : "hola";
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
@@ -653,30 +658,43 @@ export default function EditTrainingPage() {
             </div>
           )}
 
+          {/* MIENTRAS LA IA CALCULA EL PROGRESO: Pawsi pensando */}
+          {saving && showSessionQuestions && !aiResult && (
+            <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border-2 border-teal-300 bg-teal-50 p-6 text-center">
+              <Pawsi pose="piensa" size={120} float />
+              <p className="font-semibold text-teal-700">{t("savingButton")}</p>
+            </div>
+          )}
+
           {/* RESULTADO DE LA IA */}
           {aiResult && (
-            <div className="mt-8 rounded-2xl border-2 border-green-300 bg-green-50 p-6">
-              <p className="text-sm font-semibold uppercase tracking-widest text-green-700">
-                {t("progressUpdatedLabel")}
-              </p>
-              <p className="mt-2 text-2xl font-bold text-green-800">
-                {aiResult.from}% → {aiResult.to}%
-              </p>
-              {aiResult.comentario && (
-                <p className="mt-3 text-green-900">{aiResult.comentario}</p>
-              )}
-              {aiResult.usedFallback && (
-                <p className="mt-3 text-xs font-medium text-slate-500">
-                  {t("fallbackNote")}
+            <div className="mt-8 flex flex-col gap-5 rounded-2xl border-2 border-green-300 bg-green-50 p-6 md:flex-row md:items-center">
+              <div className="flex shrink-0 justify-center">
+                <Pawsi pose={resultPose} size={130} float={resultPose === "celebra"} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold uppercase tracking-widest text-green-700">
+                  {t("progressUpdatedLabel")}
                 </p>
-              )}
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="mt-5 rounded-xl bg-green-600 px-6 py-3 font-semibold text-white transition hover:bg-green-700"
-              >
-                {t("backToProfile")}
-              </button>
+                <p className="mt-2 text-2xl font-bold text-green-800">
+                  {aiResult.from}% → {aiResult.to}%
+                </p>
+                {aiResult.comentario && (
+                  <p className="mt-3 text-green-900">{aiResult.comentario}</p>
+                )}
+                {aiResult.usedFallback && (
+                  <p className="mt-3 text-xs font-medium text-slate-500">
+                    {t("fallbackNote")}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="mt-5 rounded-xl bg-green-600 px-6 py-3 font-semibold text-white transition hover:bg-green-700"
+                >
+                  {t("backToProfile")}
+                </button>
+              </div>
             </div>
           )}
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import PawsMascot from "@/components/PawsMascot";
+import Pawsi from "@/components/Pawsi";
 import {
   ONBOARDING_FINISHED_EVENT,
   START_TOUR_EVENT,
@@ -189,7 +189,8 @@ export default function FirstStepsChecklist() {
     {
       key: "group",
       label: TEXT.taskGroup,
-      href: firstPetId !== null ? `${petBase}/groups` : "/pets",
+      // Los grupos están en la pestaña "Grupos" de la página de habilidades
+      href: firstPetId !== null ? `${petBase}/skills?tab=groups` : "/pets",
     },
     { key: "training", label: TEXT.taskTraining, href: petBase },
     { key: "completed", label: TEXT.taskCompleted, href: petBase },
@@ -210,8 +211,8 @@ export default function FirstStepsChecklist() {
           onClick={() => setExpanded(true)}
           className="paws-check-pop fixed bottom-4 right-4 z-[55] flex items-center gap-2 rounded-full bg-[#1e3a5f] py-2 pl-2 pr-4 text-sm font-bold text-white shadow-xl transition hover:scale-105"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white">
-            <PawsMascot size={32} />
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white">
+            <Pawsi pose="hola" size={34} />
           </span>
           {TEXT.title[lang]} · {doneCount}/{tasks.length}
         </button>
@@ -249,8 +250,9 @@ export default function FirstStepsChecklist() {
 
           <div className="relative flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white">
-                <PawsMascot size={44} />
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white">
+                {/* Pawsi saluda; al terminar todo, celebra */}
+                <Pawsi pose={allDone ? "celebra" : "hola"} size={48} />
               </span>
               <div>
                 <p className="text-base font-bold leading-tight">

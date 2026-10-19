@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import Pawsi from "@/components/Pawsi";
+import PawsiLoading from "@/components/PawsiLoading";
 import {
   buildGroupSignature,
   type GroupSkillInput,
@@ -690,7 +692,11 @@ export default function PetGroupsManager({ petId }: Props) {
   }
 
   if (loading) {
-    return <p className="text-slate-500">{t("loading")}</p>;
+    return (
+      <div className="rounded-2xl bg-white p-4 shadow">
+        <PawsiLoading text={t("loading")} variant="card" />
+      </div>
+    );
   }
 
   const isEditing = editingGroupId !== null;
@@ -712,8 +718,9 @@ export default function PetGroupsManager({ petId }: Props) {
         </div>
 
         {groups.length === 0 ? (
-          <div className="rounded-2xl bg-white p-8 text-center shadow">
-            <div className="text-4xl">📂</div>
+          <div className="flex flex-col items-center rounded-2xl bg-white p-8 text-center shadow">
+            {/* Sin grupos: Pawsi esperando */}
+            <Pawsi pose="espera" size={100} />
             <p className="mt-3 text-slate-500">
               {t("emptyGroupsBody")}
             </p>
@@ -893,9 +900,13 @@ export default function PetGroupsManager({ petId }: Props) {
                 {t("namingDescription")}
               </p>
 
-              <div className="mt-6 rounded-2xl bg-slate-100 p-6 text-center">
+              <div className="mt-6 flex flex-col items-center rounded-2xl bg-slate-100 p-6 text-center">
+                {generatingName && (
+                  // Mientras la IA inventa el nombre: Pawsi pensando
+                  <Pawsi pose="piensa" size={80} float className="mb-3" />
+                )}
                 <p className="text-3xl font-extrabold text-slate-900">
-                  {nameOptions.length === 0
+                  {nameOptions.length === 0 || generatingName
                     ? t("generating")
                     : nameOptions[nameIndex]}
                 </p>
@@ -1012,7 +1023,7 @@ export default function PetGroupsManager({ petId }: Props) {
                   <p className="mb-2 font-semibold">{t("availableGroupsLabel")}</p>
 
                   {loadingCopyGroups ? (
-                    <p className="text-slate-500">{t("loading")}</p>
+                    <PawsiLoading text={t("loading")} variant="card" />
                   ) : copyableGroups.length === 0 ? (
                     <p className="text-slate-500">
                       {t("noGroupsToCopy")}

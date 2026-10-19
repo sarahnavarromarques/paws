@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
+import Pawsi from "@/components/Pawsi";
 import {
   isMastered,
   parseStoredOrder,
@@ -286,7 +287,7 @@ export default function TrainingOrder({
           </button>
         ) : (
           <Link
-            href={`/pets/${petId}/groups`}
+            href={`/pets/${petId}/skills?tab=groups`}
             className="shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
           >
             {t("createGroupsCta")}
@@ -306,20 +307,31 @@ export default function TrainingOrder({
         </div>
       )}
 
+      {/* Mientras la IA calcula: Pawsi pensando */}
+      {loading && (
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl bg-white p-6 text-center shadow-sm">
+          <Pawsi pose="piensa" size={130} float />
+          <p className="font-semibold text-indigo-700">{t("calculating")}</p>
+        </div>
+      )}
+
       {/* SIN GRUPOS */}
-      {!hasGroups && (
-        <div className="mt-6 rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-xl font-bold text-indigo-900">
-            {t("noGroupsTitle")}
-          </p>
-          <p className="mt-1 text-slate-700">
-            {t("noGroupsBody", { name: petName })}
-          </p>
+      {!loading && !hasGroups && (
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl bg-white p-5 text-center shadow-sm md:flex-row md:text-left">
+          <Pawsi pose="espera" size={90} />
+          <div>
+            <p className="text-xl font-bold text-indigo-900">
+              {t("noGroupsTitle")}
+            </p>
+            <p className="mt-1 text-slate-700">
+              {t("noGroupsBody", { name: petName })}
+            </p>
+          </div>
         </div>
       )}
 
       {/* CON GRUPOS, SIN CALCULAR: sugerencia básica */}
-      {hasGroups && !order && (
+      {!loading && hasGroups && !order && (
         <div className="mt-6 rounded-xl bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">{t("notCalculatedHint")}</p>
           <p className="mt-2 text-xl font-bold text-indigo-900">
@@ -336,7 +348,7 @@ export default function TrainingOrder({
       )}
 
       {/* ORDEN CALCULADO */}
-      {hasGroups && order && (
+      {!loading && hasGroups && order && (
         <div className="mt-6 space-y-5">
           {isOutdated && (
             <div className="rounded-xl bg-amber-100 px-5 py-3 font-semibold text-amber-900">

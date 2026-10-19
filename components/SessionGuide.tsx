@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
+import Pawsi from "@/components/Pawsi";
+import PawsiLoading from "@/components/PawsiLoading";
 import {
   CHAT_MAX_LENGTH,
   parseStoredGuide,
@@ -135,10 +137,10 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
     };
   }, [trainingId]);
 
-  // Bajar al último mensaje cuando llega uno nuevo
+  // Bajar al último mensaje cuando llega uno nuevo (o cuando Pawsi empieza a "escribir")
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages.length]);
+  }, [messages.length, sending]);
 
   async function handlePrepare() {
     setPreparing(true);
@@ -230,8 +232,8 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
 
   if (loadingData) {
     return (
-      <div className="mt-8 rounded-2xl border-2 border-sky-300 bg-sky-50 p-6">
-        <p className="text-slate-500">{t("loading")}</p>
+      <div className="mt-8 rounded-2xl border-2 border-sky-300 bg-sky-50 p-4">
+        <PawsiLoading text={t("loading")} variant="card" />
       </div>
     );
   }
@@ -288,13 +290,21 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
           </p>
         )}
 
-        {guideInOtherLanguage && (
+        {/* Mientras la IA prepara la sesión: Pawsi pensando */}
+        {preparing && (
+          <div className="mt-5 flex flex-col items-center gap-3 rounded-xl bg-white p-6 text-center shadow-sm">
+            <Pawsi pose="piensa" size={130} float />
+            <p className="font-semibold text-sky-700">{t("preparing")}</p>
+          </div>
+        )}
+
+        {!preparing && guideInOtherLanguage && (
           <p className="mt-4 rounded-xl bg-white px-4 py-3 text-slate-700 shadow-sm">
             {t("otherLanguage")}
           </p>
         )}
 
-        {guide && !guideInOtherLanguage && (
+        {!preparing && guide && !guideInOtherLanguage && (
           <div className="mt-5 space-y-4">
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-widest text-sky-700">
@@ -384,7 +394,7 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
         </p>
 
         <div className="mt-4 max-h-96 space-y-3 overflow-y-auto">
-          {messages.length === 0 ? (
+          {messages.length === 0 && !sending ? (
             <p className="text-violet-900">{t("chatEmpty")}</p>
           ) : (
             messages.map((message) => (
@@ -411,6 +421,17 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
               </div>
             ))
           )}
+
+          {/* Mientras la IA responde: Pawsi pensando en un bocadillo */}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
+                <Pawsi pose="piensa" size={52} float />
+                <p className="font-semibold text-violet-700">{t("sending")}</p>
+              </div>
+            </div>
+          )}
+
           <div ref={chatEndRef} />
         </div>
 

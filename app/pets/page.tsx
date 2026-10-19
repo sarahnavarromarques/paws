@@ -8,6 +8,8 @@ import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import AddPetForm from "@/components/AddPetForm";
+import Pawsi from "@/components/Pawsi";
+import PawsiLoading from "@/components/PawsiLoading";
 import { getBreedLabel } from "@/lib/breeds";
 import { loadPetPlans, type PetPlan } from "@/lib/pet-plans";
 import type { Database } from "@/lib/supabase/database.types";
@@ -204,16 +206,13 @@ export default function PetsPage() {
           </div>
 
           {loading ? (
-            <div className="rounded-2xl bg-white p-10 text-center shadow">
-              <p className="text-slate-500">
-                {t("loading")}
-              </p>
+            <div className="rounded-2xl bg-white p-4 shadow">
+              <PawsiLoading text={t("loading")} variant="card" />
             </div>
           ) : pets.length === 0 ? (
-            <div className="rounded-2xl bg-white p-10 text-center shadow">
-              <div className="text-6xl">
-                🐶
-              </div>
+            <div className="flex flex-col items-center rounded-2xl bg-white p-10 text-center shadow">
+              {/* Sin perros: Pawsi esperando al primero */}
+              <Pawsi pose="espera" size={130} float />
 
               <h3 className="mt-4 text-2xl font-bold">
                 {t("noPetsTitle")}

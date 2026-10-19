@@ -4,13 +4,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
-import TrainingOrder, {
-  type TrainingOrderFallback,
-  type TrainingOrderGroupView,
-} from "@/components/TrainingOrder";
 import { getBreedLabel, getColorLabel } from "@/lib/breeds";
-import { parseStoredOrder } from "@/lib/training-order";
-import { buildSkillProgressItems } from "@/lib/pet-skill-progress";
 import {
   questionnaireText,
   toQuestionnaireLocale,
@@ -115,141 +109,6 @@ export default async function PetProfile({ params }: PageProps) {
   const latestTraining =
     allTrainings.length > 0 ? allTrainings[0] : null;
 
-  // --- Habilidades del perro ---
-
-  const { data: petSkillRows } = await supabase
-    .from("pet_skills")
-    .select("skill_id, manual_progress, auto_progress, is_goal")
-    .eq("pet_id", pet.id);
-
-  const petSkillList = petSkillRows ?? [];
-
-  // --- Grupos de habilidades del perro (para el orden recomendado) ---
-
-  const { data: groupRows } = await supabase
-    .from("skill_groups")
-    .select("id, name")
-    .eq("pet_id", pet.id)
-    .order("created_at", { ascending: true });
-
-  const groupList = groupRows ?? [];
-
-  const { data: groupItemRows } =
-    groupList.length > 0
-      ? await supabase
-          .from("skill_group_items")
-          .select("group_id, skill_id")
-          .in(
-            "group_id",
-            groupList.map((group) => group.id)
-          )
-      : { data: [] };
-
-  const groupItems = groupItemRows ?? [];
-
-  // Una sola consulta de nombres para las habilidades del perro y las de sus grupos
-  const allSkillIds = Array.from(
-    new Set([
-      ...petSkillList.map((row) => row.skill_id),
-      ...groupItems.map((item) => item.skill_id),
-    ])
-  );
-
-  const { data: skillsData } =
-    allSkillIds.length > 0
-      ? await supabase
-          .from("skills")
-          .select("id, name, name_en, category, category_en")
-          .in("id", allSkillIds)
-      : { data: [] };
-
-  const skillsMap = new Map(
-    (skillsData ?? []).map((skill) => [skill.id, skill])
-  );
-
-  function localizedSkillName(skillId: number): string {
-    const skill = skillsMap.get(skillId);
-
-    if (!skill) {
-      return t("genericSkillName");
-    }
-
-    return locale === "en" && skill.name_en ? skill.name_en : skill.name;
-  }
-
-  function localizedSkillCategory(skillId: number): string | null {
-    const skill = skillsMap.get(skillId);
-
-    if (!skill) {
-      return null;
-    }
-
-    return locale === "en" && skill.category_en
-      ? skill.category_en
-      : skill.category ?? null;
-  }
-
-  // Progreso de cada habilidad (se usa para la sugerencia básica del orden;
-  // las barras de cada habilidad están en la pantalla de progreso)
-  const petSkillsWithNames = buildSkillProgressItems(
-    petSkillList,
-    completedTrainings,
-    localizedSkillName,
-    localizedSkillCategory
-  );
-
-  // --- Datos para la tarjeta "Orden recomendado" ---
-
-  const progressBySkill = new Map(
-    petSkillList.map((row) => [row.skill_id, row.auto_progress ?? 0])
-  );
-
-  const orderGroups: TrainingOrderGroupView[] = groupList.map((group) => ({
-    groupId: group.id,
-    name: group.name,
-    skills: groupItems
-      .filter((item) => item.group_id === group.id)
-      .map((item) => ({
-        skillId: item.skill_id,
-        name: localizedSkillName(item.skill_id),
-        progress: progressBySkill.get(item.skill_id) ?? 0,
-      })),
-  }));
-
-  const { data: savedOrderRow } = await supabase
-    .from("training_order_recommendations")
-    .select("data, used_fallback, updated_at")
-    .eq("pet_id", pet.id)
-    .maybeSingle();
-
-  const savedOrder = savedOrderRow
-    ? parseStoredOrder(savedOrderRow.data)
-    : null;
-
-  // Sugerencia básica (reglas simples) mientras no se haya calculado el orden
-  let recommendation: TrainingOrderFallback;
-
-  if (petSkillsWithNames.length === 0) {
-    recommendation = {
-      title: t("startAddingSkillsTitle"),
-      body: t("startAddingSkillsBody"),
-      cta: t("addSkillsCta"),
-      href: `/pets/${pet.id}/skills`,
-    };
-  } else {
-    const lowest = [...petSkillsWithNames].sort(
-      (a, b) => a.progress - b.progress
-    )[0];
-
-    recommendation = {
-      title: t("reinforceTitle", { skill: lowest.name }),
-      body: t("reinforceBody", { progress: lowest.progress }),
-      cta: t("viewSkillsCta"),
-      // Abre directamente la información de esa habilidad
-      href: `/pets/${pet.id}/skills?skill=${lowest.skillId}`,
-    };
-  }
-
   function formatLatestTraining() {
     if (!latestTraining) {
       return t("noData");
@@ -290,7 +149,7 @@ export default async function PetProfile({ params }: PageProps) {
             {t("backToPets")}
           </Link>
 
-          {/* Habilidades y grupos están en la misma página (pestañas) */}
+          {/* Habilidades, grupos y orden recomendado están en la misma página (pestañas) */}
           <Link
             href={`/pets/${pet.id}/skills`}
             className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
@@ -463,19 +322,7 @@ export default async function PetProfile({ params }: PageProps) {
 
           <div className="px-10">
 
-            {/* ORDEN RECOMENDADO (IA) */}
-
-            <TrainingOrder
-              petId={pet.id}
-              petName={pet.name}
-              groups={orderGroups}
-              initialOrder={savedOrder}
-              initialUpdatedAt={savedOrderRow?.updated_at ?? null}
-              initialUsedFallback={savedOrderRow?.used_fallback ?? false}
-              fallback={recommendation}
-            />
-
-            {/* NUEVO ENTRENAMIENTO (el historial está en su propia pantalla) */}
+            {/* NUEVO ENTRENAMIENTO (el historial y el orden recomendado tienen su propia pantalla) */}
 
             <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
 
