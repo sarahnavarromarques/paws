@@ -3,12 +3,8 @@ import { notFound } from "next/navigation";
 import { getTranslations, getLocale } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
-import HistoryFilters from "@/components/HistoryFilters";
-import {
-  buildHistoryHref,
-  parseHistoryQuery,
-  type HistoryStatus,
-} from "@/lib/history-filters";
+import PetHistoryList from "@/components/PetHistoryList";
+import { parseHistoryQuery } from "@/lib/history-filters";
 
 type PageProps = {
   params: Promise<{
@@ -22,18 +18,18 @@ type PageProps = {
   }>;
 };
 
-const STATUSES: HistoryStatus[] = ["all", "completed", "pending"];
-
+// Historial de entrenamientos de un perro.
+// Se cargan todos una vez; los filtros se aplican en el navegador
+// (PetHistoryList), así no se recarga la página al cambiarlos.
 export default async function PetHistoryPage({
   params,
   searchParams,
 }: PageProps) {
   const { id } = await params;
-  const query = parseHistoryQuery(await searchParams);
+  const initialQuery = parseHistoryQuery(await searchParams);
 
   const locale = await getLocale();
   const t = await getTranslations("PetHistory");
-  const tProfile = await getTranslations("PetProfile");
 
   const supabase = await createClient();
 
@@ -85,57 +81,12 @@ export default async function PetHistoryPage({
           .in("id", trainedSkillIds)
       : { data: [] };
 
-  const skillNames = new Map(
-    (skillsData ?? []).map((skill) => [
-      skill.id,
-      locale === "en" && skill.name_en ? skill.name_en : skill.name,
-    ])
-  );
-
-  const skillOptions = Array.from(skillNames, ([skillId, name]) => ({
-    id: skillId,
-    name,
-  })).sort((a, b) => a.name.localeCompare(b.name, locale));
-
-  // --- Aplicar los filtros ---
-
-  const selectedSkillId = query.skill ? Number(query.skill) : null;
-
-  const trainings = allTrainings.filter((training) => {
-    if (query.status === "completed" && training.status !== "completed") {
-      return false;
-    }
-    if (query.status === "pending" && training.status === "completed") {
-      return false;
-    }
-    if (selectedSkillId !== null && training.skill_id !== selectedSkillId) {
-      return false;
-    }
-    if (query.from && (!training.date || training.date < query.from)) {
-      return false;
-    }
-    if (query.to && (!training.date || training.date > query.to)) {
-      return false;
-    }
-    return true;
-  });
-
-  const hasExtraFilters =
-    query.skill !== "" || query.from !== "" || query.to !== "";
-
-  const statusLabel: Record<HistoryStatus, string> = {
-    all: t("filterAll"),
-    completed: t("filterCompleted"),
-    pending: t("filterPending"),
-  };
-
-  const emptyText = hasExtraFilters
-    ? t("emptyFiltered")
-    : query.status === "completed"
-    ? t("emptyCompleted")
-    : query.status === "pending"
-    ? t("emptyPending")
-    : t("emptyAll");
+  const skillOptions = (skillsData ?? [])
+    .map((skill) => ({
+      id: skill.id,
+      name: locale === "en" && skill.name_en ? skill.name_en : skill.name,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, locale));
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
@@ -160,120 +111,23 @@ export default async function PetHistoryPage({
           </p>
         </div>
 
-        {/* ESTADO: TODOS / COMPLETADOS / PENDIENTES */}
+        {/* FILTROS Y LISTA (se filtra al momento, sin recargar) */}
 
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
-            {STATUSES.map((status) => {
-              const isActive = status === query.status;
-
-              return (
-                <Link
-                  key={status}
-                  href={buildHistoryHref(pet.id, { ...query, status })}
-                  scroll={false}
-                  aria-current={isActive ? "page" : undefined}
-                  className={
-                    isActive
-                      ? "rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
-                      : "rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                  }
-                >
-                  {statusLabel[status]}
-                </Link>
-              );
-            })}
-          </div>
-
-          <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-            {t("count", { count: trainings.length })}
-          </span>
-        </div>
-
-        {/* HABILIDAD Y FECHAS */}
-
-        <HistoryFilters
+        <PetHistoryList
           petId={pet.id}
-          query={query}
+          trainings={allTrainings.map((training) => ({
+            id: training.id,
+            title: training.title ?? null,
+            date: training.date ?? null,
+            time: training.time ?? null,
+            duration: training.duration ?? null,
+            notes: training.notes ?? null,
+            status: training.status ?? null,
+            skill_id: typeof training.skill_id === "number" ? training.skill_id : null,
+          }))}
           skillOptions={skillOptions}
+          initialQuery={initialQuery}
         />
-
-        {/* LISTA DE ENTRENAMIENTOS */}
-
-        {trainings.length === 0 ? (
-          <div className="rounded-2xl bg-white p-10 text-center shadow">
-            <div className="text-5xl">🗂️</div>
-            <p className="mt-4 text-slate-500">{emptyText}</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {trainings.map((training) => {
-              const isCompleted = training.status === "completed";
-              const skillName =
-                typeof training.skill_id === "number"
-                  ? skillNames.get(training.skill_id) ?? null
-                  : null;
-
-              return (
-                <div
-                  key={training.id}
-                  className="rounded-2xl bg-white p-5 shadow"
-                >
-                  <div className="flex items-start justify-between gap-6">
-                    <div className="min-w-0">
-                      <h2 className="text-xl font-bold">
-                        {training.title ?? tProfile("trainingDefaultTitle")}
-                      </h2>
-
-                      {skillName && (
-                        <span className="mt-2 inline-block rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
-                          🎯 {skillName}
-                        </span>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-slate-600">
-                        <span>📅 {training.date ?? tProfile("noDate")}</span>
-                        <span>
-                          🕒{" "}
-                          {training.time
-                            ? training.time.substring(0, 5)
-                            : "--:--"}
-                        </span>
-                        <span>⏱ {training.duration ?? "-"} min</span>
-                      </div>
-
-                      <p className="mt-2">
-                        {tProfile("statusLabel")}{" "}
-                        <span
-                          className={
-                            isCompleted
-                              ? "font-bold text-green-600"
-                              : "font-bold text-orange-600"
-                          }
-                        >
-                          {isCompleted
-                            ? tProfile("completedStatus")
-                            : tProfile("pendingStatus")}
-                        </span>
-                      </p>
-
-                      {training.notes && (
-                        <p className="mt-2 text-slate-600">{training.notes}</p>
-                      )}
-                    </div>
-
-                    <Link
-                      href={`/trainings/${training.id}/edit`}
-                      className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 font-semibold text-white transition hover:bg-amber-600"
-                    >
-                      {tProfile("editLink")}
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
       </div>
     </main>
