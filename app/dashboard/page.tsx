@@ -196,6 +196,7 @@ export default function DashboardPage() {
   const [masteredCount, setMasteredCount] = useState(0);
   const [nextTraining, setNextTraining] = useState<NextTraining | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -351,6 +352,7 @@ export default function DashboardPage() {
   }, [router]);
 
   async function handleLogout() {
+    setLoggingOut(true);
     await supabase.auth.signOut();
     router.replace("/login");
     router.refresh();
@@ -439,18 +441,18 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-slate-50 p-4 md:p-10">
       <div className="mx-auto max-w-5xl">
 
-        {/* Arriba a la derecha: cerrar sesión.
-            El hueco de la derecha deja sitio a la bandera de idioma,
-            que ahora sale en todas las páginas desde app/layout.tsx */}
-        <div className="mb-3 flex items-center justify-end gap-2">
+        {/* Botón de cerrar sesión, pegado a la derecha.
+            (La bandera del idioma ya está arriba en todas las pantallas.) */}
+        <div className="mb-3 flex justify-end">
           <button
             type="button"
-            onClick={handleLogout}
-            className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+            onClick={() => void handleLogout()}
+            disabled={loggingOut}
+            className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 shadow-sm transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
+            <span className="text-base leading-none">🚪</span>
             {t("logout")}
           </button>
-          <div className="h-9 w-[76px] shrink-0" aria-hidden="true" />
         </div>
 
         {/* 1. TARJETA DE BIENVENIDA CON PAWSI */}
