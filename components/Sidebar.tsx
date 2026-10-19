@@ -118,6 +118,9 @@ export default function Sidebar() {
 
   if (HIDDEN_PATHS.includes(pathname)) return null;
 
+  // En el panel no hace falta el botón de volver al panel
+  const onDashboard = pathname === "/dashboard";
+
   // "Mascotas" solo se resalta en la lista general;
   // dentro de la ficha de un perro se resalta esa página del perro.
   const isActive = (href: string) => {
@@ -175,9 +178,28 @@ export default function Sidebar() {
             <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <Link href="/dashboard" className="text-lg font-bold text-[#1e3a5f]">
+
+        {/* El logo también lleva al panel */}
+        <Link
+          href="/dashboard"
+          className="rounded-lg px-1 text-lg font-bold text-[#1e3a5f] transition hover:text-blue-600"
+        >
           🐾 PAWS
         </Link>
+
+        {/* Botón para volver al panel desde cualquier pantalla
+            (junto al logo, para no chocar con la bandera del idioma de la derecha) */}
+        {!onDashboard && (
+          <Link
+            href="/dashboard"
+            aria-label={t("dashboard")}
+            title={t("dashboard")}
+            className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm font-semibold text-[#1e3a5f] transition hover:bg-blue-100"
+          >
+            <span className="text-lg leading-none">🏠</span>
+            <span className="hidden sm:inline">{t("dashboard")}</span>
+          </Link>
+        )}
       </header>
 
       {/* Fondo oscuro */}
