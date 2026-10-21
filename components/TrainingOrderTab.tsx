@@ -154,7 +154,7 @@ export default function TrainingOrderTab({ petId, petName }: Props) {
       title: tPet("startAddingSkillsTitle"),
       body: tPet("startAddingSkillsBody"),
       cta: tPet("addSkillsCta"),
-      href: `/pets/${petId}/skills`,
+      href: `/skills?pet=${petId}`,
     };
   } else {
     const lowest = [...raw.petSkills].sort(
@@ -165,7 +165,7 @@ export default function TrainingOrderTab({ petId, petName }: Props) {
       title: tPet("reinforceTitle", { skill: localizedSkillName(lowest.skill_id) }),
       body: tPet("reinforceBody", { progress: lowest.auto_progress ?? 0 }),
       cta: tPet("viewSkillsCta"),
-      href: `/pets/${petId}/skills?skill=${lowest.skill_id}`,
+      href: `/skills?pet=${petId}&skill=${lowest.skill_id}`,
     };
   }
 

@@ -726,7 +726,7 @@ export default function PetGroupsManager({ petId }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div data-tour="groups-list" className="grid gap-4 md:grid-cols-2">
             {groups.map((group) => {
               const isThisEditing = group.id === editingGroupId;
               return (

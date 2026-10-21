@@ -452,7 +452,7 @@ export default function CalendarPage() {
   const shownResults = searchResults.slice(0, MAX_RESULTS);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-10">
+    <main data-tour-section="calendar" className="min-h-screen bg-slate-100 p-4 md:p-10">
       <div className="mx-auto max-w-3xl">
         {/* CABECERA */}
 
@@ -732,7 +732,7 @@ export default function CalendarPage() {
 
               {/* CUADRÍCULA DEL MES */}
 
-              <div className="grid grid-cols-7">
+              <div data-tour="calendar-grid" className="grid grid-cols-7">
                 {calendarDays.map((day, index) => {
                   if (day === null) {
                     return (

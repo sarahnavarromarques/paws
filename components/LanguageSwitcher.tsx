@@ -139,7 +139,11 @@ export default function LanguageSwitcher() {
     current === "en" ? "Language: English" : "Idioma: Español";
 
   return (
-    <div ref={containerRef} className="relative inline-block shrink-0">
+    <div
+      ref={containerRef}
+      data-tour="language-switcher"
+      className="relative inline-block shrink-0"
+    >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}

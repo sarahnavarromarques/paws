@@ -89,7 +89,7 @@ export default async function PetHistoryPage({
     .sort((a, b) => a.name.localeCompare(b.name, locale));
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-10">
+    <main data-tour-section="history" className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-4xl">
 
         {/* CABECERA */}
@@ -113,6 +113,7 @@ export default async function PetHistoryPage({
 
         {/* FILTROS Y LISTA (se filtra al momento, sin recargar) */}
 
+        <div data-tour="history-filters">
         <PetHistoryList
           petId={pet.id}
           trainings={allTrainings.map((training) => ({
@@ -128,6 +129,7 @@ export default async function PetHistoryPage({
           skillOptions={skillOptions}
           initialQuery={initialQuery}
         />
+        </div>
 
       </div>
     </main>

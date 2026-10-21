@@ -24,25 +24,50 @@ export default function UpdatePasswordPage() {
   const [done, setDone] = useState(false);
 
   // Al abrir la página, crea la sesión temporal a partir del enlace del email.
-  // Acepta dos tipos de enlace:
-  // 1. El nuevo (?token_hash=...): funciona desde cualquier móvil o navegador.
-  // 2. El antiguo (?code=... o #access_token=...): Supabase lo procesa solo.
+  // Acepta todos los tipos de enlace de recuperación:
+  // 1. #access_token=... (el que genera ahora "Recuperar contraseña"):
+  //    funciona desde cualquier móvil o navegador.
+  // 2. ?token_hash=... (por si algún día se personaliza la plantilla del email).
+  // 3. ?code=... (enlaces antiguos): Supabase lo procesa solo.
   useEffect(() => {
     let cancelled = false;
 
+    function cleanUrl() {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
     async function prepareSession() {
-      const params = new URLSearchParams(window.location.search);
-      const tokenHash = params.get("token_hash");
+      const query = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+      // El enlace ha caducado o ya se usó.
+      if (hash.get("error") || query.get("error")) {
+        cleanUrl();
+        if (!cancelled) setStatus("invalid");
+        return;
+      }
+
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        cleanUrl();
+        if (!cancelled) setStatus(error ? "invalid" : "ready");
+        return;
+      }
+
+      const tokenHash = query.get("token_hash");
 
       if (tokenHash) {
         const { error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
           type: "recovery",
         });
-
-        // Quita el token de la barra de direcciones.
-        window.history.replaceState(null, "", window.location.pathname);
-
+        cleanUrl();
         if (!cancelled) setStatus(error ? "invalid" : "ready");
         return;
       }
@@ -54,7 +79,7 @@ export default function UpdatePasswordPage() {
 
     prepareSession();
 
-    // Por si Supabase termina de procesar el enlace antiguo un poco después.
+    // Por si Supabase termina de procesar un enlace antiguo un poco después.
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (cancelled) return;

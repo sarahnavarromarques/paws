@@ -190,7 +190,7 @@ export default function FirstStepsChecklist() {
       key: "group",
       label: TEXT.taskGroup,
       // Los grupos están en la pestaña "Grupos" de la página de habilidades
-      href: firstPetId !== null ? `${petBase}/skills?tab=groups` : "/pets",
+      href: firstPetId !== null ? `/skills?pet=${firstPetId}&tab=groups` : "/pets",
     },
     { key: "training", label: TEXT.taskTraining, href: petBase },
     { key: "completed", label: TEXT.taskCompleted, href: petBase },

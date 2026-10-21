@@ -4,10 +4,44 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorKey } from "@/lib/auth-errors";
 
-const supabase = createClient();
+type RecoverErrorBody = {
+  msg?: string;
+  message?: string;
+  error_description?: string;
+};
+
+// Pide a Supabase el email de recuperación.
+// Se llama directamente (sin el cliente de Supabase) para que el enlace del
+// email funcione en cualquier móvil o navegador, no solo en el que lo pidió.
+async function requestPasswordReset(email: string): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const redirectTo = `${window.location.origin}/update-password`;
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({ email }),
+      }
+    );
+
+    if (response.ok) return null;
+
+    const body = (await response.json().catch(() => ({}))) as RecoverErrorBody;
+    return body.msg ?? body.error_description ?? body.message ?? "";
+  } catch {
+    return "Failed to fetch";
+  }
+}
 
 export default function ResetPasswordPage() {
   const t = useTranslations("ResetPassword");
@@ -27,17 +61,12 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      email.trim(),
-      {
-        redirectTo: `${window.location.origin}/update-password`,
-      }
-    );
+    const errorMessage = await requestPasswordReset(email.trim());
 
     setLoading(false);
 
-    if (error) {
-      alert(tErrors(getAuthErrorKey(error.message)));
+    if (errorMessage !== null) {
+      alert(tErrors(getAuthErrorKey(errorMessage)));
       return;
     }
 
@@ -45,8 +74,8 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-[420px] rounded-2xl bg-white p-10 shadow-xl">
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-10 shadow-xl">
         <h1 className="mb-2 text-center text-3xl font-bold">
           {t("title")}
         </h1>

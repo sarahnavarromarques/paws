@@ -272,7 +272,7 @@ export default function AddTrainingForm({ petId }: Props) {
               </p>
               {/* Los grupos están en la pestaña "Grupos" de la página de habilidades */}
               <Link
-                href={`/pets/${petId}/skills?tab=groups`}
+                href={`/skills?pet=${petId}&tab=groups`}
                 className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-blue-700"
               >
                 {t("createGroups")}

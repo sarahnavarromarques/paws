@@ -138,10 +138,10 @@ export default async function PetProfile({ params }: PageProps) {
   const editLabel = t("editPet").replace(/^\S+\s/, "");
 
   return (
-    <main className="min-h-screen bg-slate-100 p-10">
+    <main data-tour-section="pet-profile" className="min-h-screen bg-slate-100 p-10">
       <div className="mx-auto max-w-6xl">
 
-        <div className="mb-6 flex flex-wrap gap-4">
+        <div data-tour="pet-buttons" className="mb-6 flex flex-wrap gap-4">
           <Link
             href="/pets"
             className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
@@ -151,7 +151,7 @@ export default async function PetProfile({ params }: PageProps) {
 
           {/* Habilidades, grupos y orden recomendado están en la misma página (pestañas) */}
           <Link
-            href={`/pets/${pet.id}/skills`}
+            href={`/skills?pet=${pet.id}`}
             className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
           >
             {t("skills")}
@@ -183,7 +183,7 @@ export default async function PetProfile({ params }: PageProps) {
 
         <div className="overflow-hidden rounded-3xl bg-white shadow-xl">
 
-          <div className="relative bg-blue-600 p-10 text-white">
+          <div data-tour="pet-header" className="relative bg-blue-600 p-10 text-white">
 
             {/* Lápiz para editar la mascota (esquina de la ficha) */}
             <Link
@@ -324,7 +324,7 @@ export default async function PetProfile({ params }: PageProps) {
 
             {/* NUEVO ENTRENAMIENTO (el historial y el orden recomendado tienen su propia pantalla) */}
 
-            <div className="mb-8 rounded-2xl border bg-white p-8 shadow">
+            <div data-tour="add-training" className="mb-8 rounded-2xl border bg-white p-8 shadow">
 
               <h2 className="mb-6 text-3xl font-bold">
                 {t("newTrainingTitle")}

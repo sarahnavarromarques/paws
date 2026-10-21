@@ -216,7 +216,7 @@ export default function TrainingOrder({
     : null;
 
   function skillHref(skillId: number): string {
-    return `/pets/${petId}/skills?skill=${skillId}`;
+    return `/skills?pet=${petId}&skill=${skillId}`;
   }
 
   async function handleCalculate() {
@@ -275,6 +275,7 @@ export default function TrainingOrder({
         {hasGroups ? (
           <button
             type="button"
+            data-tour="order-calculate"
             onClick={handleCalculate}
             disabled={loading}
             className="shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -287,7 +288,7 @@ export default function TrainingOrder({
           </button>
         ) : (
           <Link
-            href={`/pets/${petId}/skills?tab=groups`}
+            href={`/skills?pet=${petId}&tab=groups`}
             className="shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700"
           >
             {t("createGroupsCta")}
@@ -397,7 +398,7 @@ export default function TrainingOrder({
               {t("orderLabel")}
             </p>
 
-            <ol className="mt-3 space-y-4">
+            <ol data-tour="order-list" className="mt-3 space-y-4">
               {displayGroups.map((group, groupIndex) => (
                 <li
                   key={group.groupId}

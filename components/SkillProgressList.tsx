@@ -54,7 +54,7 @@ export default async function SkillProgressList({
           )}
 
           <Link
-            href={`/pets/${petId}/skills`}
+            href={`/skills?pet=${petId}`}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             {t("manage")}
@@ -95,7 +95,7 @@ export default async function SkillProgressList({
         <p className="text-slate-500">
           {t("noSkillsYet")}{" "}
           <Link
-            href={`/pets/${petId}/skills`}
+            href={`/skills?pet=${petId}`}
             className="font-semibold text-blue-600 hover:underline"
           >
             {t("addSkillsCta")}

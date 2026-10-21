@@ -543,7 +543,7 @@ export default function ClickerPage() {
   const showPhoto = active.center === "photo" && active.photoUrl;
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-6">
+    <main data-tour-section="clicker" className="min-h-screen bg-gray-50 px-4 py-6">
       <div className="mx-auto flex max-w-md flex-col gap-6">
         <div>
           <Link
@@ -565,6 +565,7 @@ export default function ClickerPage() {
         >
           <button
             type="button"
+            data-tour="clicker-button"
             aria-label={t("buttonAria")}
             // Se usa "pointerdown" para que suene en el instante exacto
             // en que se toca, no al levantar el dedo
@@ -631,6 +632,7 @@ export default function ClickerPage() {
         {userId && !panelOpen && (
           <button
             type="button"
+            data-tour="clicker-customize"
             onClick={openPanel}
             className="rounded-2xl bg-white p-4 font-semibold text-[#1e3a5f] shadow-sm transition hover:bg-gray-50"
           >
@@ -853,7 +855,7 @@ export default function ClickerPage() {
         )}
 
         {/* Interruptor de vibración */}
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div data-tour="clicker-vibration" className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="font-semibold text-[#1e3a5f]">

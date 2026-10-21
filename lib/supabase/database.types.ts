@@ -205,6 +205,7 @@ export type Database = {
           language: string
           last_name: string | null
           onboarding_completed: boolean
+          tours_seen: string[]
           updated_at: string
           username: string | null
         }
@@ -220,6 +221,7 @@ export type Database = {
           language?: string
           last_name?: string | null
           onboarding_completed?: boolean
+          tours_seen?: string[]
           updated_at?: string
           username?: string | null
         }
@@ -235,6 +237,7 @@ export type Database = {
           language?: string
           last_name?: string | null
           onboarding_completed?: boolean
+          tours_seen?: string[]
           updated_at?: string
           username?: string | null
         }

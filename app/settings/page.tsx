@@ -686,7 +686,7 @@ export default function SettingsPage() {
     (firstName.trim()[0] ?? username.trim()[0] ?? "").toUpperCase();
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <main data-tour-section="settings" className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-2xl">
         <Link
           href="/dashboard"
@@ -700,7 +700,7 @@ export default function SettingsPage() {
         </h1>
 
         {/* PERFIL */}
-        <section className={CARD_CLASS}>
+        <section data-tour="settings-profile" className={CARD_CLASS}>
           <h2 className="mb-6 text-xl font-bold">{t("profileTitle")}</h2>
 
           {/* Foto */}
@@ -860,7 +860,7 @@ export default function SettingsPage() {
         </section>
 
         {/* IDIOMA */}
-        <section className={CARD_CLASS}>
+        <section data-tour="settings-language" className={CARD_CLASS}>
           <h2 className="mb-4 text-xl font-bold">{t("languageLabel")}</h2>
 
           <div className="grid grid-cols-2 gap-3">
@@ -893,7 +893,7 @@ export default function SettingsPage() {
         </section>
 
         {/* CALENDARIO DEL MÓVIL */}
-        <section className={CARD_CLASS}>
+        <section data-tour="settings-calendar" className={CARD_CLASS}>
           <h2 className="mb-2 text-xl font-bold">📅 {calendarText.title}</h2>
           <p className="mb-4 text-sm text-slate-500">
             {calendarText.description}
@@ -979,7 +979,7 @@ export default function SettingsPage() {
         </section>
 
         {/* CUENTA */}
-        <section className={CARD_CLASS}>
+        <section data-tour="settings-account" className={CARD_CLASS}>
           <h2 className="mb-6 text-xl font-bold">{t("accountTitle")}</h2>
 
           {/* Correo */}

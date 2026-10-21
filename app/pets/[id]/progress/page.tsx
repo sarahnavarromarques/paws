@@ -115,7 +115,7 @@ export default async function PetProgressPage({ params }: PageProps) {
   const average = averageSkillProgress(skillItems);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-10">
+    <main data-tour-section="progress" className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-6xl">
 
         {/* CABECERA */}
@@ -139,6 +139,7 @@ export default async function PetProgressPage({ params }: PageProps) {
 
         {/* ANÁLISIS DE PROGRESO (IA) — se hace solo al abrir */}
 
+        <div data-tour="progress-analysis">
         <ProgressAnalysis
           autoAnalyze
           pet={{
@@ -164,14 +165,17 @@ export default async function PetProgressPage({ params }: PageProps) {
               notes: training.notes ?? null,
             }))}
         />
+        </div>
 
         {/* PROGRESO DE CADA HABILIDAD */}
 
+        <div data-tour="progress-bars">
         <SkillProgressList
           petId={pet.id}
           items={skillItems}
           average={average}
         />
+        </div>
 
       </div>
     </main>

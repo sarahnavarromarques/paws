@@ -17,13 +17,19 @@ const HIDDEN_PATHS = [
   "/update-password",
 ];
 
-const STEP_KEY = "paws-onboarding-step";
-const DONE_KEY = "paws-onboarding-done";
-const LANG_KEY = "paws-onboarding-lang-chosen";
+// Claves "v2": el tutorial nuevo se enseña una vez a todos,
+// también a quien ya vio el antiguo
+const STEP_KEY = "paws-onboarding-v2-step";
+const DONE_KEY = "paws-onboarding-v2-done";
+const LANG_KEY = "paws-onboarding-v2-lang-chosen";
 export const START_TOUR_EVENT = "paws:start-onboarding";
 export const ONBOARDING_FINISHED_EVENT = "paws:onboarding-finished";
 
-// Llamar a esta función (por ejemplo desde Ajustes) vuelve a lanzar el tutorial
+const WELCOME_ID = "welcome";
+const WELCOME_ROUTE = "/dashboard";
+
+// Llamar a esta función (por ejemplo desde Ajustes) vuelve a lanzar
+// la bienvenida y vuelve a activar todas las guías de cada pantalla
 export function startOnboardingTour() {
   window.dispatchEvent(new Event(START_TOUR_EVENT));
 }
@@ -35,35 +41,39 @@ type StepKind = "intro" | "loop" | "spot" | "finish";
 type TourStep = {
   id: string;
   kind: StepKind;
-  route: (petId: number | null) => string;
   icon: string;
   title: Text;
   body: Text;
-  needsPet?: boolean;
   target?: string; // valor del atributo data-tour del elemento a iluminar
-  tap?: boolean; // muestra "Toca aquí" sobre el elemento
+  tap?: boolean; // el usuario tiene que tocar el elemento para seguir
   openMenu?: boolean; // el menú lateral debe estar abierto en este paso
 };
 
-const STEPS: TourStep[] = [
+type SectionTour = {
+  id: string; // valor del atributo data-tour-section de la pantalla
+  name: Text;
+  steps: TourStep[];
+};
+
+// ---------- Bienvenida (primera vez que se entra) ----------
+
+const WELCOME_STEPS: TourStep[] = [
   {
     id: "welcome",
     kind: "intro",
-    route: () => "/dashboard",
     icon: "👋",
     title: {
       es: "¡Hola! Soy Pawsi, tu ayudante de entrenamiento",
       en: "Hi! I'm Pawsi, your training buddy",
     },
     body: {
-      es: "Te enseño en un par de minutos cómo funciona la app. Puedes saltarlo cuando quieras y repetirlo desde Ajustes.",
-      en: "I'll show you how the app works in a couple of minutes. You can skip it any time and replay it from Settings.",
+      es: "Te enseño cómo funciona PAWS. Primero lo básico, y después te explicaré cada pantalla la primera vez que entres en ella. Puedes saltarlo cuando quieras y repetirlo desde Ajustes.",
+      en: "I'll show you how PAWS works. First the basics, and then I'll explain each screen the first time you open it. You can skip it any time and replay it from Settings.",
     },
   },
   {
     id: "loop",
     kind: "loop",
-    route: () => "/dashboard",
     icon: "🔄",
     title: {
       es: "Así aprende PAWS contigo",
@@ -75,20 +85,8 @@ const STEPS: TourStep[] = [
     },
   },
   {
-    id: "dashboard",
-    kind: "spot",
-    route: () => "/dashboard",
-    icon: "🏠",
-    title: { es: "Tu inicio", en: "Your home" },
-    body: {
-      es: "Esta es la primera pantalla que verás al entrar. Desde aquí llegas rápido a tus mascotas, al calendario y a los ajustes.",
-      en: "This is the first screen you'll see when you log in. From here you can quickly reach your pets, the calendar and your settings.",
-    },
-  },
-  {
     id: "menu",
     kind: "spot",
-    route: () => "/dashboard",
     target: "menu-button",
     tap: true,
     icon: "☰",
@@ -101,128 +99,529 @@ const STEPS: TourStep[] = [
   {
     id: "menu-open",
     kind: "spot",
-    route: () => "/dashboard",
     target: "sidebar-panel",
     openMenu: true,
     icon: "🧭",
     title: { es: "Todo a mano", en: "Everything at hand" },
     body: {
-      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso o Editar.",
-      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress or Edit.",
-    },
-  },
-  {
-    id: "pets",
-    kind: "spot",
-    route: () => "/pets",
-    target: "add-pet",
-    icon: "🐶",
-    title: { es: "Tus mascotas", en: "Your pets" },
-    body: {
-      es: "Aquí están todas tus mascotas. En cada una ves qué te recomienda reforzar hoy y su progreso. Desde esta pantalla también añades una nueva.",
-      en: "All your pets live here. For each one you'll see what to reinforce today and its progress. You can also add a new one from this screen.",
-    },
-  },
-  {
-    id: "pet-profile",
-    kind: "spot",
-    needsPet: true,
-    route: (id) => `/pets/${id}`,
-    icon: "🪪",
-    title: { es: "La ficha de tu mascota", en: "Your pet's profile" },
-    body: {
-      es: "En PAWS todo gira alrededor de tu mascota. En su ficha tienes sus datos, sus entrenamientos y su evolución.",
-      en: "In PAWS everything revolves around your pet. Its profile holds its details, its trainings and its progress.",
-    },
-  },
-  {
-    id: "skills",
-    kind: "spot",
-    needsPet: true,
-    route: (id) => `/pets/${id}/skills`,
-    target: "skills-filters",
-    icon: "🎯",
-    title: { es: "Habilidades", en: "Skills" },
-    body: {
-      es: "Cada habilidad tiene viñetas con los pasos para enseñarla y los errores más frecuentes. Su progreso lo calcula la IA con tus entrenamientos: no tienes que tocarlo a mano.",
-      en: "Each skill has illustrated steps to teach it and the most common mistakes. Its progress is calculated by the AI from your trainings: no need to edit it by hand.",
-    },
-  },
-  {
-    id: "groups",
-    kind: "spot",
-    needsPet: true,
-    // Los grupos están en la pestaña "Grupos" de la página de habilidades
-    route: (id) => `/pets/${id}/skills?tab=groups`,
-    target: "groups-create",
-    icon: "🧩",
-    title: { es: "Grupos de habilidades", en: "Skill groups" },
-    body: {
-      es: "En la pestaña Grupos juntas habilidades para entrenarlas a la vez. Si no se te ocurre un nombre, la IA te sugiere uno.",
-      en: "In the Groups tab you put skills together to train them at the same time. If you can't think of a name, the AI suggests one.",
-    },
-  },
-  {
-    id: "training",
-    kind: "spot",
-    needsPet: true,
-    route: (id) => `/pets/${id}`,
-    icon: "🏋️",
-    title: { es: "Cómo se entrena con PAWS", en: "How training works in PAWS" },
-    body: {
-      es: "1) Crea un entrenamiento eligiendo grupo y habilidad. 2) Entrena con tu perro. 3) Márcalo como completado y responde 4 preguntas rápidas: intentos, aciertos, distracción y ánimo. 4) La IA actualiza el progreso y te dice qué hacer después.",
-      en: "1) Create a training by choosing a group and a skill. 2) Train with your dog. 3) Mark it as completed and answer 4 quick questions: attempts, successes, distraction and mood. 4) The AI updates the progress and tells you what to do next.",
-    },
-  },
-  {
-    id: "analyze",
-    kind: "spot",
-    needsPet: true,
-    route: (id) => `/pets/${id}`,
-    target: "analyze-progress",
-    icon: "📊",
-    title: { es: "Ver progreso", en: "View progress" },
-    body: {
-      es: "Pulsa aquí para ver el progreso de tu perro. La IA estudia su historial y te da un resumen, los patrones que detecta y qué trabajar después.",
-      en: "Tap here to see your dog's progress. The AI studies its history and gives you a summary, the patterns it detects and what to work on next.",
-    },
-  },
-  {
-    id: "calendar",
-    kind: "spot",
-    route: () => "/calendar",
-    target: "calendar-controls",
-    icon: "📅",
-    title: { es: "Calendario", en: "Calendar" },
-    body: {
-      es: "Aquí ves tus entrenamientos organizados por fechas para planificar la semana.",
-      en: "Here you see your trainings organized by date so you can plan your week.",
-    },
-  },
-  {
-    id: "settings",
-    kind: "spot",
-    route: () => "/settings",
-    target: "replay-tour",
-    icon: "⚙️",
-    title: { es: "Ajustes", en: "Settings" },
-    body: {
-      es: "Tu perfil, foto, idioma, correo y contraseña. Desde aquí también puedes volver a ver este tutorial.",
-      en: "Your profile, photo, language, email and password. You can also replay this tutorial from here.",
+      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso o su Historial.",
+      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress or its History.",
     },
   },
   {
     id: "finish",
     kind: "finish",
-    route: () => "/dashboard",
     icon: "🎉",
-    title: { es: "¡Ya estás listo!", en: "You're all set!" },
+    title: { es: "¡Ya conoces lo básico!", en: "You know the basics!" },
     body: {
-      es: "Te he dejado una lista de primeros pasos. Se irá marcando sola a medida que los hagas.",
-      en: "I've left you a first-steps checklist. It will tick itself off as you complete each step.",
+      es: "A partir de ahora, la primera vez que entres en cada pantalla te explicaré cómo funciona. También te he dejado una lista de primeros pasos que se marca sola.",
+      en: "From now on, the first time you open each screen I'll explain how it works. I've also left you a first-steps checklist that ticks itself off.",
     },
   },
 ];
+
+// ---------- Guías de cada pantalla ----------
+
+const SECTIONS: SectionTour[] = [
+  {
+    id: "dashboard",
+    name: { es: "Inicio", en: "Home" },
+    steps: [
+      {
+        id: "dashboard-greeting",
+        kind: "spot",
+        target: "dashboard-greeting",
+        icon: "👋",
+        title: { es: "Tu resumen del día", en: "Your daily summary" },
+        body: {
+          es: "Cada día te saludo con lo que tienes pendiente y tu racha de días entrenando. ¡Intenta no romperla!",
+          en: "Every day I greet you with what's pending and your training streak. Try not to break it!",
+        },
+      },
+      {
+        id: "dashboard-week",
+        kind: "spot",
+        target: "dashboard-week",
+        icon: "📈",
+        title: { es: "Tu semana", en: "Your week" },
+        body: {
+          es: "Aquí ves cuántos entrenamientos y minutos llevas esta semana y cuántas habilidades domina ya tu perro.",
+          en: "Here you see how many trainings and minutes you've done this week and how many skills your dog has mastered.",
+        },
+      },
+      {
+        id: "dashboard-next",
+        kind: "spot",
+        target: "dashboard-next",
+        icon: "⏭️",
+        title: { es: "Próximo entrenamiento", en: "Next training" },
+        body: {
+          es: "Tu siguiente entrenamiento, listo para abrirlo. Si se te pasó alguno, verás la etiqueta \"Atrasado\".",
+          en: "Your next training, ready to open. If you missed one, you'll see the \"Overdue\" label.",
+        },
+      },
+      {
+        id: "dashboard-shortcuts",
+        kind: "spot",
+        target: "dashboard-shortcuts",
+        icon: "🧭",
+        title: { es: "Accesos rápidos", en: "Quick access" },
+        body: {
+          es: "Mascotas, Calendario, Clicker y Ajustes, cada uno con un dato al día para que veas de un vistazo cómo vas.",
+          en: "Pets, Calendar, Clicker and Settings, each with a live figure so you can see how you're doing at a glance.",
+        },
+      },
+      {
+        id: "dashboard-language",
+        kind: "spot",
+        target: "language-switcher",
+        icon: "🌍",
+        title: { es: "Cambia el idioma", en: "Change the language" },
+        body: {
+          es: "Toca la bandera en cualquier pantalla para cambiar entre español e inglés.",
+          en: "Tap the flag on any screen to switch between Spanish and English.",
+        },
+      },
+    ],
+  },
+  {
+    id: "pets",
+    name: { es: "Mis mascotas", en: "My pets" },
+    steps: [
+      {
+        id: "pets-list",
+        kind: "spot",
+        target: "pets-list",
+        icon: "🐶",
+        title: { es: "Tus perros", en: "Your dogs" },
+        body: {
+          es: "Aquí están todos tus perros con su progreso. Toca uno para abrir su ficha.",
+          en: "All your dogs are here with their progress. Tap one to open its profile.",
+        },
+      },
+      {
+        id: "pets-reinforce",
+        kind: "spot",
+        target: "pet-reinforce",
+        icon: "💪",
+        title: { es: "Qué reforzar hoy", en: "What to reinforce today" },
+        body: {
+          es: "PAWS te dice qué habilidad conviene reforzar hoy. Toca el botón y vas directo a ella.",
+          en: "PAWS tells you which skill to reinforce today. Tap the button and you go straight to it.",
+        },
+      },
+      {
+        id: "pets-actions",
+        kind: "spot",
+        target: "pet-actions",
+        icon: "📊",
+        title: { es: "Habilidades y progreso", en: "Skills and progress" },
+        body: {
+          es: "\"Ver habilidades\" abre la lista de habilidades del perro y \"Ver progreso\" su análisis con IA.",
+          en: "\"View skills\" opens the dog's skill list and \"View progress\" its AI analysis.",
+        },
+      },
+      {
+        id: "pets-add",
+        kind: "spot",
+        target: "add-pet",
+        icon: "➕",
+        title: { es: "Añade una mascota", en: "Add a pet" },
+        body: {
+          es: "Al crear una mascota te propongo un cuestionario rápido. Con tus respuestas, la IA prepara su objetivo, sus grupos de habilidades y el orden para entrenarlas.",
+          en: "When you add a pet I'll offer you a quick questionnaire. With your answers, the AI prepares its goal, its skill groups and the order to train them.",
+        },
+      },
+    ],
+  },
+  {
+    id: "questionnaire",
+    name: { es: "Cuestionario", en: "Questionnaire" },
+    steps: [
+      {
+        id: "questionnaire-intro",
+        kind: "spot",
+        icon: "📝",
+        title: { es: "Conozcamos a tu perro", en: "Let's get to know your dog" },
+        body: {
+          es: "Responde tocando las opciones. Al final la IA te propone un objetivo, grupos de habilidades y un orden de trabajo: revísalo y acéptalo antes de guardar. Si prefieres, puedes saltarlo.",
+          en: "Answer by tapping the options. At the end the AI suggests a goal, skill groups and a training order: review it and accept it before saving. You can also skip it.",
+        },
+      },
+    ],
+  },
+  {
+    id: "pet-profile",
+    name: { es: "Ficha", en: "Profile" },
+    steps: [
+      {
+        id: "pet-header",
+        kind: "spot",
+        target: "pet-header",
+        icon: "🪪",
+        title: { es: "La ficha de tu perro", en: "Your dog's profile" },
+        body: {
+          es: "Sus datos y su objetivo. Para cambiar algo, toca el lápiz de la esquina.",
+          en: "Its details and its goal. To change anything, tap the pencil in the corner.",
+        },
+      },
+      {
+        id: "pet-add-training",
+        kind: "spot",
+        target: "add-training",
+        icon: "➕",
+        title: { es: "Crea un entrenamiento", en: "Create a training" },
+        body: {
+          es: "Elige un grupo y una habilidad, la fecha y la duración. El título se pone solo.",
+          en: "Choose a group and a skill, the date and the duration. The title fills itself in.",
+        },
+      },
+      {
+        id: "pet-buttons",
+        kind: "spot",
+        target: "pet-buttons",
+        icon: "🧭",
+        title: { es: "Todo sobre tu perro", en: "Everything about your dog" },
+        body: {
+          es: "Desde aquí vas a sus Habilidades, a su Progreso y a su Historial de entrenamientos.",
+          en: "From here you reach its Skills, its Progress and its training History.",
+        },
+      },
+    ],
+  },
+  {
+    id: "skills",
+    name: { es: "Habilidades", en: "Skills" },
+    steps: [
+      {
+        id: "skills-tabs",
+        kind: "spot",
+        target: "skills-tabs",
+        icon: "🗂️",
+        title: { es: "Tres pestañas", en: "Three tabs" },
+        body: {
+          es: "Habilidades: lo que aprende tu perro. Grupos: habilidades que entrenáis juntas. Orden recomendado: por dónde seguir, según la IA.",
+          en: "Skills: what your dog is learning. Groups: skills you train together. Recommended order: where to go next, according to the AI.",
+        },
+      },
+      {
+        id: "skills-filters",
+        kind: "spot",
+        target: "skills-filters",
+        icon: "🔎",
+        title: { es: "Busca y filtra", en: "Search and filter" },
+        body: {
+          es: "Encuentra rápido una habilidad por su nombre o su categoría.",
+          en: "Quickly find a skill by its name or category.",
+        },
+      },
+            {
+        id: "skills-create",
+        kind: "spot",
+        target: "skill-create",
+        icon: "✏️",
+        title: { es: "Crea tu propia habilidad", en: "Create your own skill" },
+        body: {
+          es: "Si quieres enseñar algo que no está en el catálogo, créalo aquí. Se añadirá a la lista y podrás asignarlo a tus perros.",
+          en: "If you want to teach something that's not in the catalog, create it here. It will be added to the list and you can assign it to your dogs.",
+        },
+      },
+      {
+        id: "skills-card",
+        kind: "spot",
+        target: "skill-card",
+        icon: "🎯",
+        title: { es: "Abre una habilidad", en: "Open a skill" },
+        body: {
+          es: "Dentro tienes un vídeo, viñetas con los pasos para enseñarla (tócalas para verlas a pantalla completa) y los errores más frecuentes. Su progreso lo calcula la IA con tus entrenamientos.",
+          en: "Inside you'll find a video, illustrated steps to teach it (tap them to view full screen) and the most common mistakes. Its progress is calculated by the AI from your trainings.",
+        },
+      },
+    ],
+  },
+  {
+    id: "skill-groups",
+    name: { es: "Grupos", en: "Groups" },
+    steps: [
+      {
+        id: "groups-create",
+        kind: "spot",
+        target: "groups-create",
+        icon: "🧩",
+        title: { es: "Crea un grupo", en: "Create a group" },
+        body: {
+          es: "Junta habilidades para entrenarlas a la vez. Si no se te ocurre un nombre, la IA te sugiere uno.",
+          en: "Put skills together to train them at the same time. If you can't think of a name, the AI suggests one.",
+        },
+      },
+      {
+        id: "groups-list",
+        kind: "spot",
+        target: "groups-list",
+        icon: "📦",
+        title: { es: "Tus grupos", en: "Your groups" },
+        body: {
+          es: "Cuando crees un entrenamiento, primero eliges el grupo y después la habilidad.",
+          en: "When you create a training, you first choose the group and then the skill.",
+        },
+      },
+    ],
+  },
+  {
+    id: "skill-order",
+    name: { es: "Orden recomendado", en: "Recommended order" },
+    steps: [
+      {
+        id: "order-calculate",
+        kind: "spot",
+        target: "order-calculate",
+        icon: "🧠",
+        title: { es: "Calcula el orden", en: "Calculate the order" },
+        body: {
+          es: "La IA ordena tus grupos y sus habilidades según el progreso, los requisitos entre habilidades y el objetivo del perro. Se guarda hasta que lo vuelvas a calcular.",
+          en: "The AI orders your groups and their skills based on progress, the requirements between skills and your dog's goal. It's saved until you recalculate it.",
+        },
+      },
+      {
+        id: "order-list",
+        kind: "spot",
+        target: "order-list",
+        icon: "🪜",
+        title: { es: "Sigue el camino", en: "Follow the path" },
+        body: {
+          es: "La primera habilidad es la siguiente que conviene trabajar. También la verás en Mis mascotas.",
+          en: "The first skill is the next one to work on. You'll also see it in My pets.",
+        },
+      },
+    ],
+  },
+  {
+    id: "training",
+    name: { es: "Entrenamiento", en: "Training" },
+    steps: [
+      {
+        id: "training-prepare",
+        kind: "spot",
+        target: "training-prepare",
+        icon: "📋",
+        title: { es: "Prepara la sesión", en: "Prepare the session" },
+        body: {
+          es: "La IA te prepara el plan de hoy paso a paso: objetivo, calentamiento, ejercicios con repeticiones y cuándo subir o bajar la dificultad.",
+          en: "The AI prepares today's plan step by step: goal, warm-up, exercises with repetitions and when to make it harder or easier.",
+        },
+      },
+      {
+        id: "training-chat",
+        kind: "spot",
+        target: "training-chat",
+        icon: "💬",
+        title: { es: "Pregunta tus dudas", en: "Ask your questions" },
+        body: {
+          es: "Si algo no sale, pregúntalo aquí. La conversación se guarda y la IA la tendrá en cuenta al calcular el progreso.",
+          en: "If something doesn't work, ask here. The conversation is saved and the AI takes it into account when calculating progress.",
+        },
+      },
+      {
+        id: "training-complete",
+        kind: "spot",
+        target: "training-complete",
+        icon: "✅",
+        title: { es: "Al terminar", en: "When you finish" },
+        body: {
+          es: "Márcalo como completado y responde 4 preguntas rápidas: intentos, aciertos, distracción y ánimo. La IA actualiza el progreso y te dice qué hacer después.",
+          en: "Mark it as completed and answer 4 quick questions: attempts, successes, distraction and mood. The AI updates the progress and tells you what to do next.",
+        },
+      },
+    ],
+  },
+  {
+    id: "progress",
+    name: { es: "Progreso", en: "Progress" },
+    steps: [
+      {
+        id: "progress-analysis",
+        kind: "spot",
+        target: "progress-analysis",
+        icon: "🤖",
+        title: { es: "Análisis de la IA", en: "AI analysis" },
+        body: {
+          es: "La IA estudia el historial de tu perro y te da un resumen, los patrones que detecta y qué trabajar después. Puedes repetir el análisis cuando quieras.",
+          en: "The AI studies your dog's history and gives you a summary, the patterns it detects and what to work on next. You can repeat the analysis any time.",
+        },
+      },
+      {
+        id: "progress-bars",
+        kind: "spot",
+        target: "progress-bars",
+        icon: "📊",
+        title: { es: "Cada habilidad", en: "Each skill" },
+        body: {
+          es: "El progreso de cada habilidad. Sube con cada entrenamiento que registras.",
+          en: "The progress of each skill. It goes up with every training you log.",
+        },
+      },
+    ],
+  },
+  {
+    id: "history",
+    name: { es: "Historial", en: "History" },
+    steps: [
+      {
+        id: "history-filters",
+        kind: "spot",
+        target: "history-filters",
+        icon: "🔎",
+        title: { es: "Filtra tus entrenamientos", en: "Filter your trainings" },
+        body: {
+          es: "Completados o pendientes, por habilidad y entre dos fechas. Se aplica al momento.",
+          en: "Completed or pending, by skill and between two dates. It applies instantly.",
+        },
+      },
+      {
+        id: "history-list",
+        kind: "spot",
+        target: "history-list",
+        icon: "🗒️",
+        title: { es: "Todo lo que habéis hecho", en: "Everything you've done" },
+        body: {
+          es: "Toca cualquier entrenamiento para abrirlo.",
+          en: "Tap any training to open it.",
+        },
+      },
+    ],
+  },
+  {
+    id: "calendar",
+    name: { es: "Calendario", en: "Calendar" },
+    steps: [
+      {
+        id: "calendar-controls",
+        kind: "spot",
+        target: "calendar-controls",
+        icon: "📅",
+        title: { es: "Muévete por las fechas", en: "Move through dates" },
+        body: {
+          es: "Usa las flechas para ver otras semanas o meses y planificar.",
+          en: "Use the arrows to see other weeks or months and plan ahead.",
+        },
+      },
+      {
+        id: "calendar-grid",
+        kind: "spot",
+        target: "calendar-grid",
+        icon: "🗓️",
+        title: { es: "Tus entrenamientos", en: "Your trainings" },
+        body: {
+          es: "Toca un entrenamiento para abrirlo. Si quieres verlos también en el calendario de tu móvil, actívalo en Ajustes.",
+          en: "Tap a training to open it. If you want to see them in your phone's calendar too, turn it on in Settings.",
+        },
+      },
+    ],
+  },
+  {
+    id: "clicker",
+    name: { es: "Clicker", en: "Clicker" },
+    steps: [
+      {
+        id: "clicker-button",
+        kind: "spot",
+        target: "clicker-button",
+        tap: true,
+        icon: "🔔",
+        title: { es: "¡Pruébalo!", en: "Try it!" },
+        body: {
+          es: "Toca el botón. Suena justo en el instante en que tu perro hace lo que le pides, y después le das el premio.",
+          en: "Tap the button. Make it sound at the exact moment your dog does what you ask, and then give the treat.",
+        },
+      },
+      {
+        id: "clicker-customize",
+        kind: "spot",
+        target: "clicker-customize",
+        icon: "🎨",
+        title: { es: "Hazlo tuyo", en: "Make it yours" },
+        body: {
+          es: "Elige el centro del botón (huellas, emoji o una foto), los colores, el sonido y el tiempo entre clic y clac.",
+          en: "Choose the centre of the button (paws, emoji or a photo), the colours, the sound and the gap between click and clack.",
+        },
+      },
+      {
+        id: "clicker-vibration",
+        kind: "spot",
+        target: "clicker-vibration",
+        icon: "📳",
+        title: { es: "Vibración", en: "Vibration" },
+        body: {
+          es: "Actívala si quieres notar cada clic. En iPhone, el navegador no permite vibrar.",
+          en: "Turn it on if you want to feel each click. On iPhone, the browser doesn't allow vibration.",
+        },
+      },
+    ],
+  },
+  {
+    id: "settings",
+    name: { es: "Ajustes", en: "Settings" },
+    steps: [
+      {
+        id: "settings-profile",
+        kind: "spot",
+        target: "settings-profile",
+        icon: "👤",
+        title: { es: "Tu perfil", en: "Your profile" },
+        body: {
+          es: "Tu foto, usuario, nombre y tipo de cuenta. La IA adapta su forma de hablarte según el tipo de cuenta.",
+          en: "Your photo, username, name and account type. The AI adapts the way it talks to you to your account type.",
+        },
+      },
+      {
+        id: "settings-language",
+        kind: "spot",
+        target: "settings-language",
+        icon: "🌍",
+        title: { es: "Idioma", en: "Language" },
+        body: {
+          es: "Elige el idioma de la app. También puedes cambiarlo con la bandera de arriba.",
+          en: "Choose the app language. You can also change it with the flag at the top.",
+        },
+      },
+      {
+        id: "settings-calendar",
+        kind: "spot",
+        target: "settings-calendar",
+        icon: "📲",
+        title: { es: "Calendario del móvil", en: "Phone calendar" },
+        body: {
+          es: "Añade tus entrenamientos al calendario de tu iPhone o de Google, y se mantendrán al día solos.",
+          en: "Add your trainings to your iPhone or Google calendar, and they'll stay up to date on their own.",
+        },
+      },
+      {
+        id: "settings-account",
+        kind: "spot",
+        target: "settings-account",
+        icon: "🔐",
+        title: { es: "Tu cuenta", en: "Your account" },
+        body: {
+          es: "Cambia tu correo o tu contraseña, cierra sesión o borra tu cuenta.",
+          en: "Change your email or password, log out or delete your account.",
+        },
+      },
+      {
+        id: "settings-replay",
+        kind: "spot",
+        target: "replay-tour",
+        icon: "🔁",
+        title: { es: "Vuelve a verlo", en: "See it again" },
+        body: {
+          es: "Desde aquí puedes repetir la bienvenida y todas las guías de cada pantalla.",
+          en: "From here you can replay the welcome and every screen guide.",
+        },
+      },
+    ],
+  },
+];
+
+const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
 
 const LOOP_NODES: { icon: string; label: Text }[] = [
   { icon: "🐶", label: { es: "Mascota", en: "Pet" } },
@@ -244,28 +643,23 @@ const UI = {
   next: { es: "Siguiente", en: "Next" },
   back: { es: "Atrás", en: "Back" },
   skip: { es: "Saltar tutorial", en: "Skip tutorial" },
-  close: { es: "Cerrar tutorial", en: "Close tutorial" },
+  close: { es: "Cerrar", en: "Close" },
   tapHere: { es: "Toca aquí", en: "Tap here" },
   finish: { es: "¡A entrenar!", en: "Let's train!" },
-  noPet: {
-    es: "Todavía no tienes ninguna mascota. Añade la primera en esta pantalla; el tutorial seguirá solo cuando la crees.",
-    en: "You don't have any pets yet. Add your first one on this screen; the tutorial will continue once you create it.",
-  },
-  created: { es: "Ya la he creado", en: "I've created it" },
-  withoutPet: { es: "Seguir sin mascota", en: "Continue without a pet" },
-  stillNoPet: {
-    es: "Aún no encuentro ninguna mascota. Créala y vuelve a pulsar.",
-    en: "I still can't find any pet. Create it and tap again.",
-  },
+  gotIt: { es: "Entendido", en: "Got it" },
+  hideAll: { es: "No mostrar más guías", en: "Don't show more guides" },
 } satisfies Record<string, Text>;
 
 const NAVY = "#1e3a5f";
 const CARD_HEIGHT = 300;
 
-// Cada cuánto se comprueba si ya estamos en la pantalla del paso (ms)
+// Cada cuánto se comprueba si la pantalla del paso está lista (ms)
 const POLL_MS = 100;
-// Máximo de comprobaciones antes de mostrar la tarjeta centrada (≈ 6 s)
-const MAX_TRIES = 60;
+// Máximo de comprobaciones antes de mostrar la tarjeta centrada
+const MAX_TRIES_WELCOME = 60; // ≈ 6 s
+const MAX_TRIES_SECTION = 25; // ≈ 2,5 s
+// Cada cuánto se busca una pantalla con guía pendiente (ms)
+const SECTION_SCAN_MS = 400;
 // Para saber si el elemento ya dejó de moverse (la página terminó de cargar)
 const STABLE_CHECK_MS = 120;
 const STABLE_CHECKS_NEEDED = 3;
@@ -318,27 +712,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
-// Busca el siguiente paso válido (salta los que necesitan mascota si no hay)
-function findValidIndex(from: number, dir: 1 | -1, petId: number | null) {
-  let i = from;
-  while (i >= 0 && i < STEPS.length) {
-    if (!STEPS[i].needsPet || petId !== null) return i;
-    i += dir;
-  }
-  return -1;
-}
-
-async function loadFirstPet(userId: string): Promise<number | null> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("pets")
-    .select("id")
-    .eq("user_id", userId)
-    .order("id", { ascending: true })
-    .limit(1);
-  return data && data.length > 0 ? data[0].id : null;
-}
-
 function isMenuOpen() {
   const panel = document.querySelector('[data-tour="sidebar-panel"]');
   return panel?.getAttribute("aria-hidden") === "false";
@@ -348,6 +721,12 @@ function closeMenu() {
   if (isMenuOpen()) {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   }
+}
+
+function sectionIsOnScreen(sectionId: string) {
+  return (
+    document.querySelector(`[data-tour-section="${sectionId}"]`) !== null
+  );
 }
 
 // Posición del elemento dentro de la página (no cambia al desplazarse,
@@ -545,6 +924,21 @@ function Confetti() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      className="h-5 w-5"
+    >
+      <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 // ---------- Componente principal ----------
 
 export default function OnboardingTour() {
@@ -553,27 +947,46 @@ export default function OnboardingTour() {
   const locale = useLocale();
   const lang: Lang = locale === "en" ? "en" : "es";
 
+  // Bienvenida en marcha
   const [active, setActive] = useState(false);
+  // Guía de pantalla en marcha (id de la sección) o null
+  const [section, setSection] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
-  const [petId, setPetId] = useState<number | null>(null);
+  // true cuando ya sabemos qué guías ha visto el usuario
+  const [loaded, setLoaded] = useState(false);
+  const [seen, setSeen] = useState<string[]>([]);
   const [rect, setRect] = useState<Rect | null>(null);
   // true cuando la pantalla del paso ya está lista y se puede enseñar la tarjeta
   const [ready, setReady] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [petMessage, setPetMessage] = useState(false);
   const [choosingLanguage, setChoosingLanguage] = useState(false);
   const [savingLanguage, setSavingLanguage] = useState(false);
   const checkedRef = useRef(false);
   const targetRef = useRef<HTMLElement | null>(null);
 
-  const step = STEPS[stepIndex];
-  const waitingForPet = active && step.id === "pets" && petId === null;
+  const currentSection = section
+    ? SECTIONS.find((s) => s.id === section) ?? null
+    : null;
+  const steps = currentSection ? currentSection.steps : WELCOME_STEPS;
+  const step: TourStep = steps[stepIndex] ?? steps[0];
+  const running = active || currentSection !== null;
+  const isHidden = HIDDEN_PATHS.includes(pathname);
 
-  // 1) Al entrar con sesión iniciada, decidir si hay que mostrar el tutorial
+  // 1) Al entrar con sesión iniciada, cargar qué guías ha visto el usuario
   useEffect(() => {
+    if (isHidden) {
+      // Sin sesión (o se cerró sesión): se olvida todo para el siguiente usuario
+      if (checkedRef.current) {
+        checkedRef.current = false;
+        setLoaded(false);
+        setActive(false);
+        setSection(null);
+        setUserId(null);
+        setSeen([]);
+      }
+      return;
+    }
     if (checkedRef.current) return;
-    if (HIDDEN_PATHS.includes(pathname)) return;
     checkedRef.current = true;
 
     const init = async () => {
@@ -588,35 +1001,39 @@ export default function OnboardingTour() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("onboarding_completed")
+        .select("tours_seen")
         .eq("id", user.id)
         .maybeSingle();
 
-      if (profile?.onboarding_completed) return;
-      if (readStorage(DONE_KEY) === user.id) return;
+      const seenList = profile?.tours_seen ?? [];
+      const welcomeDone =
+        seenList.includes(WELCOME_ID) || readStorage(DONE_KEY) === user.id;
 
-      const firstPet = await loadFirstPet(user.id);
+      setUserId(user.id);
+      setSeen(seenList);
+      setLoaded(true);
+
+      if (welcomeDone) return;
+
       const saved = Number(readStorage(STEP_KEY));
       const start =
-        Number.isInteger(saved) && saved >= 0 && saved < STEPS.length
+        Number.isInteger(saved) && saved >= 0 && saved < WELCOME_STEPS.length
           ? saved
           : 0;
-      const validStart = findValidIndex(start, 1, firstPet);
 
       // Elegir idioma solo al empezar desde el principio y si aún no se eligió
       const needsLanguage = start === 0 && readStorage(LANG_KEY) !== user.id;
 
-      setUserId(user.id);
-      setPetId(firstPet);
-      setStepIndex(validStart === -1 ? 0 : validStart);
+      setSection(null);
+      setStepIndex(start);
       setChoosingLanguage(needsLanguage);
       setActive(true);
     };
 
     init();
-  }, [pathname]);
+  }, [isHidden]);
 
-  // 2) Permitir relanzar el tutorial desde otras pantallas (Ajustes)
+  // 2) Relanzar desde Ajustes: bienvenida otra vez y todas las guías de nuevo
   useEffect(() => {
     const onStart = async () => {
       const supabase = createClient();
@@ -626,11 +1043,21 @@ export default function OnboardingTour() {
       if (!user) return;
 
       removeStorage(DONE_KEY);
-      const firstPet = await loadFirstPet(user.id);
+      removeStorage(STEP_KEY);
+
+      const { error } = await supabase.from("profiles").upsert({
+        id: user.id,
+        tours_seen: [],
+        updated_at: new Date().toISOString(),
+      });
+      if (error) {
+        console.error("Error reiniciando las guías:", error);
+      }
 
       setUserId(user.id);
-      setPetId(firstPet);
-      setPetMessage(false);
+      setSeen([]);
+      setLoaded(true);
+      setSection(null);
       setStepIndex(0);
       setChoosingLanguage(false);
       setActive(true);
@@ -640,48 +1067,55 @@ export default function OnboardingTour() {
     return () => window.removeEventListener(START_TOUR_EVENT, onStart);
   }, []);
 
-  // 3) Guardar el paso actual para continuar si se recarga la página
+  // 3) Guardar el paso de la bienvenida para continuar si se recarga la página
   useEffect(() => {
     if (!active) return;
     writeStorage(STEP_KEY, String(stepIndex));
   }, [active, stepIndex]);
 
-  // 4) Si el usuario crea su primera mascota y la app le lleva a su ficha, continuar
+  // 4) La bienvenida ocurre en el inicio
   useEffect(() => {
-    if (!waitingForPet) return;
-    const match = pathname.match(/^\/pets\/(\d+)/);
-    if (!match) return;
-    const newPetId = Number(match[1]);
-    setPetId(newPetId);
-    setPetMessage(false);
-    const next = findValidIndex(stepIndex + 1, 1, newPetId);
-    if (next !== -1) setStepIndex(next);
-  }, [waitingForPet, pathname, stepIndex]);
+    if (!active || choosingLanguage) return;
+    if (pathname !== WELCOME_ROUTE) router.push(WELCOME_ROUTE);
+  }, [active, choosingLanguage, pathname, router]);
 
-  // 5) Llevar al usuario a la pantalla de cada paso.
-  // Se compara la dirección completa (incluido "?tab=groups"), porque
-  // Habilidades y Grupos son la misma página con distinta pestaña.
+  // 5) Buscar una pantalla con guía pendiente (cuando no hay otra en marcha)
   useEffect(() => {
-    if (!active) return;
-    if (step.needsPet && petId === null) return;
-    if (waitingForPet && pathname.startsWith("/pets/")) return;
-    const route = step.route(petId);
-    const currentPath = `${pathname}${window.location.search}`;
-    if (currentPath !== route) router.push(route);
-  }, [active, step, petId, pathname, router, waitingForPet]);
+    if (!loaded || active || section || choosingLanguage || isHidden) return;
 
-  // 6) Preparar el paso: esperar a estar en su pantalla, abrir/cerrar el menú,
-  // esperar a que el elemento deje de moverse (la página termina de cargar),
-  // bajar la pantalla hasta él y entonces mostrar la tarjeta. Así aparece
-  // UNA sola vez, en su sitio y a la vista.
+    const scan = () => {
+      const marks = document.querySelectorAll<HTMLElement>(
+        "[data-tour-section]"
+      );
+      for (const mark of Array.from(marks)) {
+        const id = mark.dataset.tourSection;
+        if (id && SECTION_IDS.has(id) && !seen.includes(id)) {
+          setStepIndex(0);
+          setSection(id);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (scan()) return;
+    const interval = window.setInterval(() => {
+      if (scan()) window.clearInterval(interval);
+    }, SECTION_SCAN_MS);
+    return () => window.clearInterval(interval);
+  }, [loaded, active, section, choosingLanguage, isHidden, seen, pathname]);
+
+  // 6) Preparar el paso: esperar a que su pantalla esté lista, abrir/cerrar
+  // el menú, esperar a que el elemento deje de moverse, bajar la pantalla
+  // hasta él y entonces mostrar la tarjeta (una sola vez, en su sitio).
   useEffect(() => {
     setRect(null);
     setReady(false);
     targetRef.current = null;
-    if (!active) return;
-    if (step.needsPet && petId === null) return;
+    if (!running || choosingLanguage) return;
 
-    const route = step.route(petId);
+    const sectionId = currentSection?.id ?? null;
+    const maxTries = sectionId ? MAX_TRIES_SECTION : MAX_TRIES_WELCOME;
     let tries = 0;
     let menuHandled = false;
     let cancelled = false;
@@ -694,7 +1128,7 @@ export default function OnboardingTour() {
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     };
 
-    // Si el elemento no se ve, baja la pantalla hasta él y lo vuelve a medir
+    // Si el elemento no se ve, baja la pantalla hasta él
     const keepVisible = () => {
       const el = targetRef.current;
       if (!el || step.openMenu) return;
@@ -720,7 +1154,6 @@ export default function OnboardingTour() {
           centerOnScreen(el);
         }
 
-        // Comprobación: si algo deshizo el desplazamiento, se vuelve a bajar
         timeouts.push(
           window.setTimeout(() => {
             if (cancelled) return;
@@ -730,7 +1163,6 @@ export default function OnboardingTour() {
           }, 150)
         );
 
-        // Segunda comprobación por si la página aún se movió después
         timeouts.push(
           window.setTimeout(() => {
             if (cancelled) return;
@@ -752,10 +1184,19 @@ export default function OnboardingTour() {
     const interval = window.setInterval(() => {
       tries += 1;
 
-      // a) Esperar a que la app haya llegado a la pantalla de este paso
-      const currentPath = `${window.location.pathname}${window.location.search}`;
-      if (currentPath !== route) {
-        if (tries >= MAX_TRIES) {
+      // a) Esperar a estar en la pantalla correcta
+      if (sectionId) {
+        // Si el usuario se fue de la pantalla, la guía se cierra sin darla
+        // por vista: volverá a salir la próxima vez que entre
+        if (!sectionIsOnScreen(sectionId)) {
+          if (tries >= maxTries) {
+            window.clearInterval(interval);
+            setSection(null);
+          }
+          return;
+        }
+      } else if (window.location.pathname !== WELCOME_ROUTE) {
+        if (tries >= maxTries) {
           window.clearInterval(interval);
           setReady(true);
         }
@@ -792,10 +1233,20 @@ export default function OnboardingTour() {
         window.clearInterval(interval);
         targetRef.current = el;
         waitUntilStable(el, pagePosition(el), 0, 0);
-      } else if (tries >= MAX_TRIES) {
-        // No se encontró: se muestra la tarjeta centrada
+      } else if (tries >= maxTries) {
+        // No se encontró el elemento: saltar al siguiente paso
         window.clearInterval(interval);
-        setReady(true);
+        if (sectionId) {
+          // En una guía de pantalla, se salta el paso
+          if (stepIndex + 1 < steps.length) {
+            setStepIndex(stepIndex + 1);
+          } else {
+            finishSection();
+          }
+        } else {
+          // En la bienvenida, se muestra centrado (no se salta)
+          setReady(true);
+        }
       }
     }, POLL_MS);
 
@@ -821,26 +1272,63 @@ export default function OnboardingTour() {
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [active, step, petId]);
+  }, [running, choosingLanguage, step, currentSection, pathname]);
 
-  const finish = async () => {
+  // Guarda en la cuenta las guías vistas
+  const markSeen = async (ids: string[], completedWelcome = false) => {
+    const next = Array.from(new Set([...seen, ...ids]));
+    setSeen(next);
+    if (!userId) return;
+
+    const supabase = createClient();
+    const updatedAt = new Date().toISOString();
+    const { error } = completedWelcome
+      ? await supabase.from("profiles").upsert({
+          id: userId,
+          tours_seen: next,
+          onboarding_completed: true,
+          updated_at: updatedAt,
+        })
+      : await supabase.from("profiles").upsert({
+          id: userId,
+          tours_seen: next,
+          updated_at: updatedAt,
+        });
+
+    if (error) {
+      console.error("Error guardando las guías vistas:", error);
+    }
+  };
+
+  const finishWelcome = async () => {
     setActive(false);
     setRect(null);
     closeMenu();
     removeStorage(STEP_KEY);
-    if (!userId) return;
-    writeStorage(DONE_KEY, userId);
-    const supabase = createClient();
-    // upsert: crea la fila del perfil si el usuario aún no tiene una
-    const { error } = await supabase.from("profiles").upsert({
-      id: userId,
-      onboarding_completed: true,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) {
-      console.error("Error guardando el tutorial como completado:", error);
-    }
+    if (userId) writeStorage(DONE_KEY, userId);
+    await markSeen([WELCOME_ID], true);
     window.dispatchEvent(new Event(ONBOARDING_FINISHED_EVENT));
+  };
+
+  const finishSection = () => {
+    const id = section;
+    setSection(null);
+    setRect(null);
+    if (id) void markSeen([id]);
+  };
+
+  const hideAllSections = () => {
+    setSection(null);
+    setRect(null);
+    void markSeen(Array.from(SECTION_IDS));
+  };
+
+  const close = () => {
+    if (currentSection) {
+      finishSection();
+    } else {
+      void finishWelcome();
+    }
   };
 
   // Elegir idioma antes de empezar el tutorial
@@ -870,17 +1358,15 @@ export default function OnboardingTour() {
   };
 
   const goNext = () => {
-    const next = findValidIndex(stepIndex + 1, 1, petId);
-    if (next === -1) {
-      finish();
+    if (stepIndex + 1 < steps.length) {
+      setStepIndex(stepIndex + 1);
     } else {
-      setStepIndex(next);
+      close();
     }
   };
 
   const goBack = () => {
-    const prev = findValidIndex(stepIndex - 1, -1, petId);
-    if (prev !== -1) setStepIndex(prev);
+    if (stepIndex > 0) setStepIndex(stepIndex - 1);
   };
 
   const handleTap = () => {
@@ -888,30 +1374,10 @@ export default function OnboardingTour() {
     goNext();
   };
 
-  const continueWithoutPet = () => {
-    setPetMessage(false);
-    goNext();
-  };
-
-  const checkPet = async () => {
-    if (!userId) return;
-    setChecking(true);
-    const firstPet = await loadFirstPet(userId);
-    setChecking(false);
-    if (firstPet === null) {
-      setPetMessage(true);
-      return;
-    }
-    setPetId(firstPet);
-    setPetMessage(false);
-    const next = findValidIndex(stepIndex + 1, 1, firstPet);
-    if (next !== -1) setStepIndex(next);
-  };
-
-  if (!active || HIDDEN_PATHS.includes(pathname)) return null;
+  if (isHidden) return null;
 
   // ---------- Pantalla "Elige tu idioma" (antes del tutorial) ----------
-  if (choosingLanguage) {
+  if (active && choosingLanguage) {
     return (
       <div className="paws-fade fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 overflow-y-auto bg-white px-6 py-8 text-center">
         <style>{TOUR_CSS}</style>
@@ -949,14 +1415,16 @@ export default function OnboardingTour() {
     );
   }
 
-  const visibleSteps = STEPS.filter((s) => !s.needsPet || petId !== null);
-  const position = visibleSteps.indexOf(step) + 1;
-  const total = visibleSteps.length;
+  if (!running) return null;
+
+  const position = stepIndex + 1;
+  const total = steps.length;
   const progress = Math.round((position / total) * 100);
-  const canGoBack = findValidIndex(stepIndex - 1, -1, petId) !== -1;
+  const canGoBack = stepIndex > 0;
+  const isLast = stepIndex === steps.length - 1;
 
   // ---------- Pantallas completas: bienvenida, ciclo y final ----------
-  if (step.kind !== "spot") {
+  if (!currentSection && step.kind !== "spot") {
     const isFinish = step.kind === "finish";
 
     return (
@@ -967,20 +1435,11 @@ export default function OnboardingTour() {
         <div className="flex items-center gap-4 px-4 pt-5 sm:px-8">
           <button
             type="button"
-            onClick={finish}
+            onClick={close}
             aria-label={UI.close[lang]}
             className="rounded-full p-2 text-gray-400 hover:bg-gray-100"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              className="h-5 w-5"
-            >
-              <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <CloseIcon />
           </button>
           <div className="h-3 flex-1 overflow-hidden rounded-full bg-gray-200">
             <div
@@ -1023,7 +1482,7 @@ export default function OnboardingTour() {
             ) : step.kind === "intro" ? (
               <button
                 type="button"
-                onClick={finish}
+                onClick={close}
                 className="text-sm font-semibold text-gray-400 underline hover:text-gray-600"
               >
                 {UI.skip[lang]}
@@ -1034,7 +1493,7 @@ export default function OnboardingTour() {
 
             <button
               type="button"
-              onClick={isFinish ? finish : goNext}
+              onClick={isFinish ? close : goNext}
               className="rounded-xl bg-[#1e3a5f] px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-[0_4px_0_#0f2540] transition active:translate-y-1 active:shadow-none"
             >
               {isFinish ? UI.finish[lang] : UI.continue[lang]}
@@ -1046,21 +1505,25 @@ export default function OnboardingTour() {
   }
 
   // ---------- Tarjeta azul con Pawsi señalando ----------
-  const position_ = rect && !waitingForPet ? computeCardPosition(rect) : null;
+  const cardPosition = rect ? computeCardPosition(rect) : null;
+  const counter = currentSection
+    ? `${currentSection.name[lang]} · ${position} / ${total}`
+    : `${position} / ${total}`;
+  const mustTap = Boolean(step.tap && rect);
 
   const card = (
     <div
-      key={step.id}
+      key={`${section ?? WELCOME_ID}-${step.id}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
       className="paws-pop relative w-[min(360px,calc(100vw-32px))] rounded-2xl p-5 text-white shadow-2xl"
       style={{ backgroundColor: NAVY }}
     >
-      {position_?.arrow && (
+      {cardPosition?.arrow && (
         <span
           className="absolute h-4 w-4 rotate-45"
-          style={{ ...position_.arrow, backgroundColor: NAVY }}
+          style={{ ...cardPosition.arrow, backgroundColor: NAVY }}
         />
       )}
 
@@ -1071,7 +1534,7 @@ export default function OnboardingTour() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-200">
-              {position} / {total}
+              {counter}
             </p>
             <h2 id="onboarding-title" className="text-lg font-bold leading-tight">
               <span className="mr-1">{step.icon}</span>
@@ -1081,37 +1544,17 @@ export default function OnboardingTour() {
         </div>
         <button
           type="button"
-          onClick={finish}
+          onClick={close}
           aria-label={UI.close[lang]}
           className="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.5}
-            className="h-5 w-5"
-          >
-            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-          </svg>
+          <CloseIcon />
         </button>
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-white/85">
         {step.body[lang]}
       </p>
-
-      {waitingForPet && (
-        <p className="mt-3 rounded-lg bg-amber-100 p-3 text-sm text-amber-900">
-          {UI.noPet[lang]}
-        </p>
-      )}
-      {waitingForPet && petMessage && (
-        <p className="mt-2 text-sm font-semibold text-red-200">
-          {UI.stillNoPet[lang]}
-        </p>
-      )}
 
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
         <div
@@ -1120,57 +1563,42 @@ export default function OnboardingTour() {
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-        {canGoBack && (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        {currentSection && stepIndex === 0 ? (
           <button
             type="button"
-            onClick={goBack}
-            className="rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10"
+            onClick={hideAllSections}
+            className="text-xs font-semibold text-white/60 underline hover:text-white"
           >
-            {UI.back[lang]}
+            {UI.hideAll[lang]}
           </button>
+        ) : (
+          <span />
         )}
 
-        {waitingForPet ? (
-          <>
+        <div className="flex items-center gap-2">
+          {canGoBack && (
             <button
               type="button"
-              onClick={continueWithoutPet}
+              onClick={goBack}
               className="rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10"
             >
-              {UI.withoutPet[lang]}
+              {UI.back[lang]}
             </button>
+          )}
+          {!mustTap && (
             <button
               type="button"
-              onClick={checkPet}
-              disabled={checking}
-              className="rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#1e3a5f] hover:bg-sky-50 disabled:opacity-50"
+              onClick={goNext}
+              className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#1e3a5f] hover:bg-sky-50"
             >
-              {UI.created[lang]}
+              {isLast && currentSection ? UI.gotIt[lang] : UI.next[lang]}
             </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={goNext}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#1e3a5f] hover:bg-sky-50"
-          >
-            {UI.next[lang]}
-          </button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
-
-  // Paso en el que el usuario tiene que poder usar la pantalla (crear mascota)
-  if (waitingForPet) {
-    return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[70] flex justify-center px-4">
-        <style>{TOUR_CSS}</style>
-        <div className="pointer-events-auto">{card}</div>
-      </div>
-    );
-  }
 
   // Mientras se prepara el paso: solo la pantalla oscurecida, sin tarjeta
   if (!ready) {
@@ -1183,7 +1611,12 @@ export default function OnboardingTour() {
   }
 
   // Paso con un elemento iluminado
-  if (rect && position_) {
+  if (rect && cardPosition) {
+    const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+    const labelTop =
+      rect.top > TOP_BAR_HEIGHT ? rect.top - 40 : rect.top + rect.height + 14;
+    const labelLeft = clamp(rect.left + rect.width / 2, 60, vw - 60);
+
     return (
       <>
         <style>{TOUR_CSS}</style>
@@ -1200,7 +1633,7 @@ export default function OnboardingTour() {
           }}
         />
 
-        {step.tap && (
+        {mustTap && (
           <>
             <span
               aria-hidden="true"
@@ -1227,9 +1660,9 @@ export default function OnboardingTour() {
             <span
               className="pointer-events-none fixed z-[65] whitespace-nowrap rounded-full bg-sky-300 px-3 py-1 text-xs font-bold text-[#1e3a5f] shadow"
               style={{
-                top: rect.top + rect.height / 2,
-                left: rect.left + rect.width + 16,
-                transform: "translateY(-50%)",
+                top: labelTop,
+                left: labelLeft,
+                transform: "translateX(-50%)",
               }}
             >
               👆 {UI.tapHere[lang]}
@@ -1237,7 +1670,7 @@ export default function OnboardingTour() {
           </>
         )}
 
-        <div className="fixed z-[70]" style={position_.style}>
+        <div className="fixed z-[70]" style={cardPosition.style}>
           {card}
         </div>
       </>

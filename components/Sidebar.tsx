@@ -276,7 +276,7 @@ export default function Sidebar() {
 
                         // Habilidades incluye los grupos (pestañas en la misma página)
                         const subLinks = [
-                          { href: `${base}/skills`, label: tPet("skills") },
+                          { href: `/skills?pet=${pet.id}`, label: tPet("skills") },
                           { href: `${base}/progress`, label: tPet("progress") },
                           { href: `${base}/history`, label: tPet("history") },
                           { href: `${base}/edit`, label: tPet("editPet") },

@@ -43,6 +43,7 @@ type DashText = {
   pending: string;
   clickerTitle: string;
   clickerDetail: string;
+  skillsDetail: string;
   settingsDetail: string;
 };
 
@@ -75,6 +76,7 @@ const DASH_TEXT: Record<"es" | "en", DashText> = {
     pending: "{n} pendientes",
     clickerTitle: "Clicker",
     clickerDetail: "Marca el momento exacto con un clic",
+    skillsDetail: "Catálogo y progreso de cada perro",
     settingsDetail: "Perfil, idioma y calendario del móvil",
   },
   en: {
@@ -105,6 +107,7 @@ const DASH_TEXT: Record<"es" | "en", DashText> = {
     pending: "{n} pending",
     clickerTitle: "Clicker",
     clickerDetail: "Mark the exact moment with a click",
+    skillsDetail: "Catalog and each dog's progress",
     settingsDetail: "Profile, language and phone calendar",
   },
 };
@@ -438,7 +441,10 @@ export default function DashboardPage() {
   const nextWhen = nextTraining ? formatWhen(nextTraining.date, nextTraining.time) : "";
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-slate-50 p-4 md:p-10">
+    <main
+      data-tour-section="dashboard"
+      className="min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-slate-50 p-4 md:p-10"
+    >
       <div className="mx-auto max-w-5xl">
 
         {/* Botón de cerrar sesión, pegado a la derecha.
@@ -456,7 +462,10 @@ export default function DashboardPage() {
         </div>
 
         {/* 1. TARJETA DE BIENVENIDA CON PAWSI */}
-        <header className="relative mb-8 flex items-center justify-between gap-4 overflow-hidden rounded-3xl bg-white p-5 shadow-sm md:p-8">
+        <header
+          data-tour="dashboard-greeting"
+          className="relative mb-8 flex items-center justify-between gap-4 overflow-hidden rounded-3xl bg-white p-5 shadow-sm md:p-8"
+        >
           <div className="flex min-w-0 items-center gap-4">
             <Link
               href="/settings"
@@ -518,7 +527,7 @@ export default function DashboardPage() {
         )}
 
         {/* 2. TU SEMANA */}
-        <section className="mb-8">
+        <section data-tour="dashboard-week" className="mb-8">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-slate-500">
             {tx.weekTitle}
           </h2>
@@ -551,7 +560,7 @@ export default function DashboardPage() {
         </section>
 
         {/* 3. PRÓXIMO ENTRENAMIENTO */}
-        <section className="mb-8">
+        <section data-tour="dashboard-next" className="mb-8">
           <div className="rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-lg md:p-8">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm font-bold uppercase tracking-widest text-blue-100">
@@ -628,7 +637,7 @@ export default function DashboardPage() {
             {tx.sectionsTitle}
           </h2>
 
-          <div className="flex flex-col gap-3">
+          <div data-tour="dashboard-shortcuts" className="flex flex-col gap-3">
             <Link
               href="/pets"
               className="group flex items-center gap-4 rounded-2xl border-l-4 border-blue-500 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
@@ -644,7 +653,23 @@ export default function DashboardPage() {
                 →
               </span>
             </Link>
-
+            <Link
+              href="/skills"
+              className="group flex items-center gap-4 rounded-2xl border-l-4 border-teal-500 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-teal-100 text-3xl">
+                🎯
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-bold text-slate-800">
+                  {lang === "en" ? "Skills" : "Habilidades"}
+                </p>
+                <p className="text-sm text-slate-500">{tx.skillsDetail}</p>
+              </div>
+              <span className="text-2xl text-slate-300 transition group-hover:translate-x-1 group-hover:text-teal-500">
+                →
+              </span>
+            </Link>
             <Link
               href="/calendar"
               className="group flex items-center gap-4 rounded-2xl border-l-4 border-purple-500 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"

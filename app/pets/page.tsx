@@ -153,7 +153,7 @@ export default function PetsPage() {
           tPlan("reinforce", { skill: plan.reinforceSkillName })
         )}`,
         // Abre directamente la información de la habilidad a trabajar
-        href: `/pets/${petId}/skills?skill=${plan.reinforceSkillId}`,
+        href: `/skills?pet=${petId}&skill=${plan.reinforceSkillId}`,
       };
     }
 
@@ -166,7 +166,11 @@ export default function PetsPage() {
   }, [locale]);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-10">
+    // La guía de esta pantalla empieza cuando ya han cargado los perros
+    <main
+      data-tour-section={loading ? undefined : "pets"}
+      className="min-h-screen bg-slate-100 p-6 md:p-10"
+    >
       <div className="mx-auto max-w-6xl">
 
         {/* CABECERA */}
@@ -210,7 +214,10 @@ export default function PetsPage() {
               <PawsiLoading text={t("loading")} variant="card" />
             </div>
           ) : pets.length === 0 ? (
-            <div className="flex flex-col items-center rounded-2xl bg-white p-10 text-center shadow">
+            <div
+              data-tour="pets-list"
+              className="flex flex-col items-center rounded-2xl bg-white p-10 text-center shadow"
+            >
               {/* Sin perros: Pawsi esperando al primero */}
               <Pawsi pose="espera" size={130} float />
 
@@ -223,10 +230,12 @@ export default function PetsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {pets.map((pet) => {
+            <div data-tour="pets-list" className="grid gap-6 md:grid-cols-2">
+              {pets.map((pet, index) => {
                 const plan = plans.get(pet.id);
                 const action = plan ? getPlanAction(pet.id, plan) : null;
+                // Solo el primer perro lleva las marcas del tutorial
+                const isFirst = index === 0;
 
                 return (
                   <div
@@ -287,17 +296,26 @@ export default function PetsPage() {
                         {action.kind === "button" ? (
                           <Link
                             href={action.href}
+                            data-tour={isFirst ? "pet-reinforce" : undefined}
                             className="rounded-xl bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700"
                           >
                             {action.label}
                           </Link>
                         ) : (
-                          <p className="mb-2 text-slate-600">{action.label}</p>
+                          <p
+                            data-tour={isFirst ? "pet-reinforce" : undefined}
+                            className="mb-2 text-slate-600"
+                          >
+                            {action.label}
+                          </p>
                         )}
 
-                        <div className="mt-auto flex flex-col gap-2">
+                        <div
+                          data-tour={isFirst ? "pet-actions" : undefined}
+                          className="mt-auto flex flex-col gap-2"
+                        >
                           <Link
-                            href={`/pets/${pet.id}/skills`}
+                            href={`/skills?pet=${pet.id}`}
                             className="rounded-xl border-2 border-blue-600 px-4 py-2.5 text-center font-semibold text-blue-600 transition hover:bg-blue-50"
                           >
                             {tPlan("viewSkills")}
