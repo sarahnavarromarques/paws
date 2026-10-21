@@ -7,19 +7,18 @@ import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import {
-  CLICKER_EMOJIS,
-  CLICKER_PHOTO_BUCKET,
-  CLICKER_PHOTO_MAX_BYTES,
   CLICKER_SOUNDS,
   CLICKER_SOUND_IDS,
-  COLOR_SWATCHES,
   DEFAULT_CLICKER_SETTINGS,
   GAP_MAX_MS,
   GAP_MIN_MS,
-  clickerPhotoPath,
+  PITCH_MAX,
+  PITCH_MIN,
+  VOLUME_MAX,
+  VOLUME_MIN,
   isDoubleSound,
+  pitchFactor,
   sanitizeClickerSettings,
-  type ClickerCenter,
   type ClickerSettings,
   type ClickerSoundId,
 } from "@/lib/clicker-settings";
@@ -32,6 +31,12 @@ const VIBRATION_KEY = "paws-clicker-vibration";
 // Duración de cada chasquido (en segundos)
 const SNAP_DURATION = 0.025;
 
+// Diseño fijo del clicker
+const CLICKER_BG = "#fefce8";
+const CLICKER_BUTTON = "#bae6fd";
+const CLICKER_BORDER = "#f2a65a";
+const CLICKER_PAWS = "#fefce8";
+
 // ---------------------------------------------------------------------------
 // Textos de la personalización (español / inglés)
 // ---------------------------------------------------------------------------
@@ -40,111 +45,87 @@ type CustomText = {
   customize: string;
   panelTitle: string;
   previewNote: string;
-  centerTitle: string;
-  centers: Record<ClickerCenter, string>;
-  emojiCustom: string;
-  photoUpload: string;
-  photoChange: string;
-  photoUploading: string;
-  photoNone: string;
-  colorsTitle: string;
-  colorBg: string;
-  colorButton: string;
-  colorBorder: string;
-  colorPaws: string;
   soundTitle: string;
   soundHint: string;
   sounds: Record<ClickerSoundId, string>;
   gapTitle: string;
   gapHint: string;
+  volumeTitle: string;
+  pitchTitle: string;
+  pitchLow: string;
+  pitchHigh: string;
   save: string;
   saving: string;
   cancel: string;
   reset: string;
   saved: string;
   saveError: string;
-  uploadError: string;
-  notImage: string;
-  tooBig: string;
 };
 
 const CUSTOM_TEXT: Record<"es" | "en", CustomText> = {
   es: {
-    customize: "🎨 Personalizar",
-    panelTitle: "Personaliza tu clicker",
+    customize: "🔊 Personalizar sonido",
+    panelTitle: "Personaliza el sonido",
     previewNote:
-      "Los cambios se ven arriba al momento. Pulsa Guardar para conservarlos.",
-    centerTitle: "Centro del botón",
-    centers: { paws: "🐾 Huellas", emoji: "😊 Emoji", photo: "📷 Foto" },
-    emojiCustom: "O escribe el que quieras:",
-    photoUpload: "Subir foto",
-    photoChange: "Cambiar foto",
-    photoUploading: "Subiendo…",
-    photoNone: "Todavía no has subido ninguna foto.",
-    colorsTitle: "Colores",
-    colorBg: "Fondo",
-    colorButton: "Botón",
-    colorBorder: "Borde",
-    colorPaws: "Huellas",
-    soundTitle: "Sonido",
+      "Puedes probar el clicker de arriba mientras eliges. Pulsa Guardar para conservarlo.",
+    soundTitle: "Tipo de sonido",
     soundHint: "Toca un sonido para escucharlo.",
     sounds: {
       classic: "Clásico (clic-clac)",
-      high: "Agudo",
-      low: "Grave",
-      wood: "Madera",
-      beep: "Pitido corto",
+      soft: "Clicker suave",
+      metal: "Clicker metálico",
       single: "Clic simple",
+      beep: "Pitido digital",
+      doubleBeep: "Doble pitido",
+      bell: "Campanita",
+      wood: "Bloque de madera",
+      tongue: "Chasquido de lengua",
+      whistle: "Silbato corto",
     },
     gapTitle: "Tiempo entre clic y clac",
     gapHint: "Menos = más seguido · Más = más separado",
+    volumeTitle: "Volumen",
+    pitchTitle: "Tono",
+    pitchLow: "Más grave",
+    pitchHigh: "Más agudo",
     save: "Guardar",
     saving: "Guardando…",
     cancel: "Cancelar",
     reset: "Restablecer",
-    saved: "Clicker guardado ✓",
+    saved: "Sonido guardado ✓",
     saveError: "No se pudo guardar. Inténtalo de nuevo.",
-    uploadError: "No se pudo subir la foto. Inténtalo de nuevo.",
-    notImage: "El archivo no es una imagen.",
-    tooBig: "La foto pesa demasiado (máximo 5 MB).",
   },
   en: {
-    customize: "🎨 Customize",
-    panelTitle: "Customize your clicker",
-    previewNote: "Changes show above right away. Press Save to keep them.",
-    centerTitle: "Button centre",
-    centers: { paws: "🐾 Paws", emoji: "😊 Emoji", photo: "📷 Photo" },
-    emojiCustom: "Or type any emoji:",
-    photoUpload: "Upload photo",
-    photoChange: "Change photo",
-    photoUploading: "Uploading…",
-    photoNone: "You haven't uploaded a photo yet.",
-    colorsTitle: "Colours",
-    colorBg: "Background",
-    colorButton: "Button",
-    colorBorder: "Border",
-    colorPaws: "Paws",
-    soundTitle: "Sound",
+    customize: "🔊 Customize sound",
+    panelTitle: "Customize the sound",
+    previewNote:
+      "You can try the clicker above while choosing. Press Save to keep it.",
+    soundTitle: "Sound type",
     soundHint: "Tap a sound to hear it.",
     sounds: {
       classic: "Classic (click-clack)",
-      high: "High",
-      low: "Low",
-      wood: "Wood",
-      beep: "Short beep",
+      soft: "Soft clicker",
+      metal: "Metal clicker",
       single: "Single click",
+      beep: "Digital beep",
+      doubleBeep: "Double beep",
+      bell: "Little bell",
+      wood: "Wood block",
+      tongue: "Tongue click",
+      whistle: "Short whistle",
     },
     gapTitle: "Time between click and clack",
     gapHint: "Less = closer together · More = further apart",
+    volumeTitle: "Volume",
+    pitchTitle: "Pitch",
+    pitchLow: "Lower",
+    pitchHigh: "Higher",
     save: "Save",
     saving: "Saving…",
     cancel: "Cancel",
     reset: "Reset",
-    saved: "Clicker saved ✓",
+    saved: "Sound saved ✓",
     saveError: "It could not be saved. Please try again.",
-    uploadError: "The photo could not be uploaded. Please try again.",
-    notImage: "The file is not an image.",
-    tooBig: "The photo is too large (max 5 MB).",
   },
 };
 
@@ -163,14 +144,17 @@ function getAudioContextClass(): AudioContextConstructor | null {
   return g.AudioContext ?? g.webkitAudioContext ?? null;
 }
 
-// Un chasquido: ruido filtrado + un "ping" muy corto
+// Un chasquido: ruido filtrado + una resonancia corta
 function playSnap(
   ctx: AudioContext,
+  out: AudioNode,
   noiseBuffer: AudioBuffer,
   start: number,
   frequency: number,
-  volume: number,
-  q: number
+  level: number,
+  q: number,
+  ring: number,
+  ringLevel: number
 ) {
   // Capa 1: ruido filtrado (la lámina)
   const noise = ctx.createBufferSource();
@@ -180,43 +164,109 @@ function playSnap(
   filter.frequency.value = frequency;
   filter.Q.value = q;
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(volume, start);
+  noiseGain.gain.setValueAtTime(level, start);
   noiseGain.gain.exponentialRampToValueAtTime(0.001, start + SNAP_DURATION);
   noise.connect(filter);
   filter.connect(noiseGain);
-  noiseGain.connect(ctx.destination);
+  noiseGain.connect(out);
   noise.start(start);
   noise.stop(start + SNAP_DURATION);
 
-  // Capa 2: resonancia corta
+  // Capa 2: resonancia
   const osc = ctx.createOscillator();
   osc.type = "triangle";
   osc.frequency.setValueAtTime(frequency, start);
   const oscGain = ctx.createGain();
-  oscGain.gain.setValueAtTime(volume * 0.35, start);
-  oscGain.gain.exponentialRampToValueAtTime(0.001, start + 0.015);
+  oscGain.gain.setValueAtTime(level * ringLevel, start);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, start + ring);
   osc.connect(oscGain);
-  oscGain.connect(ctx.destination);
+  oscGain.connect(out);
   osc.start(start);
-  osc.stop(start + 0.015);
+  osc.stop(start + ring);
 }
 
-// Pitido corto y limpio
-function playBeep(ctx: AudioContext, start: number, frequency: number) {
+// Tono electrónico corto
+function playTone(
+  ctx: AudioContext,
+  out: AudioNode,
+  start: number,
+  frequency: number,
+  wave: OscillatorType,
+  duration: number
+) {
   const osc = ctx.createOscillator();
-  osc.type = "sine";
+  osc.type = wave;
   osc.frequency.setValueAtTime(frequency, start);
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0.4, start);
-  gain.gain.exponentialRampToValueAtTime(0.001, start + 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(out);
   osc.start(start);
-  osc.stop(start + 0.08);
+  osc.stop(start + duration);
+}
+
+// Campanita: varios armónicos que se apagan poco a poco
+function playBell(ctx: AudioContext, out: AudioNode, start: number, frequency: number) {
+  const partials = [
+    { ratio: 1, level: 0.35, decay: 0.7 },
+    { ratio: 2.76, level: 0.15, decay: 0.4 },
+    { ratio: 5.4, level: 0.08, decay: 0.25 },
+  ];
+
+  for (const p of partials) {
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(frequency * p.ratio, start);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(p.level, start + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + p.decay);
+    osc.connect(gain);
+    gain.connect(out);
+    osc.start(start);
+    osc.stop(start + p.decay);
+  }
+}
+
+// Silbato: tono que sube un poco, con un ligero temblor
+function playWhistle(
+  ctx: AudioContext,
+  out: AudioNode,
+  start: number,
+  from: number,
+  to: number,
+  duration: number
+) {
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(from, start);
+  osc.frequency.exponentialRampToValueAtTime(to, start + duration * 0.6);
+
+  // Temblor del silbato
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 30;
+  const lfoGain = ctx.createGain();
+  lfoGain.gain.value = from * 0.015;
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.linearRampToValueAtTime(0.3, start + 0.02);
+  gain.gain.setValueAtTime(0.3, start + duration * 0.7);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+  osc.connect(gain);
+  gain.connect(out);
+  osc.start(start);
+  lfo.start(start);
+  osc.stop(start + duration);
+  lfo.stop(start + duration);
 }
 
 // ---------------------------------------------------------------------------
-// Huella dibujada (se puede colorear, a diferencia del emoji)
+// Huella dibujada
 // ---------------------------------------------------------------------------
 
 function PawPrint({ className, color }: { className?: string; color: string }) {
@@ -228,48 +278,6 @@ function PawPrint({ className, color }: { className?: string; color: string }) {
       <ellipse cx="51" cy="26" rx="6" ry="8" transform="rotate(25 51 26)" />
       <path d="M32 31c-9 0-17 9-17 17 0 6 5 9 10 8 3-1 5-2 7-2s4 1 7 2c5 1 10-2 10-8 0-8-8-17-17-17z" />
     </svg>
-  );
-}
-
-// Fila de un color: muestras rápidas + selector libre
-function ColorRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (color: string) => void;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-gray-700">{label}</p>
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label={label}
-          className="h-9 w-12 cursor-pointer rounded border border-gray-300 bg-white"
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {COLOR_SWATCHES.map((swatch) => (
-          <button
-            key={swatch}
-            type="button"
-            onClick={() => onChange(swatch)}
-            aria-label={swatch}
-            className={`h-8 w-8 rounded-full border-2 transition ${
-              value === swatch
-                ? "scale-110 border-[#1e3a5f]"
-                : "border-gray-200 hover:scale-105"
-            }`}
-            style={{ backgroundColor: swatch }}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -292,10 +300,9 @@ export default function ClickerPage() {
   const [draft, setDraft] = useState<ClickerSettings>(DEFAULT_CLICKER_SETTINGS);
   const [panelOpen, setPanelOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Mientras se personaliza, el clicker de arriba muestra el borrador (vista previa)
+  // Mientras se personaliza, el clicker de arriba suena con el borrador
   const active = panelOpen ? draft : saved;
 
   const activeRef = useRef<ClickerSettings>(active);
@@ -303,7 +310,7 @@ export default function ClickerPage() {
     activeRef.current = active;
   }, [active]);
 
-  // Al abrir la pantalla: vibración y personalización guardada
+  // Al abrir la pantalla: vibración y sonido guardado
   useEffect(() => {
     const supported =
       typeof navigator !== "undefined" &&
@@ -378,28 +385,55 @@ export default function ClickerPage() {
       }
       noiseRef.current = buffer;
     }
+    const noise = noiseRef.current;
+
+    // Volumen general
+    const master = ctx.createGain();
+    master.gain.value = current.volume / 100;
+    master.connect(ctx.destination);
 
     const now = ctx.currentTime;
+    const f = pitchFactor(current.pitch);
+    const gap = current.gapMs / 1000;
     const sound = CLICKER_SOUNDS[current.sound];
 
-    if (sound.kind === "beep") {
-      playBeep(ctx, now, sound.frequency);
-      return;
-    }
-
-    // "Clic": fuerte
-    playSnap(ctx, noiseRef.current, now, sound.first, 1, sound.q);
-
-    // "Clac": algo más grave y suave, tras el tiempo elegido
-    if (sound.second !== null) {
-      playSnap(
-        ctx,
-        noiseRef.current,
-        now + current.gapMs / 1000,
-        sound.second,
-        0.75,
-        sound.q
-      );
+    switch (sound.kind) {
+      case "snap": {
+        // "Clic": fuerte
+        playSnap(ctx, master, noise, now, sound.first * f, sound.level, sound.q, sound.ring, sound.ringLevel);
+        // "Clac": algo más grave y suave, tras el tiempo elegido
+        if (sound.second !== null) {
+          playSnap(
+            ctx,
+            master,
+            noise,
+            now + gap,
+            sound.second * f,
+            sound.level * 0.75,
+            sound.q,
+            sound.ring,
+            sound.ringLevel
+          );
+        }
+        break;
+      }
+      case "tone": {
+        playTone(ctx, master, now, sound.frequency * f, sound.wave, sound.duration);
+        if (sound.second !== null) {
+          // Que no se pisen los dos pitidos
+          const secondStart = now + Math.max(gap, sound.duration + 0.02);
+          playTone(ctx, master, secondStart, sound.second * f, sound.wave, sound.duration);
+        }
+        break;
+      }
+      case "bell": {
+        playBell(ctx, master, now, sound.frequency * f);
+        break;
+      }
+      case "whistle": {
+        playWhistle(ctx, master, now, sound.from * f, sound.to * f, sound.duration);
+        break;
+      }
     }
   }, []);
 
@@ -451,55 +485,13 @@ export default function ClickerPage() {
     playClick(next);
   }
 
-  async function handleUpload(file: File) {
-    if (!userId) return;
-    setNotice(null);
-
-    if (!file.type.startsWith("image/")) {
-      setNotice({ ok: false, text: tx.notImage });
-      return;
-    }
-
-    if (file.size > CLICKER_PHOTO_MAX_BYTES) {
-      setNotice({ ok: false, text: tx.tooBig });
-      return;
-    }
-
-    setUploading(true);
-
-    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${userId}/clicker-${Date.now()}.${extension}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(CLICKER_PHOTO_BUCKET)
-      .upload(path, file, { upsert: true });
-
-    if (uploadError) {
-      console.error("Error subiendo la foto del clicker:", uploadError);
-      setNotice({ ok: false, text: tx.uploadError });
-      setUploading(false);
-      return;
-    }
-
-    const { data: publicData } = supabase.storage
-      .from(CLICKER_PHOTO_BUCKET)
-      .getPublicUrl(path);
-
-    updateDraft({ center: "photo", photoUrl: publicData.publicUrl });
-    setUploading(false);
-  }
-
   async function handleSave() {
     if (!userId) return;
 
     setSaving(true);
     setNotice(null);
 
-    // Si eligió foto pero no subió ninguna, se guardan huellas
-    const toSave: ClickerSettings =
-      draft.center === "photo" && !draft.photoUrl
-        ? { ...draft, center: "paws" }
-        : draft;
+    const toSave: ClickerSettings = { ...draft };
 
     const { data: updatedRows, error } = await supabase
       .from("profiles")
@@ -526,12 +518,6 @@ export default function ClickerPage() {
       return;
     }
 
-    // Borrar la foto anterior si se ha cambiado o quitado (no bloquea)
-    const oldPath = clickerPhotoPath(saved.photoUrl);
-    if (oldPath && saved.photoUrl !== toSave.photoUrl) {
-      void supabase.storage.from(CLICKER_PHOTO_BUCKET).remove([oldPath]);
-    }
-
     setSaved(toSave);
     setDraft(toSave);
     setPanelOpen(false);
@@ -540,7 +526,7 @@ export default function ClickerPage() {
   }
 
   const vibrationActive = vibrationSupported && vibrationOn;
-  const showPhoto = active.center === "photo" && active.photoUrl;
+  const pitchLabel = `${draft.pitch > 0 ? "+" : ""}${draft.pitch}`;
 
   return (
     <main data-tour-section="clicker" className="min-h-screen bg-gray-50 px-4 py-6">
@@ -561,7 +547,7 @@ export default function ClickerPage() {
         {/* Botón del clicker */}
         <div
           className="flex flex-col items-center gap-4 rounded-2xl p-8 shadow-sm"
-          style={{ backgroundColor: active.bgColor }}
+          style={{ backgroundColor: CLICKER_BG }}
         >
           <button
             type="button"
@@ -583,36 +569,23 @@ export default function ClickerPage() {
             style={{
               touchAction: "manipulation",
               WebkitTapHighlightColor: "transparent",
-              backgroundColor: active.buttonColor,
-              borderColor: active.borderColor,
+              backgroundColor: CLICKER_BUTTON,
+              borderColor: CLICKER_BORDER,
             }}
             className={`flex h-56 w-56 select-none items-center justify-center overflow-hidden rounded-full border-8 shadow-lg transition-transform duration-75 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#1e3a5f]/40 ${
               pressed ? "scale-90 shadow-md" : "scale-100"
             }`}
           >
-            {showPhoto ? (
-              <img
-                src={active.photoUrl ?? ""}
-                alt=""
-                draggable={false}
-                className="pointer-events-none h-full w-full object-cover"
+            <span className="relative block h-28 w-28">
+              <PawPrint
+                color={CLICKER_PAWS}
+                className="absolute bottom-0 left-0 h-16 w-16 -rotate-12 drop-shadow"
               />
-            ) : active.center === "emoji" ? (
-              <span className="pointer-events-none text-8xl leading-none drop-shadow">
-                {active.emoji}
-              </span>
-            ) : (
-              <span className="relative block h-28 w-28">
-                <PawPrint
-                  color={active.pawColor}
-                  className="absolute bottom-0 left-0 h-16 w-16 -rotate-12 drop-shadow"
-                />
-                <PawPrint
-                  color={active.pawColor}
-                  className="absolute right-0 top-0 h-14 w-14 rotate-12 drop-shadow"
-                />
-              </span>
-            )}
+              <PawPrint
+                color={CLICKER_PAWS}
+                className="absolute right-0 top-0 h-14 w-14 rotate-12 drop-shadow"
+              />
+            </span>
           </button>
           <p className="text-sm font-medium text-gray-500">{t("tapToClick")}</p>
         </div>
@@ -640,7 +613,7 @@ export default function ClickerPage() {
           </button>
         )}
 
-        {/* PANEL DE PERSONALIZACIÓN */}
+        {/* PANEL DE PERSONALIZACIÓN DEL SONIDO */}
         {panelOpen && (
           <div className="space-y-6 rounded-2xl bg-white p-5 shadow-sm">
             <div>
@@ -648,125 +621,7 @@ export default function ClickerPage() {
               <p className="mt-1 text-sm text-gray-500">{tx.previewNote}</p>
             </div>
 
-            {/* Centro del botón */}
-            <section>
-              <p className="mb-2 font-semibold text-[#1e3a5f]">{tx.centerTitle}</p>
-              <div className="grid grid-cols-3 gap-2">
-                {(["paws", "emoji", "photo"] as ClickerCenter[]).map((center) => (
-                  <button
-                    key={center}
-                    type="button"
-                    onClick={() => updateDraft({ center })}
-                    className={`rounded-xl border-2 px-2 py-2 text-sm font-semibold transition ${
-                      draft.center === center
-                        ? "border-[#1e3a5f] bg-blue-50 text-[#1e3a5f]"
-                        : "border-gray-200 text-gray-600 hover:border-gray-300"
-                    }`}
-                  >
-                    {tx.centers[center]}
-                  </button>
-                ))}
-              </div>
-
-              {draft.center === "emoji" && (
-                <div className="mt-4">
-                  <div className="grid grid-cols-8 gap-2">
-                    {CLICKER_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => updateDraft({ emoji })}
-                        className={`flex h-10 items-center justify-center rounded-lg text-2xl transition ${
-                          draft.emoji === emoji
-                            ? "bg-blue-100 ring-2 ring-[#1e3a5f]"
-                            : "bg-gray-50 hover:bg-gray-100"
-                        }`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="mt-3 block text-sm text-gray-600">
-                    {tx.emojiCustom}
-                    <input
-                      type="text"
-                      value={draft.emoji}
-                      maxLength={16}
-                      onChange={(e) => {
-                        const value = e.target.value.trim();
-                        if (value) updateDraft({ emoji: value });
-                      }}
-                      className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-2xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    />
-                  </label>
-                </div>
-              )}
-
-              {draft.center === "photo" && (
-                <div className="mt-4 flex items-center gap-4">
-                  {draft.photoUrl ? (
-                    <img
-                      src={draft.photoUrl}
-                      alt=""
-                      className="h-16 w-16 rounded-full border-2 border-gray-200 object-cover"
-                    />
-                  ) : (
-                    <p className="flex-1 text-sm text-gray-500">{tx.photoNone}</p>
-                  )}
-                  <label
-                    className={`cursor-pointer rounded-lg bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 ${
-                      uploading ? "pointer-events-none opacity-60" : ""
-                    }`}
-                  >
-                    {uploading
-                      ? tx.photoUploading
-                      : draft.photoUrl
-                      ? tx.photoChange
-                      : tx.photoUpload}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={uploading}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleUpload(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                </div>
-              )}
-            </section>
-
-            {/* Colores */}
-            <section className="space-y-4">
-              <p className="font-semibold text-[#1e3a5f]">{tx.colorsTitle}</p>
-              <ColorRow
-                label={tx.colorBg}
-                value={draft.bgColor}
-                onChange={(bgColor) => updateDraft({ bgColor })}
-              />
-              <ColorRow
-                label={tx.colorButton}
-                value={draft.buttonColor}
-                onChange={(buttonColor) => updateDraft({ buttonColor })}
-              />
-              <ColorRow
-                label={tx.colorBorder}
-                value={draft.borderColor}
-                onChange={(borderColor) => updateDraft({ borderColor })}
-              />
-              {draft.center === "paws" && (
-                <ColorRow
-                  label={tx.colorPaws}
-                  value={draft.pawColor}
-                  onChange={(pawColor) => updateDraft({ pawColor })}
-                />
-              )}
-            </section>
-
-            {/* Sonido */}
+            {/* Tipo de sonido */}
             <section>
               <p className="font-semibold text-[#1e3a5f]">{tx.soundTitle}</p>
               <p className="mb-2 text-sm text-gray-500">{tx.soundHint}</p>
@@ -811,6 +666,48 @@ export default function ClickerPage() {
               </section>
             )}
 
+            {/* Volumen */}
+            <section>
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-[#1e3a5f]">{tx.volumeTitle}</p>
+                <span className="text-sm font-bold text-[#1e3a5f]">
+                  {draft.volume} %
+                </span>
+              </div>
+              <input
+                type="range"
+                min={VOLUME_MIN}
+                max={VOLUME_MAX}
+                step={5}
+                value={draft.volume}
+                onChange={(e) => updateDraft({ volume: Number(e.target.value) })}
+                onPointerUp={() => playClick(draft)}
+                className="mt-2 w-full accent-[#1e3a5f]"
+              />
+            </section>
+
+            {/* Tono */}
+            <section>
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-[#1e3a5f]">{tx.pitchTitle}</p>
+                <span className="text-sm font-bold text-[#1e3a5f]">{pitchLabel}</span>
+              </div>
+              <input
+                type="range"
+                min={PITCH_MIN}
+                max={PITCH_MAX}
+                step={1}
+                value={draft.pitch}
+                onChange={(e) => updateDraft({ pitch: Number(e.target.value) })}
+                onPointerUp={() => playClick(draft)}
+                className="mt-2 w-full accent-[#1e3a5f]"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>{tx.pitchLow}</span>
+                <span>{tx.pitchHigh}</span>
+              </div>
+            </section>
+
             {/* Aviso dentro del panel */}
             {notice && (
               <div
@@ -827,7 +724,7 @@ export default function ClickerPage() {
               <button
                 type="button"
                 onClick={() => void handleSave()}
-                disabled={saving || uploading}
+                disabled={saving}
                 className="rounded-xl bg-[#1e3a5f] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
               >
                 {saving ? tx.saving : tx.save}

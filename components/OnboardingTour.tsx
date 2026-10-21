@@ -548,12 +548,11 @@ const SECTIONS: SectionTour[] = [
         id: "clicker-customize",
         kind: "spot",
         target: "clicker-customize",
-        icon: "🎨",
-        title: { es: "Hazlo tuyo", en: "Make it yours" },
+        icon: "🔊",
+        title: { es: "Elige tu sonido", en: "Choose your sound" },
         body: {
-          es: "Elige el centro del botón (huellas, emoji o una foto), los colores, el sonido y el tiempo entre clic y clac.",
-          en: "Choose the centre of the button (paws, emoji or a photo), the colours, the sound and the gap between click and clack.",
-        },
+          es: "Elige entre 10 sonidos y ajusta el volumen, el tono y el tiempo entre clic y clac.",
+          en: "Pick from 10 sounds and adjust the volume, the pitch and the gap between click and clack.",        },
       },
       {
         id: "clicker-vibration",

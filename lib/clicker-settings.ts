@@ -1,96 +1,112 @@
-// Personalización del clicker: opciones, valores por defecto y validación.
+// Personalización del clicker (solo sonido): opciones, valores por defecto y validación.
 // Se guarda en profiles.clicker_settings (una por usuario).
-
-export type ClickerCenter = "paws" | "emoji" | "photo";
 
 export type ClickerSoundId =
   | "classic"
-  | "high"
-  | "low"
-  | "wood"
+  | "soft"
+  | "metal"
+  | "single"
   | "beep"
-  | "single";
+  | "doubleBeep"
+  | "bell"
+  | "wood"
+  | "tongue"
+  | "whistle";
 
 export type ClickerSettings = {
-  center: ClickerCenter;
-  emoji: string;
-  photoUrl: string | null;
-  bgColor: string;
-  buttonColor: string;
-  borderColor: string;
-  pawColor: string;
   sound: ClickerSoundId;
-  gapMs: number;
+  gapMs: number; // tiempo entre "clic" y "clac"
+  volume: number; // 10–100 %
+  pitch: number; // -6 a +6 (semitonos): negativo = más grave, positivo = más agudo
 };
 
-// El clicker original (antes de personalizar)
 export const DEFAULT_CLICKER_SETTINGS: ClickerSettings = {
-  center: "paws",
-  emoji: "🐶",
-  photoUrl: null,
-  bgColor: "#fefce8",
-  buttonColor: "#bae6fd",
-  borderColor: "#f2a65a",
-  pawColor: "#fefce8",
   sound: "classic",
   gapMs: 90,
+  volume: 100,
+  pitch: 0,
 };
 
 export const GAP_MIN_MS = 20;
 export const GAP_MAX_MS = 200;
-
-export const CLICKER_PHOTO_BUCKET = "clicker-photos";
-export const CLICKER_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
-
-export const CLICKER_EMOJIS = [
-  "🐶", "🐕", "🐾", "🦴", "🎾", "⭐", "❤️", "🏆",
-  "🍖", "🥩", "🧀", "👍", "🔥", "😊", "🌟", "💙",
-];
-
-export const COLOR_SWATCHES = [
-  "#fefce8", "#ffffff", "#fde68a", "#f2a65a",
-  "#bae6fd", "#1e3a5f", "#bbf7d0", "#16a34a",
-  "#fbcfe8", "#ef4444", "#ddd6fe", "#111827",
-];
+export const VOLUME_MIN = 10;
+export const VOLUME_MAX = 100;
+export const PITCH_MIN = -6;
+export const PITCH_MAX = 6;
 
 // Definición de cada sonido (se genera con código, sin archivos de audio)
 export type ClickerSoundDef =
-  | { kind: "snap"; first: number; second: number | null; q: number }
-  | { kind: "beep"; frequency: number };
+  | {
+      // Chasquido mecánico: ruido filtrado + pequeña resonancia
+      kind: "snap";
+      first: number;
+      second: number | null;
+      q: number;
+      level: number;
+      ring: number; // duración de la resonancia (segundos)
+      ringLevel: number;
+    }
+  | {
+      // Tono electrónico
+      kind: "tone";
+      frequency: number;
+      second: number | null;
+      wave: OscillatorType;
+      duration: number;
+    }
+  | { kind: "bell"; frequency: number }
+  | { kind: "whistle"; from: number; to: number; duration: number };
 
 export const CLICKER_SOUNDS: Record<ClickerSoundId, ClickerSoundDef> = {
-  classic: { kind: "snap", first: 4200, second: 3300, q: 4 },
-  high: { kind: "snap", first: 5600, second: 4600, q: 4 },
-  low: { kind: "snap", first: 2400, second: 1800, q: 4 },
-  wood: { kind: "snap", first: 1300, second: 950, q: 1.5 },
-  beep: { kind: "beep", frequency: 2000 },
-  single: { kind: "snap", first: 4200, second: null, q: 4 },
+  classic: { kind: "snap", first: 4200, second: 3300, q: 4, level: 1, ring: 0.015, ringLevel: 0.35 },
+  soft: { kind: "snap", first: 2600, second: 2100, q: 1.2, level: 0.55, ring: 0.012, ringLevel: 0.2 },
+  metal: { kind: "snap", first: 5200, second: 4300, q: 12, level: 1, ring: 0.05, ringLevel: 0.5 },
+  single: { kind: "snap", first: 4200, second: null, q: 4, level: 1, ring: 0.015, ringLevel: 0.35 },
+  beep: { kind: "tone", frequency: 2000, second: null, wave: "sine", duration: 0.08 },
+  doubleBeep: { kind: "tone", frequency: 2000, second: 2000, wave: "sine", duration: 0.05 },
+  bell: { kind: "bell", frequency: 1800 },
+  wood: { kind: "snap", first: 1300, second: 950, q: 1.5, level: 1, ring: 0.035, ringLevel: 0.6 },
+  tongue: { kind: "snap", first: 1700, second: null, q: 0.9, level: 0.9, ring: 0.008, ringLevel: 0.15 },
+  whistle: { kind: "whistle", from: 2400, to: 3000, duration: 0.3 },
 };
 
+// Orden en el que aparecen en pantalla
 export const CLICKER_SOUND_IDS: ClickerSoundId[] = [
   "classic",
-  "high",
-  "low",
-  "wood",
-  "beep",
+  "soft",
+  "metal",
   "single",
+  "beep",
+  "doubleBeep",
+  "bell",
+  "wood",
+  "tongue",
+  "whistle",
 ];
 
-// ¿El sonido tiene "clic" y "clac"? (si no, no tiene sentido el tiempo entre ambos)
+// ¿El sonido tiene dos golpes? (si no, no tiene sentido el tiempo entre ambos)
 export function isDoubleSound(id: ClickerSoundId): boolean {
   const def = CLICKER_SOUNDS[id];
-  return def.kind === "snap" && def.second !== null;
+  return (def.kind === "snap" || def.kind === "tone") && def.second !== null;
 }
 
-const COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
-
-function cleanColor(value: unknown, fallback: string): string {
-  return typeof value === "string" && COLOR_REGEX.test(value)
-    ? value.toLowerCase()
-    : fallback;
+// Multiplicador de frecuencia según el tono elegido
+export function pitchFactor(pitch: number): number {
+  return Math.pow(2, pitch / 12);
 }
 
-// Comprueba lo que viene de la base de datos; lo que no sea válido vuelve al valor original
+// Sonidos de versiones anteriores que ya no existen como opción propia
+const LEGACY_SOUNDS: Record<string, { sound: ClickerSoundId; pitch: number }> = {
+  high: { sound: "classic", pitch: 5 },
+  low: { sound: "classic", pitch: -6 },
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+// Comprueba lo que viene de la base de datos; lo que no sea válido vuelve al valor original.
+// Los campos antiguos (colores, emoji, foto) se ignoran.
 export function sanitizeClickerSettings(raw: unknown): ClickerSettings {
   const d = DEFAULT_CLICKER_SETTINGS;
 
@@ -100,49 +116,35 @@ export function sanitizeClickerSettings(raw: unknown): ClickerSettings {
 
   const input = raw as Record<string, unknown>;
 
-  const center: ClickerCenter =
-    input.center === "emoji" || input.center === "photo" || input.center === "paws"
-      ? input.center
-      : d.center;
+  let sound: ClickerSoundId = d.sound;
+  let pitchDefault = d.pitch;
 
-  const emoji =
-    typeof input.emoji === "string" && input.emoji.trim() !== ""
-      ? input.emoji.trim().slice(0, 16)
-      : d.emoji;
+  if (typeof input.sound === "string") {
+    if ((CLICKER_SOUND_IDS as string[]).includes(input.sound)) {
+      sound = input.sound as ClickerSoundId;
+    } else if (LEGACY_SOUNDS[input.sound]) {
+      sound = LEGACY_SOUNDS[input.sound].sound;
+      pitchDefault = LEGACY_SOUNDS[input.sound].pitch;
+    }
+  }
 
-  const photoUrl =
-    typeof input.photoUrl === "string" && input.photoUrl.startsWith("https://")
-      ? input.photoUrl
-      : null;
+  const gapMs = clamp(
+    typeof input.gapMs === "number" ? input.gapMs : d.gapMs,
+    GAP_MIN_MS,
+    GAP_MAX_MS
+  );
 
-  const sound: ClickerSoundId =
-    typeof input.sound === "string" &&
-    (CLICKER_SOUND_IDS as string[]).includes(input.sound)
-      ? (input.sound as ClickerSoundId)
-      : d.sound;
+  const volume = clamp(
+    typeof input.volume === "number" ? input.volume : d.volume,
+    VOLUME_MIN,
+    VOLUME_MAX
+  );
 
-  const rawGap = typeof input.gapMs === "number" ? input.gapMs : d.gapMs;
-  const gapMs = Math.min(GAP_MAX_MS, Math.max(GAP_MIN_MS, Math.round(rawGap)));
+  const pitch = clamp(
+    typeof input.pitch === "number" ? input.pitch : pitchDefault,
+    PITCH_MIN,
+    PITCH_MAX
+  );
 
-  return {
-    // Si eligió foto pero no hay foto, se muestran huellas
-    center: center === "photo" && !photoUrl ? "paws" : center,
-    emoji,
-    photoUrl,
-    bgColor: cleanColor(input.bgColor, d.bgColor),
-    buttonColor: cleanColor(input.buttonColor, d.buttonColor),
-    borderColor: cleanColor(input.borderColor, d.borderColor),
-    pawColor: cleanColor(input.pawColor, d.pawColor),
-    sound,
-    gapMs,
-  };
-}
-
-// Ruta dentro del almacén a partir del enlace público (para borrar fotos antiguas)
-export function clickerPhotoPath(url: string | null): string | null {
-  if (!url) return null;
-  const marker = `/${CLICKER_PHOTO_BUCKET}/`;
-  const index = url.indexOf(marker);
-  if (index === -1) return null;
-  return decodeURIComponent(url.slice(index + marker.length));
+  return { sound, gapMs, volume, pitch };
 }
