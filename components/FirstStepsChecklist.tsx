@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import {
   ONBOARDING_FINISHED_EVENT,
-  START_TOUR_EVENT,
+  TOUR_STATE_EVENT,
+  isTourRunning,
 } from "@/components/OnboardingTour";
 
 // Pantallas donde la lista nunca se muestra (sin sesión iniciada)
@@ -19,6 +20,10 @@ const HIDDEN_PATHS = [
   "/reset-password",
   "/update-password",
 ];
+
+// Espera tras cerrarse el tutorial antes de mostrar la lista, para que no
+// asome entre la bienvenida y la guía de la pantalla siguiente (ms)
+const SHOW_DELAY_MS = 800;
 
 type Lang = "es" | "en";
 type Text = Record<Lang, string>;
@@ -76,7 +81,8 @@ export default function FirstStepsChecklist() {
   const lang: Lang = locale === "en" ? "en" : "es";
 
   const [visible, setVisible] = useState(false);
-  const [tourRunning, setTourRunning] = useState(false);
+  // Empieza escondida hasta saber que no hay tutorial en pantalla
+  const [tourRunning, setTourRunning] = useState(true);
   const [expanded, setExpanded] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [firstPetId, setFirstPetId] = useState<number | null>(null);
@@ -154,18 +160,39 @@ export default function FirstStepsChecklist() {
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
 
-  // Esconderse mientras el tutorial está en marcha
+  // Esconderse mientras haya tutorial o guía de pantalla en marcha.
+  // Al cerrarse, esperar un instante antes de aparecer.
   useEffect(() => {
-    const onStart = () => setTourRunning(true);
-    const onFinish = () => {
-      setTourRunning(false);
-      setExpanded(true);
-      void load();
+    let timer: number | undefined;
+
+    const apply = (running: boolean) => {
+      window.clearTimeout(timer);
+      if (running) {
+        setTourRunning(true);
+        return;
+      }
+      timer = window.setTimeout(() => {
+        setTourRunning(false);
+        void load();
+      }, SHOW_DELAY_MS);
     };
-    window.addEventListener(START_TOUR_EVENT, onStart);
+
+    // Estado actual (por si el tutorial ya avisó antes de montarse la lista)
+    apply(isTourRunning());
+
+    const onState = (event: Event) => {
+      const detail = (event as CustomEvent<{ running: boolean }>).detail;
+      apply(Boolean(detail?.running));
+    };
+
+    // Al terminar la bienvenida, la lista sale desplegada
+    const onFinish = () => setExpanded(true);
+
+    window.addEventListener(TOUR_STATE_EVENT, onState);
     window.addEventListener(ONBOARDING_FINISHED_EVENT, onFinish);
     return () => {
-      window.removeEventListener(START_TOUR_EVENT, onStart);
+      window.clearTimeout(timer);
+      window.removeEventListener(TOUR_STATE_EVENT, onState);
       window.removeEventListener(ONBOARDING_FINISHED_EVENT, onFinish);
     };
   }, [load]);

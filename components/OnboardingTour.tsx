@@ -24,6 +24,8 @@ const DONE_KEY = "paws-onboarding-v2-done";
 const LANG_KEY = "paws-onboarding-v2-lang-chosen";
 export const START_TOUR_EVENT = "paws:start-onboarding";
 export const ONBOARDING_FINISHED_EVENT = "paws:onboarding-finished";
+// Aviso al resto de la app de si hay un tutorial o una guía en pantalla
+export const TOUR_STATE_EVENT = "paws:tour-state";
 
 const WELCOME_ID = "welcome";
 const WELCOME_ROUTE = "/dashboard";
@@ -32,6 +34,12 @@ const WELCOME_ROUTE = "/dashboard";
 // la bienvenida y vuelve a activar todas las guías de cada pantalla
 export function startOnboardingTour() {
   window.dispatchEvent(new Event(START_TOUR_EVENT));
+}
+
+// ¿Hay ahora mismo un tutorial o una guía en pantalla (o a punto de salir)?
+export function isTourRunning(): boolean {
+  if (typeof document === "undefined") return true;
+  return document.documentElement.dataset.pawsTour !== "off";
 }
 
 type Lang = "es" | "en";
@@ -47,6 +55,7 @@ type TourStep = {
   target?: string; // valor del atributo data-tour del elemento a iluminar
   tap?: boolean; // el usuario tiene que tocar el elemento para seguir
   openMenu?: boolean; // el menú lateral debe estar abierto en este paso
+  cardAt?: "top"; // la tarjeta va arriba de la pantalla y el elemento justo debajo
 };
 
 type SectionTour = {
@@ -164,6 +173,7 @@ const SECTIONS: SectionTour[] = [
         id: "dashboard-shortcuts",
         kind: "spot",
         target: "dashboard-shortcuts",
+        cardAt: "top",
         icon: "🧭",
         title: { es: "Accesos rápidos", en: "Quick access" },
         body: {
@@ -315,7 +325,7 @@ const SECTIONS: SectionTour[] = [
           en: "Quickly find a skill by its name or category.",
         },
       },
-            {
+      {
         id: "skills-create",
         kind: "spot",
         target: "skill-create",
@@ -666,6 +676,10 @@ const STABLE_CHECKS_NEEDED = 3;
 const MAX_STABLE_ATTEMPTS = 30;
 // Alto aproximado de la barra superior fija de la app
 const TOP_BAR_HEIGHT = 64;
+// Pasos con la tarjeta arriba: dónde empieza la tarjeta y dónde
+// debe quedar el elemento iluminado (justo debajo de la tarjeta)
+const CARD_TOP = TOP_BAR_HEIGHT + 8;
+const BELOW_CARD = CARD_TOP + CARD_HEIGHT + 8;
 
 // Animaciones del tutorial
 const TOUR_CSS = `
@@ -741,10 +755,15 @@ function pagePosition(el: HTMLElement): string {
   ].join(",");
 }
 
-// ¿Se ve el elemento en la pantalla?
-function isInViewport(el: HTMLElement): boolean {
+// ¿Se ve el elemento en la pantalla (en el sitio que le toca)?
+function isInViewport(el: HTMLElement, cardAtTop = false): boolean {
   const r = el.getBoundingClientRect();
   const vh = window.innerHeight;
+
+  // Tarjeta arriba: el elemento debe empezar justo debajo de la tarjeta
+  if (cardAtTop) {
+    return Math.abs(r.top - BELOW_CARD) < 24;
+  }
 
   // Elementos muy altos: basta con que su parte de arriba se vea
   if (r.height > vh - TOP_BAR_HEIGHT - 32) {
@@ -754,20 +773,29 @@ function isInViewport(el: HTMLElement): boolean {
   return r.top >= TOP_BAR_HEIGHT && r.bottom <= vh - 16;
 }
 
-// Desplaza la página (sin animación) para dejar el elemento en el centro
-function centerOnScreen(el: HTMLElement) {
+// Desplaza la página (sin animación) para dejar el elemento en su sitio
+function centerOnScreen(el: HTMLElement, cardAtTop = false) {
   const r = el.getBoundingClientRect();
   const vh = window.innerHeight;
-  const target =
-    r.height > vh - TOP_BAR_HEIGHT - 32
-      ? window.scrollY + r.top - TOP_BAR_HEIGHT - 16
-      : window.scrollY + r.top - (vh - r.height) / 2;
+  let target: number;
+
+  if (cardAtTop) {
+    // El elemento empieza justo debajo de la tarjeta
+    target = window.scrollY + r.top - BELOW_CARD;
+  } else if (r.height > vh - TOP_BAR_HEIGHT - 32) {
+    target = window.scrollY + r.top - TOP_BAR_HEIGHT - 16;
+  } else {
+    target = window.scrollY + r.top - (vh - r.height) / 2;
+  }
 
   window.scrollTo({ top: Math.max(0, target), behavior: "instant" });
 }
 
 // Decide dónde colocar la tarjeta respecto al elemento iluminado
-function computeCardPosition(rect: Rect): {
+function computeCardPosition(
+  rect: Rect,
+  cardAtTop = false
+): {
   style: CSSProperties;
   arrow: CSSProperties | null;
 } {
@@ -778,6 +806,14 @@ function computeCardPosition(rect: Rect): {
   const centerY = rect.top + rect.height / 2;
   const left = clamp(centerX - cardWidth / 2, 16, vw - cardWidth - 16);
   const arrowX = clamp(centerX - left - 8, 20, cardWidth - 36);
+
+  // Tarjeta fija arriba, con la flecha apuntando hacia abajo al elemento
+  if (cardAtTop) {
+    return {
+      style: { top: CARD_TOP, left },
+      arrow: { bottom: -7, left: arrowX },
+    };
+  }
 
   if (rect.top + rect.height + CARD_HEIGHT + 24 < vh) {
     return {
@@ -972,6 +1008,18 @@ export default function OnboardingTour() {
   const running = active || currentSection !== null;
   const isHidden = HIDDEN_PATHS.includes(pathname);
 
+  // Hay tutorial en pantalla (o aún no sabemos si va a salir)
+  const tourOnScreen =
+    !isHidden && (!loaded || running || choosingLanguage);
+
+  // 0) Avisar al resto de la app (por ejemplo, a "Primeros pasos")
+  useEffect(() => {
+    document.documentElement.dataset.pawsTour = tourOnScreen ? "on" : "off";
+    window.dispatchEvent(
+      new CustomEvent(TOUR_STATE_EVENT, { detail: { running: tourOnScreen } })
+    );
+  }, [tourOnScreen]);
+
   // 1) Al entrar con sesión iniciada, cargar qué guías ha visto el usuario
   useEffect(() => {
     if (isHidden) {
@@ -1116,6 +1164,7 @@ export default function OnboardingTour() {
 
     const sectionId = currentSection?.id ?? null;
     const maxTries = sectionId ? MAX_TRIES_SECTION : MAX_TRIES_WELCOME;
+    const cardAtTop = step.cardAt === "top";
     let tries = 0;
     let menuHandled = false;
     let cancelled = false;
@@ -1128,12 +1177,12 @@ export default function OnboardingTour() {
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
     };
 
-    // Si el elemento no se ve, baja la pantalla hasta él
+    // Si el elemento no está en su sitio, mueve la pantalla hasta él
     const keepVisible = () => {
       const el = targetRef.current;
       if (!el || step.openMenu) return;
-      if (!isInViewport(el)) {
-        centerOnScreen(el);
+      if (!isInViewport(el, cardAtTop)) {
+        centerOnScreen(el, cardAtTop);
       }
     };
 
@@ -1151,7 +1200,7 @@ export default function OnboardingTour() {
 
       if (nextStable >= STABLE_CHECKS_NEEDED || attempts >= MAX_STABLE_ATTEMPTS) {
         if (!step.openMenu) {
-          centerOnScreen(el);
+          centerOnScreen(el, cardAtTop);
         }
 
         timeouts.push(
@@ -1505,7 +1554,9 @@ export default function OnboardingTour() {
   }
 
   // ---------- Tarjeta azul con Pawsi señalando ----------
-  const cardPosition = rect ? computeCardPosition(rect) : null;
+  const cardPosition = rect
+    ? computeCardPosition(rect, step.cardAt === "top")
+    : null;
   const counter = currentSection
     ? `${currentSection.name[lang]} · ${position} / ${total}`
     : `${position} / ${total}`;
