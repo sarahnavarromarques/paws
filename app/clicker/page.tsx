@@ -42,6 +42,7 @@ const CLICKER_PAWS = "#fefce8";
 // ---------------------------------------------------------------------------
 
 type CustomText = {
+  changeWarning: string;
   customize: string;
   panelTitle: string;
   previewNote: string;
@@ -64,6 +65,8 @@ type CustomText = {
 
 const CUSTOM_TEXT: Record<"es" | "en", CustomText> = {
   es: {
+    changeWarning:
+      "Si ya has empezado a entrenar con el clicker, no cambies el sonido: tu perro ha aprendido que ese sonido significa premio. Cambiarlo puede confundirle y hacer que su progreso vaya hacia atrás.",
     customize: "🔊 Personalizar sonido",
     panelTitle: "Personaliza el sonido",
     previewNote:
@@ -96,6 +99,8 @@ const CUSTOM_TEXT: Record<"es" | "en", CustomText> = {
     saveError: "No se pudo guardar. Inténtalo de nuevo.",
   },
   en: {
+    changeWarning:
+      "If you have already started training with the clicker, don't change the sound: your dog has learned that this sound means a reward. Changing it can confuse them and set their progress back.",
     customize: "🔊 Customize sound",
     panelTitle: "Customize the sound",
     previewNote:
@@ -542,6 +547,17 @@ export default function ClickerPage() {
             {t("title")}
           </h1>
           <p className="mt-1 text-sm text-gray-600">{t("subtitle")}</p>
+        </div>
+
+        {/* Aviso: cambiar el sonido a mitad del entrenamiento perjudica */}
+        <div
+          role="note"
+          className="flex gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">
+            ⚠️
+          </span>
+          <p>{tx.changeWarning}</p>
         </div>
 
         {/* Botón del clicker */}
