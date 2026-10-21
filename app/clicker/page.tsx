@@ -34,7 +34,7 @@ const SNAP_DURATION = 0.025;
 // Diseño fijo del clicker
 const CLICKER_BG = "#fefce8";
 const CLICKER_BUTTON = "#bae6fd";
-const CLICKER_BORDER = "#f2a65a";
+const CLICKER_BORDER = "#e6d5b8";
 const CLICKER_PAWS = "#fefce8";
 
 // ---------------------------------------------------------------------------
