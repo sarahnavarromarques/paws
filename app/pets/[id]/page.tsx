@@ -65,7 +65,7 @@ export default async function PetProfile({ params }: PageProps) {
   const t = await getTranslations("PetProfile");
   const tPets = await getTranslations("Pets");
   const tAddPetForm = await getTranslations("AddPetForm");
-  const tVaccines = await getTranslations("Vaccines");
+  const tHealth = await getTranslations("Health");
 
   const supabase = await createClient();
 
@@ -174,12 +174,12 @@ export default async function PetProfile({ params }: PageProps) {
             {t("history")}
           </Link>
 
-          {/* Calendario de vacunación del perro (rosa claro, texto oscuro para que se lea) */}
+          {/* Salud: vacunas y desparasitaciones (rosa claro, texto oscuro para que se lea) */}
           <Link
             href={`/pets/${pet.id}/vaccines`}
             className="rounded-xl bg-rose-200 px-5 py-3 font-semibold text-rose-800 transition hover:bg-rose-300"
           >
-            {tVaccines("navLabel")}
+            {tHealth("navLabel")}
           </Link>
 
           <Link

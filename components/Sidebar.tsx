@@ -40,7 +40,7 @@ export default function Sidebar() {
   const t = useTranslations("Sidebar");
   // Reutilizamos los textos de la ficha del perro (Habilidades, Progreso, Historial, Editar)
   const tPet = useTranslations("PetProfile");
-  const tVaccines = useTranslations("Vaccines");
+  const tHealth = useTranslations("Health");
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -275,12 +275,13 @@ export default function Sidebar() {
                         const inside = isInsidePet(pet.id);
                         const expanded = expandedPets.has(pet.id);
 
-                        // Habilidades incluye los grupos (pestañas en la misma página)
+                        // Habilidades incluye los grupos (pestañas en la misma página);
+                        // Salud incluye vacunas y desparasitaciones (pestañas)
                         const subLinks = [
                           { href: `/skills?pet=${pet.id}`, label: tPet("skills") },
                           { href: `${base}/progress`, label: tPet("progress") },
                           { href: `${base}/history`, label: tPet("history") },
-                          { href: `${base}/vaccines`, label: tVaccines("navLabel") },
+                          { href: `${base}/vaccines`, label: tHealth("navLabel") },
                           { href: `${base}/edit`, label: tPet("editPet") },
                         ];
 

@@ -3,8 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 import { isDoseLabel, isVaccineKey } from "@/lib/vaccination-plan";
+import { healthIcon, isDewormingKey } from "@/lib/deworming";
 import vaccinesEs from "@/messages/features/vaccines.es.json";
 import vaccinesEn from "@/messages/features/vaccines.en.json";
+import healthEs from "@/messages/features/health.es.json";
+import healthEn from "@/messages/features/health.en.json";
 
 // Siempre se genera en el momento (nunca desde caché)
 export const dynamic = "force-dynamic";
@@ -21,21 +24,28 @@ const CALENDAR_TEXT: Record<
   { calendarName: string; calendarDescription: string; openInPaws: string }
 > = {
   es: {
-    calendarName: "PAWS – Entrenamientos y vacunas",
-    calendarDescription: "Entrenamientos y vacunas planificados en PAWS",
+    calendarName: "PAWS – Entrenamientos y salud",
+    calendarDescription:
+      "Entrenamientos, vacunas y desparasitaciones planificados en PAWS",
     openInPaws: "Abrir en PAWS",
   },
   en: {
-    calendarName: "PAWS – Trainings and vaccines",
-    calendarDescription: "Trainings and vaccines planned in PAWS",
+    calendarName: "PAWS – Trainings and health",
+    calendarDescription:
+      "Trainings, vaccines and parasite treatments planned in PAWS",
     openInPaws: "Open in PAWS",
   },
 };
 
-// Nombres de vacunas y dosis (los mismos textos que la pantalla Vacunas)
+// Nombres de vacunas, dosis y desparasitaciones (los mismos textos que la app)
 const VACCINE_TEXT = {
   es: vaccinesEs.Vaccines,
   en: vaccinesEn.Vaccines,
+};
+
+const DEWORMING_TEXT = {
+  es: healthEs.Deworming,
+  en: healthEn.Deworming,
 };
 
 // Zona horaria de Madrid (horario de verano e invierno)
@@ -186,9 +196,10 @@ export async function GET(
   const language: Language = profile.language === "en" ? "en" : "es";
   const text = CALENDAR_TEXT[language];
   const vaccineText = VACCINE_TEXT[language];
+  const dewormingText = DEWORMING_TEXT[language];
 
-  // 2) Leer mascotas, entrenamientos y vacunas pendientes con fecha
-  const [petsResult, trainingsResult, vaccinationsResult] = await Promise.all([
+  // 2) Leer mascotas, entrenamientos y registros de salud pendientes con fecha
+  const [petsResult, trainingsResult, healthResult] = await Promise.all([
     admin.from("pets").select("id, name").eq("user_id", profile.id),
     admin
       .from("trainings")
@@ -197,7 +208,7 @@ export async function GET(
       .order("date", { ascending: true }),
     admin
       .from("pet_vaccinations")
-      .select("id, pet_id, vaccine_key, name, dose_label, due_date")
+      .select("id, pet_id, category, vaccine_key, name, dose_label, product, due_date")
       .eq("user_id", profile.id)
       .neq("status", "done")
       .not("due_date", "is", null),
@@ -211,9 +222,9 @@ export async function GET(
     return textResponse("Server error", 500);
   }
 
-  // Si fallan las vacunas, el calendario sigue con los entrenamientos
-  if (vaccinationsResult.error) {
-    console.error("calendar: error leyendo vacunas", vaccinationsResult.error);
+  // Si falla la salud, el calendario sigue con los entrenamientos
+  if (healthResult.error) {
+    console.error("calendar: error leyendo salud", healthResult.error);
   }
 
   const petNames = new Map<number, string>();
@@ -298,37 +309,54 @@ export async function GET(
     );
   }
 
-  // --- Vacunas pendientes (día completo, con aviso el día anterior a las 9:00) ---
+  // --- Vacunas y desparasitaciones pendientes
+  //     (día completo, con aviso el día anterior a las 9:00) ---
 
-  for (const vaccination of vaccinationsResult.data ?? []) {
-    if (!vaccination.due_date) continue;
+  for (const record of healthResult.data ?? []) {
+    if (!record.due_date) continue;
 
-    const day = parseDate(vaccination.due_date);
+    const day = parseDate(record.due_date);
     if (!day) continue;
 
-    const vaccineName = isVaccineKey(vaccination.vaccine_key)
-      ? vaccineText.vaccineNames[vaccination.vaccine_key]
-      : vaccination.name;
+    const isDeworming = record.category === "deworming";
 
-    const doseName = vaccination.dose_label
-      ? isDoseLabel(vaccination.dose_label)
-        ? vaccineText.doses[vaccination.dose_label]
-        : vaccination.dose_label
-      : "";
+    let itemName: string;
+    let extra: string;
 
-    const title = doseName ? `${vaccineName} (${doseName})` : vaccineName;
-    const petName = petNames.get(vaccination.pet_id);
-    const summary = petName ? `💉 ${petName} — ${title}` : `💉 ${title}`;
+    if (isDeworming) {
+      itemName = isDewormingKey(record.vaccine_key)
+        ? dewormingText.typeNames[record.vaccine_key]
+        : record.name;
+      extra = record.product?.trim() ?? "";
+    } else {
+      itemName = isVaccineKey(record.vaccine_key)
+        ? vaccineText.vaccineNames[record.vaccine_key]
+        : record.name;
+      extra = record.dose_label
+        ? isDoseLabel(record.dose_label)
+          ? vaccineText.doses[record.dose_label]
+          : record.dose_label
+        : "";
+    }
 
-    const link = `${origin}/pets/${vaccination.pet_id}/vaccines`;
-    const description = `${vaccineText.disclaimer}\n\n${text.openInPaws}: ${link}`;
+    const title = extra ? `${itemName} (${extra})` : itemName;
+    const icon = healthIcon(record.category, record.vaccine_key);
+    const petName = petNames.get(record.pet_id);
+    const summary = petName ? `${icon} ${petName} — ${title}` : `${icon} ${title}`;
+
+    const tab = isDeworming ? "?tab=deworming" : "";
+    const link = `${origin}/pets/${record.pet_id}/vaccines${tab}`;
+    const disclaimer = isDeworming
+      ? dewormingText.disclaimer
+      : vaccineText.disclaimer;
+    const description = `${disclaimer}\n\n${text.openInPaws}: ${link}`;
 
     const start = new Date(Date.UTC(day.year, day.month - 1, day.day));
     const end = new Date(start.getTime() + 24 * 60 * 60_000);
 
     lines.push(
       "BEGIN:VEVENT",
-      `UID:paws-vaccine-${vaccination.id}@${host}`,
+      `UID:paws-vaccine-${record.id}@${host}`,
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${formatDateOnly(start)}`,
       `DTEND;VALUE=DATE:${formatDateOnly(end)}`,

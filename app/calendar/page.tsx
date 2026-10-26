@@ -14,6 +14,7 @@ import {
   todayIso,
   type DueStatus,
 } from "@/lib/vaccination-plan";
+import { healthIcon, isDewormingKey } from "@/lib/deworming";
 
 const supabase = createClient();
 
@@ -40,12 +41,15 @@ type SkillName = {
   name_en: string | null;
 };
 
-type Vaccination = {
+// Registro de salud: vacuna o desparasitación (comparten tabla)
+type HealthRecord = {
   id: string;
   pet_id: number;
+  category: string;
   vaccine_key: string | null;
   name: string;
   dose_label: string | null;
+  product: string | null;
   status: string;
   due_date: string | null;
   given_date: string | null;
@@ -64,11 +68,11 @@ const PET_COLORS = [
   "#64748B", // gris
 ];
 
-// Color del puntito de las vacunas en el calendario
-const VACCINE_DOT_COLOR = "#FB7185"; // rosa (rose-400)
+// Color del puntito de salud (vacunas y desparasitaciones) en el calendario
+const HEALTH_DOT_COLOR = "#FB7185"; // rosa (rose-400)
 
-// Colores de la etiqueta de estado de cada vacuna
-const VACCINE_STATUS_STYLES: Record<DueStatus, string> = {
+// Colores de la etiqueta de estado
+const HEALTH_STATUS_STYLES: Record<DueStatus, string> = {
   overdue: "bg-red-100 text-red-700",
   soon: "bg-amber-100 text-amber-700",
   upcoming: "bg-blue-100 text-blue-700",
@@ -143,10 +147,9 @@ function normalize(text: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-// Día en que se muestra una vacuna: puesta → día en que se puso; pendiente → día que toca
-function getVaccinationDate(vaccination: Vaccination): string | null {
-  const date =
-    vaccination.status === "done" ? vaccination.given_date : vaccination.due_date;
+// Día en que se muestra un registro: hecho → día en que se hizo; pendiente → día que toca
+function getHealthDate(record: HealthRecord): string | null {
+  const date = record.status === "done" ? record.given_date : record.due_date;
   return date ? date.slice(0, 10) : null;
 }
 
@@ -156,6 +159,9 @@ export default function CalendarPage() {
   const tVac = useTranslations("Vaccines");
   const tVacNames = useTranslations("Vaccines.vaccineNames");
   const tVacDoses = useTranslations("Vaccines.doses");
+  const tDew = useTranslations("Deworming");
+  const tDewTypes = useTranslations("Deworming.typeNames");
+  const tHealth = useTranslations("Health");
   const locale = useLocale();
   const lang: "es" | "en" = locale === "en" ? "en" : "es";
   const tx = CAL_TEXT[lang];
@@ -164,7 +170,7 @@ export default function CalendarPage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [skills, setSkills] = useState<SkillName[]>([]);
-  const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -209,14 +215,16 @@ export default function CalendarPage() {
         .eq("user_id", user.id)
         .order("date", { ascending: true });
 
-      // Vacunas de todos los perros (si falla, el calendario sigue funcionando sin ellas)
-      const { data: vaccinationsData, error: vaccinationsError } = await supabase
+      // Vacunas y desparasitaciones (si falla, el calendario sigue funcionando sin ellas)
+      const { data: healthData, error: healthError } = await supabase
         .from("pet_vaccinations")
-        .select("id, pet_id, vaccine_key, name, dose_label, status, due_date, given_date")
+        .select(
+          "id, pet_id, category, vaccine_key, name, dose_label, product, status, due_date, given_date"
+        )
         .eq("user_id", user.id);
 
-      if (vaccinationsError) {
-        console.error("[calendario] Error cargando vacunas:", vaccinationsError);
+      if (healthError) {
+        console.error("[calendario] Error cargando salud:", healthError);
       }
 
       const loadedTrainings = (trainingsData ?? []) as Training[];
@@ -241,7 +249,7 @@ export default function CalendarPage() {
       setPets((petsData ?? []) as Pet[]);
       setTrainings(loadedTrainings);
       setSkills((skillsData ?? []) as SkillName[]);
-      setVaccinations((vaccinationsData ?? []) as Vaccination[]);
+      setHealthRecords((healthData ?? []) as HealthRecord[]);
       setLoading(false);
     }
 
@@ -312,32 +320,32 @@ export default function CalendarPage() {
     return map;
   }, [trainings]);
 
-  // Vacunas agrupadas por fecha (las que no tienen fecha no aparecen en el calendario)
-  const vaccinationsByDate = useMemo(() => {
-    const map = new Map<string, Vaccination[]>();
+  // Registros de salud agrupados por fecha (los que no tienen fecha no aparecen)
+  const healthByDate = useMemo(() => {
+    const map = new Map<string, HealthRecord[]>();
 
-    for (const vaccination of vaccinations) {
-      const date = getVaccinationDate(vaccination);
+    for (const record of healthRecords) {
+      const date = getHealthDate(record);
       if (!date) continue;
 
       const list = map.get(date) ?? [];
-      list.push(vaccination);
+      list.push(record);
       map.set(date, list);
     }
 
     return map;
-  }, [vaccinations]);
+  }, [healthRecords]);
 
-  // Meses ("AAAA-MM") que tienen algún entrenamiento o vacuna, para el puntito del selector
+  // Meses ("AAAA-MM") con algún entrenamiento o registro de salud, para el puntito del selector
   const monthsWithTrainings = useMemo(() => {
     const months = new Set(trainings.map((training) => training.date.slice(0, 7)));
 
-    for (const date of vaccinationsByDate.keys()) {
+    for (const date of healthByDate.keys()) {
       months.add(date.slice(0, 7));
     }
 
     return months;
-  }, [trainings, vaccinationsByDate]);
+  }, [trainings, healthByDate]);
 
   const petsById = useMemo(
     () => new Map(pets.map((pet) => [pet.id, pet])),
@@ -356,26 +364,47 @@ export default function CalendarPage() {
     return lang === "en" && skill.name_en ? skill.name_en : skill.name;
   }
 
-  function getVaccineName(vaccination: Vaccination): string {
-    return isVaccineKey(vaccination.vaccine_key)
-      ? tVacNames(vaccination.vaccine_key)
-      : vaccination.name;
+  function isDeworming(record: HealthRecord): boolean {
+    return record.category === "deworming";
   }
 
-  function getVaccineDose(vaccination: Vaccination): string | null {
-    if (!vaccination.dose_label) return null;
-    return isDoseLabel(vaccination.dose_label)
-      ? tVacDoses(vaccination.dose_label)
-      : vaccination.dose_label;
+  function getHealthName(record: HealthRecord): string {
+    if (isDeworming(record)) {
+      return isDewormingKey(record.vaccine_key)
+        ? tDewTypes(record.vaccine_key)
+        : record.name;
+    }
+
+    return isVaccineKey(record.vaccine_key)
+      ? tVacNames(record.vaccine_key)
+      : record.name;
   }
 
-  const vaccineStatusLabel: Record<DueStatus, string> = {
-    overdue: tVac("statusOverdue"),
-    soon: tVac("statusSoon"),
-    upcoming: tVac("statusUpcoming"),
-    no_date: tVac("statusNoDate"),
-    done: tVac("statusDone"),
-  };
+  // Línea extra: dosis (vacunas) o producto (desparasitaciones)
+  function getHealthDetail(record: HealthRecord): string | null {
+    if (isDeworming(record)) {
+      return record.product?.trim() || null;
+    }
+
+    if (!record.dose_label) return null;
+    return isDoseLabel(record.dose_label)
+      ? tVacDoses(record.dose_label)
+      : record.dose_label;
+  }
+
+  function getHealthStatusLabel(record: HealthRecord, status: DueStatus): string {
+    const tr = isDeworming(record) ? tDew : tVac;
+
+    const labels: Record<DueStatus, string> = {
+      overdue: tr("statusOverdue"),
+      soon: tr("statusSoon"),
+      upcoming: tr("statusUpcoming"),
+      no_date: tr("statusNoDate"),
+      done: tr("statusDone"),
+    };
+
+    return labels[status];
+  }
 
   // Habilidades del filtro, ordenadas por nombre en el idioma actual
   const skillOptions = useMemo(
@@ -468,8 +497,8 @@ export default function CalendarPage() {
     return trainingsByDate.get(toDateString(year, month, day)) ?? [];
   }
 
-  function getVaccinationsForDay(day: number) {
-    return vaccinationsByDate.get(toDateString(year, month, day)) ?? [];
+  function getHealthForDay(day: number) {
+    return healthByDate.get(toDateString(year, month, day)) ?? [];
   }
 
   function getPetName(petId: number) {
@@ -529,12 +558,14 @@ export default function CalendarPage() {
     router.push(`/trainings/${trainingId}/edit`);
   }
 
-  function openVaccines(petId: number) {
-    router.push(`/pets/${petId}/vaccines`);
+  // Abre la pantalla Salud del perro en la pestaña que corresponde
+  function openHealth(record: HealthRecord) {
+    const tab = isDeworming(record) ? "?tab=deworming" : "";
+    router.push(`/pets/${record.pet_id}/vaccines${tab}`);
   }
 
   const selectedTrainings = getTrainingsForDay(selectedDay);
-  const selectedVaccinations = getVaccinationsForDay(selectedDay);
+  const selectedHealth = getHealthForDay(selectedDay);
 
   const selectedDateLabel = capitalizeFirst(
     new Date(year, month, selectedDay).toLocaleDateString(dateLocale, {
@@ -552,14 +583,14 @@ export default function CalendarPage() {
         (training) =>
           training.pet_id === pet.id && training.date.startsWith(monthPrefix)
       ) ||
-      vaccinations.some(
-        (vaccination) =>
-          vaccination.pet_id === pet.id &&
-          (getVaccinationDate(vaccination) ?? "").startsWith(monthPrefix)
+      healthRecords.some(
+        (record) =>
+          record.pet_id === pet.id &&
+          (getHealthDate(record) ?? "").startsWith(monthPrefix)
       )
   );
 
-  const hasVaccinesThisMonth = Array.from(vaccinationsByDate.keys()).some((date) =>
+  const hasHealthThisMonth = Array.from(healthByDate.keys()).some((date) =>
     date.startsWith(monthPrefix)
   );
 
@@ -858,7 +889,7 @@ export default function CalendarPage() {
                   }
 
                   const dayTrainings = getTrainingsForDay(day);
-                  const hasVaccine = getVaccinationsForDay(day).length > 0;
+                  const hasHealth = getHealthForDay(day).length > 0;
                   const isSelected = day === selectedDay;
                   const today = isToday(day);
                   const isWeekend = index % 7 >= 5;
@@ -890,9 +921,9 @@ export default function CalendarPage() {
                         {day}
                       </span>
 
-                      {/* BARRITAS DE COLOR (entrenamientos) Y PUNTO ROSA (vacunas) */}
+                      {/* BARRITAS DE COLOR (entrenamientos) Y PUNTO ROSA (salud) */}
 
-                      {(dayTrainings.length > 0 || hasVaccine) && (
+                      {(dayTrainings.length > 0 || hasHealth) && (
                         <span className="flex items-center gap-1">
                           {dayTrainings.length > 0 && (
                             <span className="flex h-1.5 w-8 gap-px overflow-hidden rounded-full md:w-10">
@@ -908,10 +939,10 @@ export default function CalendarPage() {
                             </span>
                           )}
 
-                          {hasVaccine && (
+                          {hasHealth && (
                             <span
                               className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: VACCINE_DOT_COLOR }}
+                              style={{ backgroundColor: HEALTH_DOT_COLOR }}
                             />
                           )}
                         </span>
@@ -921,9 +952,9 @@ export default function CalendarPage() {
                 })}
               </div>
 
-              {/* LEYENDA DE MASCOTAS Y VACUNAS */}
+              {/* LEYENDA DE MASCOTAS Y SALUD */}
 
-              {(petsThisMonth.length > 0 || hasVaccinesThisMonth) && (
+              {(petsThisMonth.length > 0 || hasHealthThisMonth) && (
                 <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
                   {petsThisMonth.map((pet) => (
                     <div
@@ -938,13 +969,13 @@ export default function CalendarPage() {
                     </div>
                   ))}
 
-                  {hasVaccinesThisMonth && (
+                  {hasHealthThisMonth && (
                     <div className="flex items-center gap-1.5 text-sm text-slate-600">
                       <span
                         className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: VACCINE_DOT_COLOR }}
+                        style={{ backgroundColor: HEALTH_DOT_COLOR }}
                       />
-                      {tVac("navLabel")}
+                      {tHealth("navLabel")}
                     </div>
                   )}
                 </div>
@@ -957,8 +988,8 @@ export default function CalendarPage() {
                   {selectedDateLabel}
                 </h3>
 
-                {selectedTrainings.length === 0 && selectedVaccinations.length === 0 ? (
-                  // Día sin entrenamientos ni vacunas: Pawsi descansando
+                {selectedTrainings.length === 0 && selectedHealth.length === 0 ? (
+                  // Día sin entrenamientos ni salud: Pawsi descansando
                   <div className="flex justify-center py-2">
                     <Pawsi pose="espera" size={80} />
                   </div>
@@ -1029,46 +1060,47 @@ export default function CalendarPage() {
                       );
                     })}
 
-                    {/* VACUNAS DEL DÍA */}
+                    {/* SALUD DEL DÍA (vacunas y desparasitaciones) */}
 
-                    {selectedVaccinations.map((vaccination) => {
+                    {selectedHealth.map((record) => {
                       const dueStatus = getDueStatus(
-                        vaccination.status,
-                        vaccination.due_date,
+                        record.status,
+                        record.due_date,
                         todayString
                       );
-                      const dose = getVaccineDose(vaccination);
+                      const detail = getHealthDetail(record);
 
                       return (
                         <button
                           type="button"
-                          key={vaccination.id}
-                          onClick={() => openVaccines(vaccination.pet_id)}
+                          key={record.id}
+                          onClick={() => openHealth(record)}
                           className="flex w-full items-stretch gap-3 rounded-xl bg-rose-50 p-3 text-left transition hover:bg-rose-100 hover:shadow-sm"
                         >
                           <span
                             className="w-1.5 shrink-0 rounded-full"
                             style={{
-                              backgroundColor: getPetColor(vaccination.pet_id),
+                              backgroundColor: getPetColor(record.pet_id),
                             }}
                           />
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
                               <div className="font-bold text-slate-900">
-                                💉 {getVaccineName(vaccination)}
+                                {healthIcon(record.category, record.vaccine_key)}{" "}
+                                {getHealthName(record)}
                               </div>
 
                               <span
-                                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${VACCINE_STATUS_STYLES[dueStatus]}`}
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${HEALTH_STATUS_STYLES[dueStatus]}`}
                               >
-                                {vaccineStatusLabel[dueStatus]}
+                                {getHealthStatusLabel(record, dueStatus)}
                               </span>
                             </div>
 
                             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-                              <span>🐾 {getPetName(vaccination.pet_id)}</span>
-                              {dose && <span>{dose}</span>}
+                              <span>🐾 {getPetName(record.pet_id)}</span>
+                              {detail && <span>{detail}</span>}
                             </div>
                           </div>
                         </button>

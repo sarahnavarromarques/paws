@@ -144,15 +144,18 @@ export type Database = {
       pet_vaccinations: {
         Row: {
           batch_number: string | null
+          category: string
           created_at: string
           dose_label: string | null
           due_date: string | null
           given_date: string | null
           id: string
+          interval_months: number | null
           name: string
           notes: string | null
           pet_id: number
           photo_path: string | null
+          product: string | null
           status: string
           updated_at: string
           user_id: string
@@ -161,15 +164,18 @@ export type Database = {
         }
         Insert: {
           batch_number?: string | null
+          category?: string
           created_at?: string
           dose_label?: string | null
           due_date?: string | null
           given_date?: string | null
           id?: string
+          interval_months?: number | null
           name: string
           notes?: string | null
           pet_id: number
           photo_path?: string | null
+          product?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -178,15 +184,18 @@ export type Database = {
         }
         Update: {
           batch_number?: string | null
+          category?: string
           created_at?: string
           dose_label?: string | null
           due_date?: string | null
           given_date?: string | null
           id?: string
+          interval_months?: number | null
           name?: string
           notes?: string | null
           pet_id?: number
           photo_path?: string | null
+          product?: string | null
           status?: string
           updated_at?: string
           user_id?: string

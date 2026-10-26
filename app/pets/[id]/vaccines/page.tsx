@@ -4,22 +4,35 @@ import { getTranslations } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
 import PetVaccinations from "@/components/PetVaccinations";
+import PetDewormings from "@/components/PetDewormings";
+import HealthTabs, { type HealthTab } from "@/components/HealthTabs";
 
 type PageProps = {
   params: Promise<{
     id: string;
+  }>;
+  searchParams: Promise<{
+    tab?: string;
   }>;
 };
 
 const PHOTO_BUCKET = "vaccination-photos";
 const SIGNED_URL_SECONDS = 60 * 60;
 
-// Calendario de vacunación de un perro.
-// Se cargan las vacunas y las fotos de la cartilla; el resto (plan sugerido,
-// añadir, editar, marcar como puesta) lo hace PetVaccinations en el navegador.
-export default async function PetVaccinesPage({ params }: PageProps) {
+// Pantalla Salud de un perro: pestañas Vacunas | Desparasitaciones.
+// Se cargan todos sus registros y las fotos; el resto lo hacen
+// PetVaccinations y PetDewormings en el navegador.
+export default async function PetHealthPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
-  const t = await getTranslations("Vaccines");
+  const { tab } = await searchParams;
+  const initialTab: HealthTab = tab === "deworming" ? "deworming" : "vaccines";
+
+  const t = await getTranslations("Health");
+  const tVaccines = await getTranslations("Vaccines");
+  const tDeworming = await getTranslations("Deworming");
 
   const supabase = await createClient();
 
@@ -42,17 +55,19 @@ export default async function PetVaccinesPage({ params }: PageProps) {
     notFound();
   }
 
-  const { data: vaccinationsData } = await supabase
+  const { data: rowsData } = await supabase
     .from("pet_vaccinations")
     .select("*")
     .eq("pet_id", pet.id)
     .eq("user_id", user.id);
 
-  const vaccinations = vaccinationsData ?? [];
+  const rows = rowsData ?? [];
+  const vaccinations = rows.filter((row) => row.category !== "deworming");
+  const dewormings = rows.filter((row) => row.category === "deworming");
 
   // Enlaces temporales para ver las fotos (el almacén es privado)
-  const photoPaths = vaccinations
-    .map((vaccination) => vaccination.photo_path)
+  const photoPaths = rows
+    .map((row) => row.photo_path)
     .filter((path): path is string => typeof path === "string" && path !== "");
 
   const photoUrls: Record<string, string> = {};
@@ -71,41 +86,61 @@ export default async function PetVaccinesPage({ params }: PageProps) {
 
   return (
     <main
-      data-tour-section="vaccines"
+      data-tour-section="health"
       className="min-h-screen bg-slate-100 p-6 md:p-10"
     >
       <div className="mx-auto max-w-4xl">
 
         {/* CABECERA */}
 
-        <div className="mb-8">
+        <div className="mb-6">
           <Link
             href={`/pets/${pet.id}`}
             className="inline-block rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
-            {t("backToPet")}
+            {tVaccines("backToPet")}
           </Link>
 
           <h1 className="mt-6 text-4xl font-extrabold text-blue-700 md:text-5xl">
-            {t("title", { name: pet.name })}
+            {t("title")}
           </h1>
 
           <p className="mt-3 text-lg text-slate-600">{t("subtitle")}</p>
-
-          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            ⚠️ {t("disclaimer")}
-          </p>
         </div>
 
-        {/* LISTA, PLAN SUGERIDO Y FORMULARIO */}
+        {/* PESTAÑAS */}
 
-        <PetVaccinations
-          petId={pet.id}
-          petName={pet.name}
-          userId={user.id}
-          birthDate={pet.birth_date ?? null}
-          initialVaccinations={vaccinations}
-          initialPhotoUrls={photoUrls}
+        <HealthTabs
+          initialTab={initialTab}
+          vaccines={
+            <>
+              <p className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                ⚠️ {tVaccines("disclaimer")}
+              </p>
+              <PetVaccinations
+                petId={pet.id}
+                petName={pet.name}
+                userId={user.id}
+                birthDate={pet.birth_date ?? null}
+                initialVaccinations={vaccinations}
+                initialPhotoUrls={photoUrls}
+              />
+            </>
+          }
+          deworming={
+            <>
+              <p className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                ⚠️ {tDeworming("disclaimer")}
+              </p>
+              <PetDewormings
+                petId={pet.id}
+                petName={pet.name}
+                userId={user.id}
+                initialItems={dewormings}
+                initialPhotoUrls={photoUrls}
+              />
+            </>
+          }
         />
 
       </div>

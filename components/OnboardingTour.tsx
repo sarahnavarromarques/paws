@@ -113,8 +113,8 @@ const WELCOME_STEPS: TourStep[] = [
     icon: "🧭",
     title: { es: "Todo a mano", en: "Everything at hand" },
     body: {
-      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso, su Historial o sus Vacunas.",
-      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress, its History or its Vaccines.",
+      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso, su Historial o su Salud.",
+      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress, its History or its Health.",
     },
   },
   {
@@ -148,15 +148,15 @@ const SECTIONS: SectionTour[] = [
         },
       },
       {
-        // Solo aparece si hay vacunas atrasadas o próximas (si no, se salta)
+        // Solo aparece si hay vacunas o desparasitaciones atrasadas o próximas (si no, se salta)
         id: "dashboard-vaccines",
         kind: "spot",
         target: "dashboard-vaccines",
-        icon: "💉",
-        title: { es: "Vacunas próximas", en: "Upcoming vaccines" },
+        icon: "🩺",
+        title: { es: "Salud al día", en: "Health up to date" },
         body: {
-          es: "Si alguna vacuna está atrasada o toca en los próximos 30 días, te aviso aquí. Tócala para ir a las vacunas de ese perro.",
-          en: "If any vaccine is overdue or due in the next 30 days, I'll let you know here. Tap it to go to that dog's vaccines.",
+          es: "Si alguna vacuna o desparasitación está atrasada o toca en los próximos 30 días, te aviso aquí. Tócala para ir a la Salud de ese perro.",
+          en: "If any vaccine or parasite treatment is overdue or due in the next 30 days, I'll let you know here. Tap it to go to that dog's Health.",
         },
       },
       {
@@ -305,8 +305,8 @@ const SECTIONS: SectionTour[] = [
         icon: "🧭",
         title: { es: "Todo sobre tu perro", en: "Everything about your dog" },
         body: {
-          es: "Desde aquí vas a sus Habilidades, a su Progreso, a su Historial de entrenamientos y a su calendario de Vacunas.",
-          en: "From here you reach its Skills, its Progress, its training History and its Vaccine schedule.",
+          es: "Desde aquí vas a sus Habilidades, a su Progreso, a su Historial de entrenamientos y a su Salud (vacunas y desparasitaciones).",
+          en: "From here you reach its Skills, its Progress, its training History and its Health (vaccines and parasite prevention).",
         },
       },
     ],
@@ -513,9 +513,20 @@ const SECTIONS: SectionTour[] = [
     ],
   },
   {
-    id: "vaccines",
-    name: { es: "Vacunas", en: "Vaccines" },
+    id: "health",
+    name: { es: "Salud", en: "Health" },
     steps: [
+      {
+        id: "health-tabs",
+        kind: "spot",
+        target: "health-tabs",
+        icon: "🩺",
+        title: { es: "La salud de tu perro", en: "Your dog's health" },
+        body: {
+          es: "Aquí tienes dos pestañas: Vacunas y Desparasitaciones. Cada una con sus próximas dosis y las que ya se han hecho.",
+          en: "Here you have two tabs: Vaccines and Parasite prevention. Each one with its upcoming doses and the ones already done.",
+        },
+      },
       {
         // Sin elemento iluminado: tarjeta centrada
         id: "vaccines-intro",
@@ -541,13 +552,24 @@ const SECTIONS: SectionTour[] = [
       },
       {
         // Sin elemento iluminado: tarjeta centrada
-        id: "vaccines-reminders",
+        id: "deworming-intro",
+        kind: "spot",
+        icon: "🪱",
+        title: { es: "Desparasitaciones", en: "Parasite prevention" },
+        body: {
+          es: "En la otra pestaña registras pastillas, pipetas, collares, comprimidos antipulgas y la prevención de filaria. Al marcar una como hecha, PAWS crea la siguiente según el intervalo, que puedes cambiar si tu producto dura otro tiempo.",
+          en: "In the other tab you record tablets, spot-ons, collars, flea tablets and heartworm prevention. When you mark one as done, PAWS creates the next one based on the interval, which you can change if your product lasts a different time.",
+        },
+      },
+      {
+        // Sin elemento iluminado: tarjeta centrada
+        id: "health-reminders",
         kind: "spot",
         icon: "🔔",
         title: { es: "Te aviso a tiempo", en: "I'll remind you in time" },
         body: {
-          es: "Las dosis atrasadas o que tocan en los próximos 30 días aparecen en Inicio. Además, las verás en el Calendario y en el calendario de tu móvil si lo tienes activado en Ajustes.",
-          en: "Overdue doses and those due in the next 30 days appear on Home. You'll also see them in the Calendar and in your phone's calendar if you've turned it on in Settings.",
+          es: "Lo que esté atrasado o toque en los próximos 30 días aparece en Inicio. Además, lo verás en el Calendario y en el calendario de tu móvil si lo tienes activado en Ajustes.",
+          en: "Anything overdue or due in the next 30 days appears on Home. You'll also see it in the Calendar and in your phone's calendar if you've turned it on in Settings.",
         },
       },
     ],
@@ -572,10 +594,10 @@ const SECTIONS: SectionTour[] = [
         kind: "spot",
         target: "calendar-grid",
         icon: "🗓️",
-        title: { es: "Entrenamientos y vacunas", en: "Trainings and vaccines" },
+        title: { es: "Entrenamientos y salud", en: "Trainings and health" },
         body: {
-          es: "Las barritas de color son entrenamientos y el punto rosa, vacunas. Toca un día para verlos y abrirlos. Si quieres verlos también en el calendario de tu móvil, actívalo en Ajustes.",
-          en: "The colored bars are trainings and the pink dot is vaccines. Tap a day to see and open them. If you want to see them in your phone's calendar too, turn it on in Settings.",
+          es: "Las barritas de color son entrenamientos y el punto rosa, vacunas y desparasitaciones. Toca un día para verlos y abrirlos. Si quieres verlos también en el calendario de tu móvil, actívalo en Ajustes.",
+          en: "The colored bars are trainings and the pink dot is vaccines and parasite treatments. Tap a day to see and open them. If you want to see them in your phone's calendar too, turn it on in Settings.",
         },
       },
     ],
@@ -653,8 +675,8 @@ const SECTIONS: SectionTour[] = [
         icon: "📲",
         title: { es: "Calendario del móvil", en: "Phone calendar" },
         body: {
-          es: "Añade tus entrenamientos y las próximas vacunas al calendario de tu iPhone o de Google, y se mantendrán al día solos.",
-          en: "Add your trainings and upcoming vaccines to your iPhone or Google calendar, and they'll stay up to date on their own.",
+          es: "Añade tus entrenamientos, vacunas y desparasitaciones al calendario de tu iPhone o de Google, y se mantendrán al día solos.",
+          en: "Add your trainings, vaccines and parasite treatments to your iPhone or Google calendar, and they'll stay up to date on their own.",
         },
       },
       {
