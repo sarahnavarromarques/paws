@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-import { createClient } from "@/lib/supabase/server";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import {
   MASTERED_THRESHOLD,
   buildLocalOrder,
@@ -18,9 +18,13 @@ export const runtime = "nodejs";
 // La IA tarda unos 20-30 s en ordenar muchos grupos: margen para Vercel.
 export const maxDuration = 60;
 
+const MODEL = "claude-haiku-4-5";
+
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const TOOL_NAME = "save_training_order";
+
+type AiUser = NonNullable<Awaited<ReturnType<typeof getAiUser>>>;
 
 type PetInfo = {
   name: string;
@@ -78,11 +82,15 @@ Guarda el resultado con la herramienta ${TOOL_NAME}. Reglas:
 - No inventes datos que no aparezcan arriba.`;
 }
 
-async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
+async function askAI(
+  apiKey: string,
+  prompt: string,
+  aiUser: AiUser
+): Promise<unknown | null> {
   const anthropic = new Anthropic({ apiKey });
 
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: MODEL,
     max_tokens: 6000,
     tools: [
       {
@@ -140,6 +148,15 @@ async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
     messages: [{ role: "user", content: prompt }],
   });
 
+  // Registramos el coste real de esta llamada, aunque luego la respuesta no sirva.
+  await recordAiUsage({
+    supabase: aiUser.supabase,
+    userId: aiUser.userId,
+    feature: "training-order",
+    model: MODEL,
+    usage: message.usage,
+  });
+
   const toolBlock = message.content.find((block) => block.type === "tool_use");
 
   // Solo en local: ver qué devuelve la IA exactamente
@@ -175,21 +192,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "bad_pet_id" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  // Solo usuarios conectados pueden usar la IA.
+  const aiUser = await getAiUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!aiUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const { supabase, userId } = aiUser;
 
   const { data: pet } = await supabase
     .from("pets")
     .select("id, name, breed, objective, level")
     .eq("id", petId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   if (!pet) {
@@ -238,7 +254,7 @@ export async function POST(request: Request) {
     .from("trainings")
     .select("skill_id")
     .eq("pet_id", petId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("status", "completed");
 
   const skillsById = new Map((skillRows ?? []).map((skill) => [skill.id, skill]));
@@ -298,7 +314,8 @@ export async function POST(request: Request) {
           },
           inputGroups,
           audience
-        )
+        ),
+        aiUser
       );
 
       const sanitized = sanitizeOrder(raw, inputGroups);
@@ -321,7 +338,7 @@ export async function POST(request: Request) {
     .upsert(
       {
         pet_id: petId,
-        user_id: user.id,
+        user_id: userId,
         data: order,
         used_fallback: usedFallback,
         updated_at: updatedAt,

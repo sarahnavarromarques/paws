@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-import { createClient } from "@/lib/supabase/server";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import {
   CHAT_MAX_LENGTH,
   guideToPlainText,
@@ -14,6 +14,8 @@ import {
 // Se ejecuta en el servidor: la clave de la IA nunca llega al navegador.
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const MODEL = "claude-haiku-4-5";
 
 // Cuántos mensajes anteriores se mandan a la IA como contexto
 const HISTORY_LIMIT = 20;
@@ -45,15 +47,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "bad_message" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  // Solo usuarios conectados pueden usar la IA.
+  const aiUser = await getAiUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!aiUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const { supabase, userId } = aiUser;
 
   // --- Contexto: entrenamiento, perro, habilidad, progreso y guía ---
 
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     .from("trainings")
     .select("id, pet_id, skill_id, duration")
     .eq("id", trainingId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   if (!training || training.pet_id === null || training.skill_id === null) {
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
     .from("pets")
     .select("name, breed, level, objective")
     .eq("id", training.pet_id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   const { data: skill } = await supabase
@@ -175,13 +176,22 @@ Reglas:
     const anthropic = new Anthropic({ apiKey });
 
     const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+      model: MODEL,
       max_tokens: 600,
       system,
       messages: [
         ...history.map((row) => ({ role: row.role, content: row.content })),
         { role: "user" as const, content: question },
       ],
+    });
+
+    // Registramos el coste real de esta llamada.
+    await recordAiUsage({
+      supabase,
+      userId,
+      feature: "session-chat",
+      model: MODEL,
+      usage: message.usage,
     });
 
     answer = message.content
@@ -204,13 +214,13 @@ Reglas:
     .insert([
       {
         training_id: trainingId,
-        user_id: user.id,
+        user_id: userId,
         role: "user",
         content: question,
       },
       {
         training_id: trainingId,
-        user_id: user.id,
+        user_id: userId,
         role: "assistant",
         content: answer.slice(0, 4000),
       },

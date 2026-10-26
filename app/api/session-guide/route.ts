@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-import { createClient } from "@/lib/supabase/server";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import {
   buildLocalGuide,
   sanitizeGuide,
@@ -14,6 +14,7 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const MODEL = "claude-haiku-4-5";
 const IS_DEV = process.env.NODE_ENV !== "production";
 const TOOL_NAME = "save_session_guide";
 
@@ -57,15 +58,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "bad_training_id" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  // Solo usuarios conectados pueden usar la IA.
+  const aiUser = await getAiUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!aiUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const { supabase, userId } = aiUser;
 
   // --- Entrenamiento, perro y habilidad ---
 
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     .from("trainings")
     .select("id, pet_id, skill_id, duration, notes")
     .eq("id", trainingId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   if (!training || training.pet_id === null || training.skill_id === null) {
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     .from("pets")
     .select("name, breed, birth_date, objective, level")
     .eq("id", petId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   const { data: skill } = await supabase
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     .select("date, duration, notes")
     .eq("pet_id", petId)
     .eq("skill_id", skillId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("status", "completed")
     .order("date", { ascending: false })
     .limit(5);
@@ -212,7 +212,7 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
       const anthropic = new Anthropic({ apiKey });
 
       const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5",
+        model: MODEL,
         max_tokens: 2000,
         tools: [
           {
@@ -273,6 +273,15 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
         messages: [{ role: "user", content: prompt }],
       });
 
+      // Registramos el coste real de esta llamada, aunque luego la respuesta no sirva.
+      await recordAiUsage({
+        supabase,
+        userId,
+        feature: "session-guide",
+        model: MODEL,
+        usage: message.usage,
+      });
+
       const toolBlock = message.content.find((block) => block.type === "tool_use");
 
       if (IS_DEV) {
@@ -301,7 +310,7 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
     .upsert(
       {
         training_id: trainingId,
-        user_id: user.id,
+        user_id: userId,
         locale,
         data: guide,
         used_fallback: usedFallback,

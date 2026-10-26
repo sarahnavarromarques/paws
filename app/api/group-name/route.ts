@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getAiUser, recordAiUsage } from "../../../lib/ai-usage";
 
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
 // Por eso la clave de la API queda oculta y segura aquí.
 export const runtime = "nodejs";
+
+const MODEL = "claude-haiku-4-5";
 
 type SkillInput = {
   id: number;
@@ -12,6 +15,12 @@ type SkillInput = {
 };
 
 export async function POST(request: Request) {
+  // Solo usuarios conectados pueden usar la IA.
+  const aiUser = await getAiUser();
+  if (!aiUser) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   // Si todavía no hay clave configurada, avisamos al frontend
@@ -63,7 +72,7 @@ Devuelve SOLO un nombre para este grupo, en español, de 1 a 3 palabras, sin com
 
   try {
     const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+      model: MODEL,
       max_tokens: 30,
       messages: [
         {
@@ -71,6 +80,15 @@ Devuelve SOLO un nombre para este grupo, en español, de 1 a 3 palabras, sin com
           content: prompt,
         },
       ],
+    });
+
+    // Registramos el coste real de esta llamada.
+    await recordAiUsage({
+      supabase: aiUser.supabase,
+      userId: aiUser.userId,
+      feature: "group-name",
+      model: MODEL,
+      usage: message.usage,
     });
 
     const text = message.content

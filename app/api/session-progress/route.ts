@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-import { createClient } from "@/lib/supabase/server";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 
 // Se ejecuta en el servidor de Next.js. La clave queda oculta aquí.
 export const runtime = "nodejs";
 
+const MODEL = "claude-haiku-4-5";
+
 // Cuántas preguntas del chat se pasan como contexto, y su longitud máxima
 const CHAT_CONTEXT_LIMIT = 10;
 const CHAT_CONTEXT_MAX_CHARS = 300;
+
+type AiUser = NonNullable<Awaited<ReturnType<typeof getAiUser>>>;
 
 type Answers = {
   attempts: number;
@@ -46,14 +50,15 @@ const MOOD_LABELS: Record<string, { es: string; en: string }> = {
 
 // Preguntas que el usuario hizo en el chat de esta sesión (solo las suyas).
 // Si algo falla, devuelve una lista vacía: el progreso se calcula igual.
-async function loadChatQuestions(trainingId: number | undefined): Promise<string[]> {
+async function loadChatQuestions(
+  supabase: AiUser["supabase"],
+  trainingId: number | undefined
+): Promise<string[]> {
   if (typeof trainingId !== "number" || !Number.isInteger(trainingId)) {
     return [];
   }
 
   try {
-    const supabase = await createClient();
-
     const { data } = await supabase
       .from("training_chat_messages")
       .select("content")
@@ -74,6 +79,16 @@ async function loadChatQuestions(trainingId: number | undefined): Promise<string
 }
 
 export async function POST(request: Request) {
+  // Solo usuarios conectados pueden usar la IA.
+  // Si no hay sesión, la pantalla usa su cálculo local de respaldo.
+  const aiUser = await getAiUser();
+
+  if (!aiUser) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const { supabase, userId } = aiUser;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -102,7 +117,7 @@ export async function POST(request: Request) {
   const accountType = await getCurrentAccountType();
   const audience = getAudienceInstructions(accountType, locale === "en");
 
-  const chatQuestions = await loadChatQuestions(body.trainingId);
+  const chatQuestions = await loadChatQuestions(supabase, body.trainingId);
 
   const anthropic = new Anthropic({ apiKey });
 
@@ -188,7 +203,7 @@ Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
 
   try {
     const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+      model: MODEL,
       max_tokens: 200,
       messages: [
         {
@@ -196,6 +211,15 @@ Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
           content: prompt,
         },
       ],
+    });
+
+    // Registramos el coste real de esta llamada, aunque luego la respuesta no sirva.
+    await recordAiUsage({
+      supabase,
+      userId,
+      feature: "session-progress",
+      model: MODEL,
+      usage: message.usage,
     });
 
     const raw = message.content

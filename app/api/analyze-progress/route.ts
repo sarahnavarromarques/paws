@@ -3,10 +3,13 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
 // La clave de la API queda oculta y segura aquí.
 export const runtime = "nodejs";
+
+const MODEL = "claude-haiku-4-5";
 
 type SkillInput = {
   name: string;
@@ -32,6 +35,12 @@ type PetInput = {
 };
 
 export async function POST(request: Request) {
+  // Solo usuarios conectados pueden usar la IA.
+  const aiUser = await getAiUser();
+  if (!aiUser) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   // Si no hay clave, avisamos para que el frontend use su resumen local.
@@ -156,7 +165,7 @@ Write in English, addressing the reader directly, clear and practical. Don't inv
 
   try {
     const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+      model: MODEL,
       max_tokens: 700,
       messages: [
         {
@@ -164,6 +173,15 @@ Write in English, addressing the reader directly, clear and practical. Don't inv
           content: isEn ? promptEn : promptEs,
         },
       ],
+    });
+
+    // Registramos el coste real de esta llamada.
+    await recordAiUsage({
+      supabase: aiUser.supabase,
+      userId: aiUser.userId,
+      feature: "analyze-progress",
+      model: MODEL,
+      usage: message.usage,
     });
 
     const raw = message.content

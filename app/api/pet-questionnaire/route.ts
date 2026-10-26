@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-import { createClient } from "@/lib/supabase/server";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import {
   MAX_PROPOSAL_GROUPS,
   MAX_SKILLS_PER_GROUP,
@@ -29,9 +29,13 @@ export const maxDuration = 300;
 // cortada y se usa la propuesta local de respaldo.
 const MAX_OUTPUT_TOKENS = 16000;
 
+const MODEL = "claude-haiku-4-5";
+
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const TOOL_NAME = "save_questionnaire_proposal";
+
+type AiUser = NonNullable<Awaited<ReturnType<typeof getAiUser>>>;
 
 type PetInfo = {
   name: string;
@@ -126,13 +130,17 @@ Idioma: ${languageRule}
 Guarda el resultado con la herramienta ${TOOL_NAME}. No inventes habilidades ni ids que no estén en el catálogo.`;
 }
 
-async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
+async function askAI(
+  apiKey: string,
+  prompt: string,
+  aiUser: AiUser
+): Promise<unknown | null> {
   const anthropic = new Anthropic({ apiKey });
 
   const startedAt = Date.now();
 
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: MODEL,
     max_tokens: MAX_OUTPUT_TOKENS,
     tools: [
       {
@@ -178,6 +186,15 @@ async function askAI(apiKey: string, prompt: string): Promise<unknown | null> {
     ],
     tool_choice: { type: "tool", name: TOOL_NAME },
     messages: [{ role: "user", content: prompt }],
+  });
+
+  // Registramos el coste real de esta llamada, aunque luego la respuesta no sirva.
+  await recordAiUsage({
+    supabase: aiUser.supabase,
+    userId: aiUser.userId,
+    feature: "pet-questionnaire",
+    model: MODEL,
+    usage: message.usage,
   });
 
   const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -240,21 +257,20 @@ export async function POST(request: Request) {
     typeof body.locale === "string" ? body.locale : "es"
   );
 
-  const supabase = await createClient();
+  // Solo usuarios conectados pueden usar la IA.
+  const aiUser = await getAiUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!aiUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const { supabase, userId } = aiUser;
 
   const { data: pet } = await supabase
     .from("pets")
     .select("id, name, breed, birth_date, sex, weight")
     .eq("id", petId)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
 
   if (!pet) {
@@ -321,7 +337,8 @@ export async function POST(request: Request) {
           existingGroupNames,
           locale,
           audience
-        )
+        ),
+        aiUser
       );
 
       if (raw) {
@@ -348,7 +365,7 @@ export async function POST(request: Request) {
     .upsert(
       {
         pet_id: petId,
-        user_id: user.id,
+        user_id: userId,
         answers,
         proposal,
         status: "draft",
