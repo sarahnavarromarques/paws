@@ -8,8 +8,16 @@ import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import { isMastered } from "@/lib/training-order";
+import {
+  daysBetween,
+  getDueStatus,
+  isVaccineKey,
+} from "@/lib/vaccination-plan";
 
 const supabase = createClient();
+
+// Máximo de vacunas que se muestran en el aviso del panel
+const MAX_VACCINE_ALERTS = 4;
 
 // ---------------------------------------------------------------------------
 // Textos nuevos del panel (español / inglés)
@@ -45,6 +53,8 @@ type DashText = {
   clickerDetail: string;
   skillsDetail: string;
   settingsDetail: string;
+  vaccinesTitle: string;
+  vaccinesMore: string;
 };
 
 const DASH_TEXT: Record<"es" | "en", DashText> = {
@@ -78,6 +88,8 @@ const DASH_TEXT: Record<"es" | "en", DashText> = {
     clickerDetail: "Marca el momento exacto con un clic",
     skillsDetail: "Catálogo y progreso de cada perro",
     settingsDetail: "Perfil, idioma y calendario del móvil",
+    vaccinesTitle: "💉 Vacunas próximas",
+    vaccinesMore: "y {n} más",
   },
   en: {
     todayNone: "No trainings today.",
@@ -109,6 +121,8 @@ const DASH_TEXT: Record<"es" | "en", DashText> = {
     clickerDetail: "Mark the exact moment with a click",
     skillsDetail: "Catalog and each dog's progress",
     settingsDetail: "Profile, language and phone calendar",
+    vaccinesTitle: "💉 Upcoming vaccines",
+    vaccinesMore: "and {n} more",
   },
 };
 
@@ -180,9 +194,31 @@ type NextTraining = {
   petPhoto: string | null;
 };
 
+type VaccinationRow = {
+  id: string;
+  pet_id: number;
+  vaccine_key: string | null;
+  name: string;
+  status: string;
+  due_date: string | null;
+};
+
+type VaccineAlert = {
+  id: string;
+  petId: number;
+  petName: string;
+  petPhoto: string | null;
+  vaccineKey: string | null;
+  name: string;
+  kind: "overdue" | "soon";
+  dueDate: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const t = useTranslations("Dashboard");
+  const tVac = useTranslations("Vaccines");
+  const tVacNames = useTranslations("Vaccines.vaccineNames");
   const locale = useLocale();
   const lang: "es" | "en" = locale === "en" ? "en" : "es";
   const tx = DASH_TEXT[lang];
@@ -198,6 +234,7 @@ export default function DashboardPage() {
   const [weekMinutes, setWeekMinutes] = useState(0);
   const [masteredCount, setMasteredCount] = useState(0);
   const [nextTraining, setNextTraining] = useState<NextTraining | null>(null);
+  const [vaccineAlerts, setVaccineAlerts] = useState<VaccineAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -329,6 +366,45 @@ export default function DashboardPage() {
         setNextTraining(null);
       }
 
+      // --- Vacunas atrasadas o próximas (30 días) ---
+      // Si falla, el panel sigue funcionando sin el aviso
+      const { data: vaccinationsData, error: vaccinationsError } = await supabase
+        .from("pet_vaccinations")
+        .select("id, pet_id, vaccine_key, name, status, due_date")
+        .eq("user_id", user.id)
+        .neq("status", "done")
+        .not("due_date", "is", null);
+
+      if (vaccinationsError) {
+        console.error("[panel] Error cargando vacunas:", vaccinationsError);
+      }
+
+      const alerts: VaccineAlert[] = [];
+
+      for (const row of (vaccinationsData ?? []) as VaccinationRow[]) {
+        if (!row.due_date) continue;
+
+        const dueStatus = getDueStatus(row.status, row.due_date, todayISO);
+        if (dueStatus !== "overdue" && dueStatus !== "soon") continue;
+
+        const pet = petsById.get(row.pet_id);
+
+        alerts.push({
+          id: row.id,
+          petId: row.pet_id,
+          petName: pet?.name ?? "",
+          petPhoto: pet?.photo ?? null,
+          vaccineKey: row.vaccine_key,
+          name: row.name,
+          kind: dueStatus,
+          dueDate: row.due_date.slice(0, 10),
+        });
+      }
+
+      // Primero las más atrasadas, después las más cercanas
+      alerts.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      setVaccineAlerts(alerts);
+
       // --- Habilidades dominadas (todas las de tus perros) ---
       if (pets.length > 0) {
         const { data: petSkillsData } = await supabase
@@ -387,6 +463,21 @@ export default function DashboardPage() {
     return time ? `${day} · ${time}` : day;
   }
 
+  // Nombre de la vacuna en el idioma actual
+  function vaccineName(alert: VaccineAlert): string {
+    return isVaccineKey(alert.vaccineKey)
+      ? tVacNames(alert.vaccineKey)
+      : alert.name;
+  }
+
+  // "Hace 3 días" / "En 12 días" / "Hoy"
+  function vaccineRelative(dueDate: string): string {
+    const diff = daysBetween(toISODate(new Date()), dueDate) ?? 0;
+    return diff < 0
+      ? tVac("daysOverdue", { count: -diff })
+      : tVac("inDays", { count: diff });
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 p-10">
@@ -439,6 +530,9 @@ export default function DashboardPage() {
 
   // Línea de fecha de la tarjeta azul
   const nextWhen = nextTraining ? formatWhen(nextTraining.date, nextTraining.time) : "";
+
+  const shownVaccineAlerts = vaccineAlerts.slice(0, MAX_VACCINE_ALERTS);
+  const hiddenVaccineAlerts = vaccineAlerts.length - shownVaccineAlerts.length;
 
   return (
     <main
@@ -522,6 +616,77 @@ export default function DashboardPage() {
                   {t("addOne")}
                 </Link>
               </p>
+            </div>
+          </section>
+        )}
+
+        {/* AVISO DE VACUNAS (solo si hay atrasadas o próximas) */}
+        {shownVaccineAlerts.length > 0 && (
+          <section data-tour="dashboard-vaccines" className="mb-8">
+            <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 shadow-sm md:p-6">
+              <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-rose-700">
+                {tx.vaccinesTitle}
+              </h2>
+
+              <div className="space-y-2">
+                {shownVaccineAlerts.map((alert) => (
+                  <Link
+                    key={alert.id}
+                    href={`/pets/${alert.petId}/vaccines`}
+                    className="group flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm transition hover:shadow-md"
+                  >
+                    {alert.petPhoto ? (
+                      <img
+                        src={alert.petPhoto}
+                        alt={alert.petName}
+                        className="h-11 w-11 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-rose-100 text-xl">
+                        🐶
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-slate-800">
+                          {vaccineName(alert)}
+                        </p>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            alert.kind === "overdue"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {alert.kind === "overdue"
+                            ? tVac("statusOverdue")
+                            : tVac("statusSoon")}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500">
+                        {[
+                          alert.petName,
+                          formatWhen(alert.dueDate, ""),
+                          vaccineRelative(alert.dueDate),
+                        ]
+                          .filter((part) => part !== "")
+                          .join(" · ")}
+                      </p>
+                    </div>
+
+                    <span className="text-xl text-slate-300 transition group-hover:translate-x-1 group-hover:text-rose-500">
+                      →
+                    </span>
+                  </Link>
+                ))}
+              </div>
+
+              {hiddenVaccineAlerts > 0 && (
+                <p className="mt-3 text-sm font-semibold text-rose-700">
+                  {fill(tx.vaccinesMore, hiddenVaccineAlerts)}
+                </p>
+              )}
             </div>
           </section>
         )}

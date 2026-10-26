@@ -18,6 +18,7 @@ import {
   todayIso,
   type DoseLabel,
   type DueStatus,
+  type PlannedDose,
   type VaccineKey,
 } from "@/lib/vaccination-plan";
 
@@ -47,6 +48,13 @@ type FormState = {
   removePhoto: boolean;
   newPhoto: File | null;
   newPhotoPreview: string | null;
+};
+
+// Ventana "¿Cuáles de estas dosis ya se ha puesto?" al generar el plan
+type PlanPrompt = {
+  plan: PlannedDose[];
+  pastIndexes: number[];
+  checked: number[];
 };
 
 type Props = {
@@ -120,6 +128,7 @@ export default function PetVaccinations({
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [planPrompt, setPlanPrompt] = useState<PlanPrompt | null>(null);
   const [generating, setGenerating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -426,24 +435,60 @@ export default function PetVaccinations({
     }
   }
 
-  // --- Acciones de la lista ---
+  // --- Plan sugerido ---
 
-  async function handleGeneratePlan() {
+  // Paso 1: calcular el plan. Si hay dosis con fecha pasada, se pregunta cuáles ya se puso.
+  function handleGeneratePlan() {
+    setInfo(null);
+    setError(null);
+
+    const plan = buildSuggestedPlan(birthDate, today);
+
+    const pastIndexes = plan
+      .map((dose, index) => (dose.dueDate && dose.dueDate < today ? index : -1))
+      .filter((index) => index >= 0);
+
+    if (pastIndexes.length === 0) {
+      void createPlan(plan, []);
+      return;
+    }
+
+    // Por defecto, todas marcadas (lo más probable es que ya se las haya puesto)
+    setPlanPrompt({ plan, pastIndexes, checked: pastIndexes });
+  }
+
+  function togglePastDose(index: number) {
+    setPlanPrompt((current) => {
+      if (!current) return current;
+
+      const checked = current.checked.includes(index)
+        ? current.checked.filter((i) => i !== index)
+        : current.checked.concat(index);
+
+      return { ...current, checked };
+    });
+  }
+
+  // Paso 2: guardar el plan. Las dosis marcadas quedan como puestas en su fecha.
+  async function createPlan(plan: PlannedDose[], doneIndexes: number[]) {
     setGenerating(true);
     setInfo(null);
     setError(null);
 
     try {
-      const plan = buildSuggestedPlan(birthDate, today);
+      const rows: VaccinationInsert[] = plan.map((dose, index) => {
+        const isDone = doneIndexes.includes(index) && dose.dueDate !== null;
 
-      const rows: VaccinationInsert[] = plan.map((dose) => ({
-        pet_id: petId,
-        vaccine_key: dose.vaccineKey,
-        name: tNames(dose.vaccineKey),
-        dose_label: dose.doseLabel,
-        status: "pending",
-        due_date: dose.dueDate,
-      }));
+        return {
+          pet_id: petId,
+          vaccine_key: dose.vaccineKey,
+          name: tNames(dose.vaccineKey),
+          dose_label: dose.doseLabel,
+          status: isDone ? "done" : "pending",
+          due_date: dose.dueDate,
+          given_date: isDone ? dose.dueDate : null,
+        };
+      });
 
       const { data, error: insertError } = await supabase
         .from("pet_vaccinations")
@@ -455,7 +500,48 @@ export default function PetVaccinations({
         return;
       }
 
-      setVaccinations((current) => current.concat(data));
+      // Vacunas que han quedado sin ninguna dosis pendiente → su siguiente refuerzo
+      const boosters: VaccinationInsert[] = [];
+      const planKeys = Array.from(new Set(plan.map((dose) => dose.vaccineKey)));
+
+      for (const key of planKeys) {
+        const rowsOfKey = data.filter((row) => row.vaccine_key === key);
+        const hasPending = rowsOfKey.some((row) => row.status !== "done");
+
+        const lastGiven = rowsOfKey
+          .map((row) => row.given_date)
+          .filter((date): date is string => typeof date === "string")
+          .sort()
+          .pop();
+
+        if (hasPending || !lastGiven) continue;
+
+        const boosterDate = nextBoosterDate(key, lastGiven);
+        if (!boosterDate) continue;
+
+        boosters.push({
+          pet_id: petId,
+          vaccine_key: key,
+          name: tNames(key),
+          dose_label: "booster",
+          status: "pending",
+          due_date: boosterDate,
+        });
+      }
+
+      let boosterRows: VaccinationRow[] = [];
+
+      if (boosters.length > 0) {
+        const { data: boosterData } = await supabase
+          .from("pet_vaccinations")
+          .insert(boosters)
+          .select("*");
+
+        boosterRows = boosterData ?? [];
+      }
+
+      setVaccinations((current) => current.concat(data, boosterRows));
+      setPlanPrompt(null);
       setInfo(
         plan.some((dose) => dose.dueDate)
           ? t("planPuppyInfo")
@@ -468,6 +554,8 @@ export default function PetVaccinations({
       setGenerating(false);
     }
   }
+
+  // --- Eliminar ---
 
   async function handleDelete(row: VaccinationRow) {
     if (!window.confirm(t("confirmDelete"))) return;
@@ -751,6 +839,76 @@ export default function PetVaccinations({
               </div>
             </section>
           )}
+        </div>
+      )}
+
+      {/* VENTANA: DOSIS CON FECHA PASADA AL GENERAR EL PLAN */}
+
+      {planPrompt && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-2xl font-bold text-slate-900">
+              {t("pastDosesTitle", { name: petName })}
+            </h2>
+            <p className="mt-2 text-slate-600">{t("pastDosesText")}</p>
+
+            <div className="mt-5 space-y-2">
+              {planPrompt.pastIndexes.map((index) => {
+                const dose = planPrompt.plan[index];
+                const isChecked = planPrompt.checked.includes(index);
+
+                return (
+                  <label
+                    key={index}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                      isChecked
+                        ? "border-green-300 bg-green-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => togglePastDose(index)}
+                      className="mt-1 h-5 w-5 shrink-0 accent-green-600"
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-slate-900">
+                        💉 {tNames(dose.vaccineKey)}
+                      </span>
+                      <span className="block text-sm text-slate-600">
+                        {tDoses(dose.doseLabel)}
+                        {dose.dueDate
+                          ? ` · ${formatDate(dose.dueDate, locale)}`
+                          : ""}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPlanPrompt(null)}
+                disabled={generating}
+                className="rounded-xl bg-slate-100 px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void createPlan(planPrompt.plan, planPrompt.checked)
+                }
+                disabled={generating}
+                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                {generating ? t("generatingPlan") : t("createPlan")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

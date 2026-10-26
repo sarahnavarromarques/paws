@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
+import { isDoseLabel, isVaccineKey } from "@/lib/vaccination-plan";
+import vaccinesEs from "@/messages/features/vaccines.es.json";
+import vaccinesEn from "@/messages/features/vaccines.en.json";
 
 // Siempre se genera en el momento (nunca desde caché)
 export const dynamic = "force-dynamic";
@@ -18,15 +21,21 @@ const CALENDAR_TEXT: Record<
   { calendarName: string; calendarDescription: string; openInPaws: string }
 > = {
   es: {
-    calendarName: "PAWS – Entrenamientos",
-    calendarDescription: "Entrenamientos planificados en PAWS",
+    calendarName: "PAWS – Entrenamientos y vacunas",
+    calendarDescription: "Entrenamientos y vacunas planificados en PAWS",
     openInPaws: "Abrir en PAWS",
   },
   en: {
-    calendarName: "PAWS – Trainings",
-    calendarDescription: "Trainings planned in PAWS",
+    calendarName: "PAWS – Trainings and vaccines",
+    calendarDescription: "Trainings and vaccines planned in PAWS",
     openInPaws: "Open in PAWS",
   },
+};
+
+// Nombres de vacunas y dosis (los mismos textos que la pantalla Vacunas)
+const VACCINE_TEXT = {
+  es: vaccinesEs.Vaccines,
+  en: vaccinesEn.Vaccines,
 };
 
 // Zona horaria de Madrid (horario de verano e invierno)
@@ -176,15 +185,22 @@ export async function GET(
 
   const language: Language = profile.language === "en" ? "en" : "es";
   const text = CALENDAR_TEXT[language];
+  const vaccineText = VACCINE_TEXT[language];
 
-  // 2) Leer mascotas y entrenamientos del usuario
-  const [petsResult, trainingsResult] = await Promise.all([
+  // 2) Leer mascotas, entrenamientos y vacunas pendientes con fecha
+  const [petsResult, trainingsResult, vaccinationsResult] = await Promise.all([
     admin.from("pets").select("id, name").eq("user_id", profile.id),
     admin
       .from("trainings")
       .select("id, pet_id, title, date, time, duration, notes")
       .eq("user_id", profile.id)
       .order("date", { ascending: true }),
+    admin
+      .from("pet_vaccinations")
+      .select("id, pet_id, vaccine_key, name, dose_label, due_date")
+      .eq("user_id", profile.id)
+      .neq("status", "done")
+      .not("due_date", "is", null),
   ]);
 
   if (petsResult.error || trainingsResult.error) {
@@ -193,6 +209,11 @@ export async function GET(
       petsResult.error ?? trainingsResult.error
     );
     return textResponse("Server error", 500);
+  }
+
+  // Si fallan las vacunas, el calendario sigue con los entrenamientos
+  if (vaccinationsResult.error) {
+    console.error("calendar: error leyendo vacunas", vaccinationsResult.error);
   }
 
   const petNames = new Map<number, string>();
@@ -218,6 +239,8 @@ export async function GET(
     "X-PUBLISHED-TTL:PT1H",
     ...VTIMEZONE_LINES,
   ];
+
+  // --- Entrenamientos ---
 
   for (const training of trainingsResult.data ?? []) {
     const day = parseDate(training.date);
@@ -271,6 +294,53 @@ export async function GET(
       `SUMMARY:${escapeText(summary)}`,
       `DESCRIPTION:${escapeText(description)}`,
       `URL:${link}`,
+      "END:VEVENT"
+    );
+  }
+
+  // --- Vacunas pendientes (día completo, con aviso el día anterior a las 9:00) ---
+
+  for (const vaccination of vaccinationsResult.data ?? []) {
+    if (!vaccination.due_date) continue;
+
+    const day = parseDate(vaccination.due_date);
+    if (!day) continue;
+
+    const vaccineName = isVaccineKey(vaccination.vaccine_key)
+      ? vaccineText.vaccineNames[vaccination.vaccine_key]
+      : vaccination.name;
+
+    const doseName = vaccination.dose_label
+      ? isDoseLabel(vaccination.dose_label)
+        ? vaccineText.doses[vaccination.dose_label]
+        : vaccination.dose_label
+      : "";
+
+    const title = doseName ? `${vaccineName} (${doseName})` : vaccineName;
+    const petName = petNames.get(vaccination.pet_id);
+    const summary = petName ? `💉 ${petName} — ${title}` : `💉 ${title}`;
+
+    const link = `${origin}/pets/${vaccination.pet_id}/vaccines`;
+    const description = `${vaccineText.disclaimer}\n\n${text.openInPaws}: ${link}`;
+
+    const start = new Date(Date.UTC(day.year, day.month - 1, day.day));
+    const end = new Date(start.getTime() + 24 * 60 * 60_000);
+
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:paws-vaccine-${vaccination.id}@${host}`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${formatDateOnly(start)}`,
+      `DTEND;VALUE=DATE:${formatDateOnly(end)}`,
+      `SUMMARY:${escapeText(summary)}`,
+      `DESCRIPTION:${escapeText(description)}`,
+      `URL:${link}`,
+      // Aviso: 15 horas antes del inicio del día = el día anterior a las 9:00
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      `DESCRIPTION:${escapeText(summary)}`,
+      "TRIGGER:-PT15H",
+      "END:VALARM",
       "END:VEVENT"
     );
   }

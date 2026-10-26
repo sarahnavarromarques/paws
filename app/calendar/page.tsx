@@ -7,6 +7,13 @@ import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import {
+  getDueStatus,
+  isDoseLabel,
+  isVaccineKey,
+  todayIso,
+  type DueStatus,
+} from "@/lib/vaccination-plan";
 
 const supabase = createClient();
 
@@ -33,6 +40,17 @@ type SkillName = {
   name_en: string | null;
 };
 
+type Vaccination = {
+  id: string;
+  pet_id: number;
+  vaccine_key: string | null;
+  name: string;
+  dose_label: string | null;
+  status: string;
+  due_date: string | null;
+  given_date: string | null;
+};
+
 // Colores fijos por mascota (se asignan por id, así no cambian al añadir mascotas)
 const PET_COLORS = [
   "#D4A72C", // amarillo
@@ -45,6 +63,18 @@ const PET_COLORS = [
   "#EC4899", // rosa
   "#64748B", // gris
 ];
+
+// Color del puntito de las vacunas en el calendario
+const VACCINE_DOT_COLOR = "#FB7185"; // rosa (rose-400)
+
+// Colores de la etiqueta de estado de cada vacuna
+const VACCINE_STATUS_STYLES: Record<DueStatus, string> = {
+  overdue: "bg-red-100 text-red-700",
+  soon: "bg-amber-100 text-amber-700",
+  upcoming: "bg-blue-100 text-blue-700",
+  no_date: "bg-slate-100 text-slate-600",
+  done: "bg-green-100 text-green-700",
+};
 
 // Máximo de resultados que se muestran en el buscador
 const MAX_RESULTS = 50;
@@ -113,9 +143,19 @@ function normalize(text: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+// Día en que se muestra una vacuna: puesta → día en que se puso; pendiente → día que toca
+function getVaccinationDate(vaccination: Vaccination): string | null {
+  const date =
+    vaccination.status === "done" ? vaccination.given_date : vaccination.due_date;
+  return date ? date.slice(0, 10) : null;
+}
+
 export default function CalendarPage() {
   const router = useRouter();
   const t = useTranslations("Calendar");
+  const tVac = useTranslations("Vaccines");
+  const tVacNames = useTranslations("Vaccines.vaccineNames");
+  const tVacDoses = useTranslations("Vaccines.doses");
   const locale = useLocale();
   const lang: "es" | "en" = locale === "en" ? "en" : "es";
   const tx = CAL_TEXT[lang];
@@ -124,6 +164,7 @@ export default function CalendarPage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [skills, setSkills] = useState<SkillName[]>([]);
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -168,6 +209,16 @@ export default function CalendarPage() {
         .eq("user_id", user.id)
         .order("date", { ascending: true });
 
+      // Vacunas de todos los perros (si falla, el calendario sigue funcionando sin ellas)
+      const { data: vaccinationsData, error: vaccinationsError } = await supabase
+        .from("pet_vaccinations")
+        .select("id, pet_id, vaccine_key, name, dose_label, status, due_date, given_date")
+        .eq("user_id", user.id);
+
+      if (vaccinationsError) {
+        console.error("[calendario] Error cargando vacunas:", vaccinationsError);
+      }
+
       const loadedTrainings = (trainingsData ?? []) as Training[];
 
       // Nombres de las habilidades que aparecen en los entrenamientos
@@ -190,6 +241,7 @@ export default function CalendarPage() {
       setPets((petsData ?? []) as Pet[]);
       setTrainings(loadedTrainings);
       setSkills((skillsData ?? []) as SkillName[]);
+      setVaccinations((vaccinationsData ?? []) as Vaccination[]);
       setLoading(false);
     }
 
@@ -198,6 +250,7 @@ export default function CalendarPage() {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+  const todayString = useMemo(() => todayIso(), []);
 
   const monthName = capitalizeFirst(
     currentDate.toLocaleDateString(dateLocale, {
@@ -259,11 +312,32 @@ export default function CalendarPage() {
     return map;
   }, [trainings]);
 
-  // Meses ("AAAA-MM") que tienen algún entrenamiento, para el puntito del selector
-  const monthsWithTrainings = useMemo(
-    () => new Set(trainings.map((training) => training.date.slice(0, 7))),
-    [trainings]
-  );
+  // Vacunas agrupadas por fecha (las que no tienen fecha no aparecen en el calendario)
+  const vaccinationsByDate = useMemo(() => {
+    const map = new Map<string, Vaccination[]>();
+
+    for (const vaccination of vaccinations) {
+      const date = getVaccinationDate(vaccination);
+      if (!date) continue;
+
+      const list = map.get(date) ?? [];
+      list.push(vaccination);
+      map.set(date, list);
+    }
+
+    return map;
+  }, [vaccinations]);
+
+  // Meses ("AAAA-MM") que tienen algún entrenamiento o vacuna, para el puntito del selector
+  const monthsWithTrainings = useMemo(() => {
+    const months = new Set(trainings.map((training) => training.date.slice(0, 7)));
+
+    for (const date of vaccinationsByDate.keys()) {
+      months.add(date.slice(0, 7));
+    }
+
+    return months;
+  }, [trainings, vaccinationsByDate]);
 
   const petsById = useMemo(
     () => new Map(pets.map((pet) => [pet.id, pet])),
@@ -281,6 +355,27 @@ export default function CalendarPage() {
     if (!skill) return "";
     return lang === "en" && skill.name_en ? skill.name_en : skill.name;
   }
+
+  function getVaccineName(vaccination: Vaccination): string {
+    return isVaccineKey(vaccination.vaccine_key)
+      ? tVacNames(vaccination.vaccine_key)
+      : vaccination.name;
+  }
+
+  function getVaccineDose(vaccination: Vaccination): string | null {
+    if (!vaccination.dose_label) return null;
+    return isDoseLabel(vaccination.dose_label)
+      ? tVacDoses(vaccination.dose_label)
+      : vaccination.dose_label;
+  }
+
+  const vaccineStatusLabel: Record<DueStatus, string> = {
+    overdue: tVac("statusOverdue"),
+    soon: tVac("statusSoon"),
+    upcoming: tVac("statusUpcoming"),
+    no_date: tVac("statusNoDate"),
+    done: tVac("statusDone"),
+  };
 
   // Habilidades del filtro, ordenadas por nombre en el idioma actual
   const skillOptions = useMemo(
@@ -373,6 +468,10 @@ export default function CalendarPage() {
     return trainingsByDate.get(toDateString(year, month, day)) ?? [];
   }
 
+  function getVaccinationsForDay(day: number) {
+    return vaccinationsByDate.get(toDateString(year, month, day)) ?? [];
+  }
+
   function getPetName(petId: number) {
     return petsById.get(petId)?.name ?? t("defaultPetName");
   }
@@ -430,7 +529,12 @@ export default function CalendarPage() {
     router.push(`/trainings/${trainingId}/edit`);
   }
 
+  function openVaccines(petId: number) {
+    router.push(`/pets/${petId}/vaccines`);
+  }
+
   const selectedTrainings = getTrainingsForDay(selectedDay);
+  const selectedVaccinations = getVaccinationsForDay(selectedDay);
 
   const selectedDateLabel = capitalizeFirst(
     new Date(year, month, selectedDay).toLocaleDateString(dateLocale, {
@@ -442,11 +546,21 @@ export default function CalendarPage() {
 
   // Solo mostramos en la leyenda las mascotas que tienen algo este mes
   const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
-  const petsThisMonth = pets.filter((pet) =>
-    trainings.some(
-      (training) =>
-        training.pet_id === pet.id && training.date.startsWith(monthPrefix)
-    )
+  const petsThisMonth = pets.filter(
+    (pet) =>
+      trainings.some(
+        (training) =>
+          training.pet_id === pet.id && training.date.startsWith(monthPrefix)
+      ) ||
+      vaccinations.some(
+        (vaccination) =>
+          vaccination.pet_id === pet.id &&
+          (getVaccinationDate(vaccination) ?? "").startsWith(monthPrefix)
+      )
+  );
+
+  const hasVaccinesThisMonth = Array.from(vaccinationsByDate.keys()).some((date) =>
+    date.startsWith(monthPrefix)
   );
 
   const shownResults = searchResults.slice(0, MAX_RESULTS);
@@ -744,6 +858,7 @@ export default function CalendarPage() {
                   }
 
                   const dayTrainings = getTrainingsForDay(day);
+                  const hasVaccine = getVaccinationsForDay(day).length > 0;
                   const isSelected = day === selectedDay;
                   const today = isToday(day);
                   const isWeekend = index % 7 >= 5;
@@ -775,19 +890,30 @@ export default function CalendarPage() {
                         {day}
                       </span>
 
-                      {/* BARRITAS DE COLOR */}
+                      {/* BARRITAS DE COLOR (entrenamientos) Y PUNTO ROSA (vacunas) */}
 
-                      {dayTrainings.length > 0 && (
-                        <span className="flex h-1.5 w-8 gap-px overflow-hidden rounded-full md:w-10">
-                          {dayTrainings.slice(0, 4).map((training) => (
+                      {(dayTrainings.length > 0 || hasVaccine) && (
+                        <span className="flex items-center gap-1">
+                          {dayTrainings.length > 0 && (
+                            <span className="flex h-1.5 w-8 gap-px overflow-hidden rounded-full md:w-10">
+                              {dayTrainings.slice(0, 4).map((training) => (
+                                <span
+                                  key={training.id}
+                                  className="h-full flex-1"
+                                  style={{
+                                    backgroundColor: getPetColor(training.pet_id),
+                                  }}
+                                />
+                              ))}
+                            </span>
+                          )}
+
+                          {hasVaccine && (
                             <span
-                              key={training.id}
-                              className="h-full flex-1"
-                              style={{
-                                backgroundColor: getPetColor(training.pet_id),
-                              }}
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: VACCINE_DOT_COLOR }}
                             />
-                          ))}
+                          )}
                         </span>
                       )}
                     </button>
@@ -795,9 +921,9 @@ export default function CalendarPage() {
                 })}
               </div>
 
-              {/* LEYENDA DE MASCOTAS */}
+              {/* LEYENDA DE MASCOTAS Y VACUNAS */}
 
-              {petsThisMonth.length > 0 && (
+              {(petsThisMonth.length > 0 || hasVaccinesThisMonth) && (
                 <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
                   {petsThisMonth.map((pet) => (
                     <div
@@ -811,6 +937,16 @@ export default function CalendarPage() {
                       {pet.name}
                     </div>
                   ))}
+
+                  {hasVaccinesThisMonth && (
+                    <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: VACCINE_DOT_COLOR }}
+                      />
+                      {tVac("navLabel")}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -821,8 +957,8 @@ export default function CalendarPage() {
                   {selectedDateLabel}
                 </h3>
 
-                {selectedTrainings.length === 0 ? (
-                  // Día sin entrenamientos: Pawsi descansando
+                {selectedTrainings.length === 0 && selectedVaccinations.length === 0 ? (
+                  // Día sin entrenamientos ni vacunas: Pawsi descansando
                   <div className="flex justify-center py-2">
                     <Pawsi pose="espera" size={80} />
                   </div>
@@ -887,6 +1023,52 @@ export default function CalendarPage() {
 
                             <div className="mt-1 text-xs text-slate-400">
                               {t("clickToEdit")}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {/* VACUNAS DEL DÍA */}
+
+                    {selectedVaccinations.map((vaccination) => {
+                      const dueStatus = getDueStatus(
+                        vaccination.status,
+                        vaccination.due_date,
+                        todayString
+                      );
+                      const dose = getVaccineDose(vaccination);
+
+                      return (
+                        <button
+                          type="button"
+                          key={vaccination.id}
+                          onClick={() => openVaccines(vaccination.pet_id)}
+                          className="flex w-full items-stretch gap-3 rounded-xl bg-rose-50 p-3 text-left transition hover:bg-rose-100 hover:shadow-sm"
+                        >
+                          <span
+                            className="w-1.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor: getPetColor(vaccination.pet_id),
+                            }}
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="font-bold text-slate-900">
+                                💉 {getVaccineName(vaccination)}
+                              </div>
+
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${VACCINE_STATUS_STYLES[dueStatus]}`}
+                              >
+                                {vaccineStatusLabel[dueStatus]}
+                              </span>
+                            </div>
+
+                            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                              <span>🐾 {getPetName(vaccination.pet_id)}</span>
+                              {dose && <span>{dose}</span>}
                             </div>
                           </div>
                         </button>
