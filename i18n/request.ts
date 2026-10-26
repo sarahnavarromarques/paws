@@ -14,6 +14,10 @@ const SUPPORTED_LOCALES = ["es", "en"] as const;
 type Locale = (typeof SUPPORTED_LOCALES)[number];
 const DEFAULT_LOCALE: Locale = "es";
 
+// Funciones cuyos textos viven en su propio archivo:
+// messages/features/<nombre>.<idioma>.json
+const FEATURE_MESSAGES = ["vaccines"] as const;
+
 function isLocale(value: unknown): value is Locale {
   return (
     typeof value === "string" &&
@@ -37,6 +41,26 @@ function mergeMessages(
   }
 
   return result;
+}
+
+// Textos de funciones en archivos propios (p. ej. vacunas).
+// Si uno falla, se registra y se sigue con los demás.
+async function loadFeatureMessages(
+  locale: Locale
+): Promise<AbstractIntlMessages[]> {
+  const layers: AbstractIntlMessages[] = [];
+
+  for (const feature of FEATURE_MESSAGES) {
+    try {
+      layers.push(
+        (await import(`../messages/features/${feature}.${locale}.json`)).default
+      );
+    } catch (error) {
+      console.error(`[i18n] Error cargando textos de "${feature}":`, error);
+    }
+  }
+
+  return layers;
 }
 
 // Sustituciones según el tipo de cuenta:
@@ -109,7 +133,14 @@ export default getRequestConfig(async () => {
     await import(`../messages/${locale}.json`)
   ).default;
 
-  let messages = baseMessages;
+  // 1) Textos generales + textos de funciones en archivos propios
+  let messagesWithFeatures = baseMessages;
+  for (const layer of await loadFeatureMessages(locale)) {
+    messagesWithFeatures = mergeMessages(messagesWithFeatures, layer);
+  }
+
+  // 2) Sustituciones según el tipo de cuenta
+  let messages = messagesWithFeatures;
 
   try {
     const layers = await loadAccountOverrides(accountType, locale);
@@ -117,9 +148,9 @@ export default getRequestConfig(async () => {
       messages = mergeMessages(messages, layer);
     }
   } catch (error) {
-    // Si falla, usamos los textos normales: la app nunca se queda sin textos
+    // Si falla, usamos los textos sin sustituciones: la app nunca se queda sin textos
     console.error("[i18n] Error cargando textos del tipo de cuenta:", error);
-    messages = baseMessages;
+    messages = messagesWithFeatures;
   }
 
   return {

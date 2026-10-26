@@ -141,6 +141,68 @@ export type Database = {
           },
         ]
       }
+      pet_vaccinations: {
+        Row: {
+          batch_number: string | null
+          created_at: string
+          dose_label: string | null
+          due_date: string | null
+          given_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          pet_id: number
+          photo_path: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          vaccine_key: string | null
+          vet: string | null
+        }
+        Insert: {
+          batch_number?: string | null
+          created_at?: string
+          dose_label?: string | null
+          due_date?: string | null
+          given_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          pet_id: number
+          photo_path?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vaccine_key?: string | null
+          vet?: string | null
+        }
+        Update: {
+          batch_number?: string | null
+          created_at?: string
+          dose_label?: string | null
+          due_date?: string | null
+          given_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          pet_id?: number
+          photo_path?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vaccine_key?: string | null
+          vet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_vaccinations_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           age: string | null
