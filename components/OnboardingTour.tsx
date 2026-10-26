@@ -113,8 +113,8 @@ const WELCOME_STEPS: TourStep[] = [
     icon: "🧭",
     title: { es: "Todo a mano", en: "Everything at hand" },
     body: {
-      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso o su Historial.",
-      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress or its History.",
+      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso, su Historial o sus Vacunas.",
+      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress, its History or its Vaccines.",
     },
   },
   {
@@ -145,6 +145,18 @@ const SECTIONS: SectionTour[] = [
         body: {
           es: "Cada día te saludo con lo que tienes pendiente y tu racha de días entrenando. ¡Intenta no romperla!",
           en: "Every day I greet you with what's pending and your training streak. Try not to break it!",
+        },
+      },
+      {
+        // Solo aparece si hay vacunas atrasadas o próximas (si no, se salta)
+        id: "dashboard-vaccines",
+        kind: "spot",
+        target: "dashboard-vaccines",
+        icon: "💉",
+        title: { es: "Vacunas próximas", en: "Upcoming vaccines" },
+        body: {
+          es: "Si alguna vacuna está atrasada o toca en los próximos 30 días, te aviso aquí. Tócala para ir a las vacunas de ese perro.",
+          en: "If any vaccine is overdue or due in the next 30 days, I'll let you know here. Tap it to go to that dog's vaccines.",
         },
       },
       {
@@ -293,8 +305,8 @@ const SECTIONS: SectionTour[] = [
         icon: "🧭",
         title: { es: "Todo sobre tu perro", en: "Everything about your dog" },
         body: {
-          es: "Desde aquí vas a sus Habilidades, a su Progreso y a su Historial de entrenamientos.",
-          en: "From here you reach its Skills, its Progress and its training History.",
+          es: "Desde aquí vas a sus Habilidades, a su Progreso, a su Historial de entrenamientos y a su calendario de Vacunas.",
+          en: "From here you reach its Skills, its Progress, its training History and its Vaccine schedule.",
         },
       },
     ],
@@ -501,6 +513,46 @@ const SECTIONS: SectionTour[] = [
     ],
   },
   {
+    id: "vaccines",
+    name: { es: "Vacunas", en: "Vaccines" },
+    steps: [
+      {
+        // Sin elemento iluminado: tarjeta centrada
+        id: "vaccines-intro",
+        kind: "spot",
+        icon: "💉",
+        title: { es: "Tu calendario de vacunación", en: "Your vaccine schedule" },
+        body: {
+          es: "Pulsa \"Generar plan sugerido\" y preparo las vacunas según la edad de tu perro. Si alguna dosis ya debería estar puesta, te pregunto cuáles se puso. Es un plan orientativo: tu veterinario decide.",
+          en: "Tap \"Generate suggested plan\" and I'll prepare the vaccines based on your dog's age. If some doses should already have been given, I'll ask which ones. It's only a suggested plan: your vet decides.",
+        },
+      },
+      {
+        // Solo aparece si ya hay vacunas (si no, se salta)
+        id: "vaccines-list",
+        kind: "spot",
+        target: "vaccines-list",
+        icon: "📋",
+        title: { es: "Próximas dosis y puestas", en: "Upcoming and given doses" },
+        body: {
+          es: "Cuando le pongan una vacuna, pulsa \"Marcar como puesta\": el siguiente refuerzo se crea solo. Puedes guardar el veterinario, el lote y una foto de la pegatina de la cartilla. Abajo tienes las vacunas opcionales.",
+          en: "When a vaccine is given, tap \"Mark as given\": the next booster is created automatically. You can save the vet, the batch number and a photo of the card sticker. Optional vaccines are at the bottom.",
+        },
+      },
+      {
+        // Sin elemento iluminado: tarjeta centrada
+        id: "vaccines-reminders",
+        kind: "spot",
+        icon: "🔔",
+        title: { es: "Te aviso a tiempo", en: "I'll remind you in time" },
+        body: {
+          es: "Las dosis atrasadas o que tocan en los próximos 30 días aparecen en Inicio. Además, las verás en el Calendario y en el calendario de tu móvil si lo tienes activado en Ajustes.",
+          en: "Overdue doses and those due in the next 30 days appear on Home. You'll also see them in the Calendar and in your phone's calendar if you've turned it on in Settings.",
+        },
+      },
+    ],
+  },
+  {
     id: "calendar",
     name: { es: "Calendario", en: "Calendar" },
     steps: [
@@ -520,10 +572,10 @@ const SECTIONS: SectionTour[] = [
         kind: "spot",
         target: "calendar-grid",
         icon: "🗓️",
-        title: { es: "Tus entrenamientos", en: "Your trainings" },
+        title: { es: "Entrenamientos y vacunas", en: "Trainings and vaccines" },
         body: {
-          es: "Toca un entrenamiento para abrirlo. Si quieres verlos también en el calendario de tu móvil, actívalo en Ajustes.",
-          en: "Tap a training to open it. If you want to see them in your phone's calendar too, turn it on in Settings.",
+          es: "Las barritas de color son entrenamientos y el punto rosa, vacunas. Toca un día para verlos y abrirlos. Si quieres verlos también en el calendario de tu móvil, actívalo en Ajustes.",
+          en: "The colored bars are trainings and the pink dot is vaccines. Tap a day to see and open them. If you want to see them in your phone's calendar too, turn it on in Settings.",
         },
       },
     ],
@@ -552,7 +604,8 @@ const SECTIONS: SectionTour[] = [
         title: { es: "Elige tu sonido", en: "Choose your sound" },
         body: {
           es: "Elige entre 10 sonidos y ajusta el volumen, el tono y el tiempo entre clic y clac.",
-          en: "Pick from 10 sounds and adjust the volume, the pitch and the gap between click and clack.",        },
+          en: "Pick from 10 sounds and adjust the volume, the pitch and the gap between click and clack.",
+        },
       },
       {
         id: "clicker-vibration",
@@ -600,8 +653,8 @@ const SECTIONS: SectionTour[] = [
         icon: "📲",
         title: { es: "Calendario del móvil", en: "Phone calendar" },
         body: {
-          es: "Añade tus entrenamientos al calendario de tu iPhone o de Google, y se mantendrán al día solos.",
-          en: "Add your trainings to your iPhone or Google calendar, and they'll stay up to date on their own.",
+          es: "Añade tus entrenamientos y las próximas vacunas al calendario de tu iPhone o de Google, y se mantendrán al día solos.",
+          en: "Add your trainings and upcoming vaccines to your iPhone or Google calendar, and they'll stay up to date on their own.",
         },
       },
       {
