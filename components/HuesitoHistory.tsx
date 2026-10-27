@@ -260,7 +260,7 @@ export default function HuesitoHistory() {
     };
   }, [loadData]);
 
-  // Si se llega desde la pastilla del dashboard (#huesitos), bajar hasta aquí.
+  // Si se llega desde la pastilla del saldo (#huesitos), bajar hasta aquí.
   useEffect(() => {
     if (loading || scrolledRef.current) return;
     if (window.location.hash !== "#huesitos") return;
@@ -304,6 +304,7 @@ export default function HuesitoHistory() {
   return (
     <section
       id="huesitos"
+      data-tour="settings-huesitos"
       className="mb-6 scroll-mt-24 rounded-2xl bg-white p-6 shadow-sm md:p-8"
     >
       <h2 className="mb-4 flex items-center gap-2 text-xl font-bold">

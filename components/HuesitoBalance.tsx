@@ -15,6 +15,7 @@ const LOW_BALANCE = 5;
 
 // Saldo de huesitos junto a la bandera, en todas las páginas.
 // Solo aparece si hay sesión iniciada (en login y registro no sale).
+// Lleva las marcas del tutorial: la guía "Huesitos" se engancha aquí.
 export default function HuesitoBalance() {
   const pathname = usePathname();
   const locale = useLocale();
@@ -92,6 +93,8 @@ export default function HuesitoBalance() {
       href="/settings#huesitos"
       aria-label={label}
       title={label}
+      data-tour="huesito-balance"
+      data-tour-section="huesitos"
       className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold shadow-sm transition ${
         isLow
           ? "border-amber-300 bg-amber-50 text-amber-600 hover:border-amber-400"

@@ -30,6 +30,10 @@ export const TOUR_STATE_EVENT = "paws:tour-state";
 const WELCOME_ID = "welcome";
 const WELCOME_ROUTE = "/dashboard";
 
+// Guía de los huesitos: va dentro de la bienvenida y, además, como guía
+// propia (enganchada a la pastilla del saldo) para quien ya vio la bienvenida
+const HUESITOS_ID = "huesitos";
+
 // Llamar a esta función (por ejemplo desde Ajustes) vuelve a lanzar
 // la bienvenida y vuelve a activar todas las guías de cada pantalla
 export function startOnboardingTour() {
@@ -63,6 +67,47 @@ type SectionTour = {
   name: Text;
   steps: TourStep[];
 };
+
+// ---------- Huesitos (en la bienvenida y como guía propia) ----------
+
+const HUESITO_STEPS: TourStep[] = [
+  {
+    id: "huesitos-balance",
+    kind: "spot",
+    target: "huesito-balance",
+    icon: "🦴",
+    title: { es: "Tus huesitos", en: "Your bones" },
+    body: {
+      es: "Estos son tus huesitos. Los gastas al usar la IA de PAWS. Empiezas con 20 de regalo.",
+      en: "These are your bones. You spend them when you use PAWS's AI. You start with 20 as a gift.",
+    },
+  },
+  {
+    // Sin elemento iluminado: tarjeta centrada
+    id: "huesitos-costs",
+    kind: "spot",
+    icon: "💡",
+    title: {
+      es: "Cada botón te dice lo que cuesta",
+      en: "Every button tells you its cost",
+    },
+    body: {
+      es: "Por ejemplo, «Preparar sesión · 2 🦴». Si te quedas sin huesitos, PAWS sigue funcionando con su versión básica.",
+      en: "For example, «Prepare session · 2 🦴». If you run out of bones, PAWS keeps working with its basic version.",
+    },
+  },
+  {
+    id: "huesitos-details",
+    kind: "spot",
+    target: "huesito-balance",
+    icon: "👆",
+    title: { es: "Tu saldo y tus movimientos", en: "Your balance and activity" },
+    body: {
+      es: "Pulsa la pastilla cuando quieras para ver tu saldo, los precios y tus movimientos.",
+      en: "Tap the badge any time to see your balance, the prices and your activity.",
+    },
+  },
+];
 
 // ---------- Bienvenida (primera vez que se entra) ----------
 
@@ -117,6 +162,7 @@ const WELCOME_STEPS: TourStep[] = [
       en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress, its History or its Health.",
     },
   },
+  ...HUESITO_STEPS,
   {
     id: "finish",
     kind: "finish",
@@ -132,6 +178,12 @@ const WELCOME_STEPS: TourStep[] = [
 // ---------- Guías de cada pantalla ----------
 
 const SECTIONS: SectionTour[] = [
+  {
+    // Enganchada a la pastilla del saldo, que está en todas las páginas
+    id: HUESITOS_ID,
+    name: { es: "Huesitos", en: "Bones" },
+    steps: HUESITO_STEPS,
+  },
   {
     id: "dashboard",
     name: { es: "Inicio", en: "Home" },
@@ -655,6 +707,17 @@ const SECTIONS: SectionTour[] = [
         body: {
           es: "Tu foto, usuario, nombre y tipo de cuenta. La IA adapta su forma de hablarte según el tipo de cuenta.",
           en: "Your photo, username, name and account type. The AI adapts the way it talks to you to your account type.",
+        },
+      },
+      {
+        id: "settings-huesitos",
+        kind: "spot",
+        target: "settings-huesitos",
+        icon: "🦴",
+        title: { es: "Tus huesitos", en: "Your bones" },
+        body: {
+          es: "Aquí ves tu saldo, cuánto cuesta cada función de IA y todos tus movimientos.",
+          en: "Here you see your balance, what each AI feature costs and all your activity.",
         },
       },
       {
@@ -1429,7 +1492,8 @@ export default function OnboardingTour() {
     closeMenu();
     removeStorage(STEP_KEY);
     if (userId) writeStorage(DONE_KEY, userId);
-    await markSeen([WELCOME_ID], true);
+    // La bienvenida ya incluye los huesitos: su guía propia no se repite
+    await markSeen([WELCOME_ID, HUESITOS_ID], true);
     window.dispatchEvent(new Event(ONBOARDING_FINISHED_EVENT));
   };
 
