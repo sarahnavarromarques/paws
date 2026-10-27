@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import { startOnboardingTour } from "@/components/OnboardingTour";
+import HuesitoHistory from "@/components/HuesitoHistory";
 
 const supabase = createClient();
 
@@ -858,6 +859,9 @@ export default function SettingsPage() {
           </button>
           <FeedbackMessage feedback={profileFeedback} />
         </section>
+
+        {/* HUESITOS (saldo, precios e historial) */}
+        <HuesitoHistory />
 
         {/* IDIOMA */}
         <section data-tour="settings-language" className={CARD_CLASS}>
