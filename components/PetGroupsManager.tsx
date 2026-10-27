@@ -7,6 +7,8 @@ import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import BoneIcon from "@/components/BoneIcon";
+import { HUESITO_COSTS } from "@/lib/huesitos-shared";
 import {
   buildGroupSignature,
   type GroupSkillInput,
@@ -14,6 +16,33 @@ import {
 import { suggestGroupName } from "@/lib/group-name-ai";
 
 const supabase = createClient();
+
+const NAME_COST = HUESITO_COSTS["group-name"];
+
+// Textos de los huesitos (español / inglés)
+const HUESITO_TEXT = {
+  es: {
+    nameCostNote: "Cada nombre con IA cuesta",
+    nameCostNoteEnd: "Sin huesitos, se sugieren nombres básicos.",
+  },
+  en: {
+    nameCostNote: "Each AI name costs",
+    nameCostNoteEnd: "Without bones, basic names are suggested.",
+  },
+};
+
+// Coste pequeño dentro de un botón: "· 1 🦴"
+function ButtonCost({ cost, boneClassName }: { cost: number; boneClassName?: string }) {
+  return (
+    <>
+      <span aria-hidden="true">·</span>
+      <span className="flex items-center gap-1">
+        {cost}
+        <BoneIcon className={`h-3 w-6 ${boneClassName ?? ""}`} />
+      </span>
+    </>
+  );
+}
 
 type Skill = {
   id: number;
@@ -83,6 +112,7 @@ export default function PetGroupsManager({ petId }: Props) {
   const router = useRouter();
   const t = useTranslations("PetGroups");
   const locale = useLocale();
+  const huesitoText = HUESITO_TEXT[locale === "en" ? "en" : "es"];
 
   const [pet, setPet] = useState<Pet | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -860,9 +890,10 @@ export default function PetGroupsManager({ petId }: Props) {
                 type="button"
                 onClick={handleStartRename}
                 disabled={selectedIds.length === 0 || saving}
-                className="rounded-xl bg-amber-500 px-6 py-3 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-50"
               >
-                {t("renameButton")}
+                <span>{t("renameButton")}</span>
+                <ButtonCost cost={NAME_COST} boneClassName="text-amber-600" />
               </button>
               <button
                 type="button"
@@ -878,9 +909,10 @@ export default function PetGroupsManager({ petId }: Props) {
               type="button"
               onClick={handleStartNaming}
               disabled={selectedIds.length === 0 || saving}
-              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
-              {t("createGroupButton")}
+              <span>{t("createGroupButton")}</span>
+              <ButtonCost cost={NAME_COST} boneClassName="text-blue-700" />
             </button>
           )}
         </div>
@@ -911,6 +943,16 @@ export default function PetGroupsManager({ petId }: Props) {
                     : nameOptions[nameIndex]}
                 </p>
               </div>
+
+              {/* Coste de cada nombre */}
+              <p className="mt-3 flex flex-wrap items-center justify-center gap-1 text-center text-xs text-slate-400">
+                <span>{huesitoText.nameCostNote}</span>
+                <span className="flex items-center gap-1 font-semibold text-slate-500">
+                  {NAME_COST}
+                  <BoneIcon className="h-2.5 w-5" />
+                </span>
+                <span>· {huesitoText.nameCostNoteEnd}</span>
+              </p>
             </div>
 
             {/* LISTA DE NOMBRES YA VISTOS */}
@@ -954,9 +996,16 @@ export default function PetGroupsManager({ petId }: Props) {
                 type="button"
                 onClick={handleNextName}
                 disabled={saving || generatingName}
-                className="w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
               >
-                {generatingName ? t("generating") : t("suggestAnotherButton")}
+                {generatingName ? (
+                  t("generating")
+                ) : (
+                  <>
+                    <span>{t("suggestAnotherButton")}</span>
+                    <ButtonCost cost={NAME_COST} />
+                  </>
+                )}
               </button>
               <button
                 type="button"
