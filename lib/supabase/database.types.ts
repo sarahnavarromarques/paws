@@ -404,6 +404,41 @@ export type Database = {
         }
         Relationships: []
       }
+      progress_analyses: {
+        Row: {
+          created_at: string
+          data: Json
+          locale: string
+          pet_id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          locale?: string
+          pet_id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          locale?: string
+          pet_id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_analyses_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: true
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skill_group_items: {
         Row: {
           group_id: number

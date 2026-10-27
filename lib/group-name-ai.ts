@@ -1,12 +1,13 @@
 // Pide a la IA un nombre para un grupo de habilidades, en el idioma
 // actual del usuario. Si la IA falla (sin clave, sin internet, sin
-// crédito, etc.), usa automáticamente el generador local como red de
-// seguridad. Así la app nunca se queda sin nombre ni se rompe.
+// crédito, sin huesitos, etc.), usa automáticamente el generador local
+// como red de seguridad. Así la app nunca se queda sin nombre ni se rompe.
 
 import {
   buildAvailableGroupNames,
   type GroupSkillInput,
 } from "@/lib/skill-group-names";
+import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 
 type SuggestArgs = {
   skills: GroupSkillInput[];
@@ -17,6 +18,11 @@ type SuggestArgs = {
   locale: string;
 };
 
+type GroupNameResponse = {
+  name?: unknown;
+  huesitos?: { spent?: unknown } | null;
+};
+
 export async function suggestGroupName({
   skills,
   avoid,
@@ -24,7 +30,8 @@ export async function suggestGroupName({
 }: SuggestArgs): Promise<string> {
   const avoidLower = avoid.map((a) => a.trim().toLowerCase());
 
-  // 1) Intentar con la IA
+  // 1) Intentar con la IA (si no hay huesitos, el servidor responde
+  //    "no_huesitos" y pasamos directamente al generador local)
   try {
     const res = await fetch("/api/group-name", {
       method: "POST",
@@ -33,8 +40,13 @@ export async function suggestGroupName({
     });
 
     if (res.ok) {
-      const data: { name?: string } = await res.json();
+      const data: GroupNameResponse = await res.json();
       const name = typeof data.name === "string" ? data.name.trim() : "";
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (data.huesitos && typeof data.huesitos.spent === "number" && data.huesitos.spent > 0) {
+        notifyHuesitosChanged();
+      }
 
       if (name && !avoidLower.includes(name.toLowerCase())) {
         return name;

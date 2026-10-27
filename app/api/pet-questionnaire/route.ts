@@ -23,12 +23,15 @@ import {
 export const runtime = "nodejs";
 
 // La explicación no tiene límite de longitud y la IA puede tardar más de un
-// minuto en escribirla. Vercel (Fluid) permite hasta 300 segundos.
+// minuto en escribirla (y puede haber un segundo intento). Vercel permite 300 s.
 export const maxDuration = 300;
 
 // Tope de texto que puede escribir la IA. Si se alcanza, la respuesta llega
 // cortada y se usa la propuesta local de respaldo.
 const MAX_OUTPUT_TOKENS = 16000;
+
+// Intentos con la IA si la respuesta llega con un formato que no se puede usar.
+const MAX_ATTEMPTS = 2;
 
 const MODEL = "claude-haiku-4-5";
 const FEATURE = "pet-questionnaire" as const;
@@ -36,6 +39,11 @@ const FEATURE = "pet-questionnaire" as const;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const TOOL_NAME = "save_questionnaire_proposal";
+
+// Aviso que se añade en el segundo intento
+const RETRY_NOTE = `
+
+IMPORTANTE: en el intento anterior el campo "groups" llegó como un texto en lugar de una lista y no se pudo usar. "groups" debe ser una LISTA (array) de objetos, nunca un texto. Dentro de los textos no uses comillas dobles: usa comillas angulares « ».`;
 
 type AiUser = NonNullable<Awaited<ReturnType<typeof getAiUser>>>;
 
@@ -46,6 +54,45 @@ type PetInfo = {
   sex: string | null;
   weight: string | null;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Si la IA devuelve una lista como texto, intenta convertirla en lista real.
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") && !trimmed.startsWith("{")) return value;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+// Repara el formato de la respuesta antes de validarla
+function normalizeProposalInput(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+
+  const groups = parseMaybeJson(input.groups);
+
+  return {
+    ...input,
+    groups: Array.isArray(groups)
+      ? groups.map((group) => {
+          const parsedGroup = parseMaybeJson(group);
+          if (!isRecord(parsedGroup)) return parsedGroup;
+          return {
+            ...parsedGroup,
+            skill_ids: parseMaybeJson(parsedGroup.skill_ids),
+          };
+        })
+      : groups,
+  };
+}
 
 function describeAge(birthDate: string | null): string {
   if (!birthDate) return "sin datos";
@@ -124,6 +171,11 @@ Formato de summary y reason:
 - Separa cada idea o parte en su propio párrafo, con un salto de línea entre párrafos.
 - Cuando una parte tenga título (por ejemplo, cada fase del plan), ponlo al principio de su párrafo entre dobles asteriscos, así: **Fase 1 (semanas 1-3): Posiciones básicas** y después el texto.
 - No uses negrita para nada más. No uses listas con guiones, almohadillas ni otros símbolos.
+- Dentro de los textos NO uses comillas dobles. Para citar el nombre de una habilidad usa comillas angulares, así: «Sentado».
+
+Formato de la herramienta:
+- "groups" es una LISTA (array) de objetos, cada uno con name, reason y skill_ids. Nunca lo envíes como un texto.
+- "skill_ids" es una lista de números enteros.
 
 A quién te diriges: ${audience}
 
@@ -163,7 +215,8 @@ async function askAI(
             },
             groups: {
               type: "array",
-              description: "Grupos propuestos, en el orden recomendado.",
+              description:
+                "Grupos propuestos, en el orden recomendado. Debe ser una lista (array) de objetos, nunca un texto.",
               items: {
                 type: "object",
                 properties: {
@@ -171,7 +224,7 @@ async function askAI(
                   reason: {
                     type: "string",
                     description:
-                      "Explicación detallada de por qué este grupo, en párrafos separados por saltos de línea, sin límite de longitud.",
+                      "Explicación detallada de por qué este grupo, en párrafos separados por saltos de línea, sin límite de longitud. Sin comillas dobles dentro.",
                   },
                   skill_ids: {
                     type: "array",
@@ -209,7 +262,7 @@ async function askAI(
   // Si la IA llegó al tope, la respuesta está cortada y no se puede usar.
   if (message.stop_reason === "max_tokens") {
     console.error(
-      `[pet-questionnaire] La IA alcanzó el tope de ${MAX_OUTPUT_TOKENS} tokens: respuesta cortada, se usa la propuesta de respaldo.`
+      `[pet-questionnaire] La IA alcanzó el tope de ${MAX_OUTPUT_TOKENS} tokens: respuesta cortada.`
     );
     return null;
   }
@@ -231,7 +284,7 @@ async function askAI(
     return null;
   }
 
-  return toolBlock.input;
+  return normalizeProposalInput(toolBlock.input);
 }
 
 export async function POST(request: Request) {
@@ -325,46 +378,60 @@ export async function POST(request: Request) {
   if (!apiKey) {
     console.error("[pet-questionnaire] Falta ANTHROPIC_API_KEY.");
   } else if (canPay) {
-    try {
-      const accountType = await getCurrentAccountType();
-      const audience = getAudienceInstructions(accountType, false);
+    const accountType = await getCurrentAccountType();
+    const audience = getAudienceInstructions(accountType, false);
 
-      const raw = await askAI(
-        apiKey,
-        buildPrompt(
-          {
-            name: pet.name,
-            breed: pet.breed ?? null,
-            birthDate: pet.birth_date ?? null,
-            sex: pet.sex ?? null,
-            weight: pet.weight ?? null,
-          },
-          answers,
-          catalog,
-          existingGroupNames,
-          locale,
-          audience
-        ),
-        aiUser
-      );
+    const prompt = buildPrompt(
+      {
+        name: pet.name,
+        breed: pet.breed ?? null,
+        birthDate: pet.birth_date ?? null,
+        sex: pet.sex ?? null,
+        weight: pet.weight ?? null,
+      },
+      answers,
+      catalog,
+      existingGroupNames,
+      locale,
+      audience
+    );
 
-      if (raw) {
-        const sanitized = sanitizeProposal(raw, catalog, locale);
+    // Hasta 2 intentos: si la primera respuesta no se puede usar, se repite
+    // avisando a la IA del problema. Solo se cobra una vez, si sale bien.
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const raw = await askAI(
+          apiKey,
+          attempt === 1 ? prompt : `${prompt}${RETRY_NOTE}`,
+          aiUser
+        );
+
+        const sanitized = raw ? sanitizeProposal(raw, catalog, locale) : null;
 
         if (sanitized) {
           proposal = sanitized;
           usedFallback = false;
-
-          // La IA ha respondido bien: se cobran los huesitos.
-          huesitos = await spendHuesitos(supabase, FEATURE);
-        } else {
-          console.error(
-            "[pet-questionnaire] La respuesta de la IA no pasó la validación; se usa la propuesta de respaldo."
-          );
+          break;
         }
+
+        console.error(
+          `[pet-questionnaire] Intento ${attempt}: la respuesta de la IA no se pudo usar.`
+        );
+      } catch (error) {
+        console.error(
+          `[pet-questionnaire] Intento ${attempt}: error llamando a la IA:`,
+          error
+        );
       }
-    } catch (error) {
-      console.error("Error llamando a la IA (pet-questionnaire):", error);
+    }
+
+    if (!usedFallback) {
+      // La IA ha respondido bien: se cobran los huesitos (una sola vez).
+      huesitos = await spendHuesitos(supabase, FEATURE);
+    } else {
+      console.error(
+        "[pet-questionnaire] Ningún intento funcionó; se usa la propuesta de respaldo."
+      );
     }
   }
 

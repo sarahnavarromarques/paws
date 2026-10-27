@@ -8,6 +8,9 @@ import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import BoneIcon from "@/components/BoneIcon";
+import { HUESITO_COSTS } from "@/lib/huesitos-shared";
+import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 import { buildGroupSignature } from "@/lib/skill-group-names";
 import {
   EMPTY_ANSWERS,
@@ -28,6 +31,22 @@ import {
 
 const supabase = createClient();
 
+const QUESTIONNAIRE_COST = HUESITO_COSTS["pet-questionnaire"];
+
+// Textos de los huesitos (español / inglés)
+const HUESITO_TEXT = {
+  es: {
+    noHuesitos:
+      "Te has quedado sin huesitos: este es el plan básico, preparado sin IA.",
+    getMore: "Ver mis huesitos",
+  },
+  en: {
+    noHuesitos:
+      "You've run out of bones: this is the basic plan, prepared without AI.",
+    getMore: "See my bones",
+  },
+};
+
 type Stage = "loading" | "notFound" | "questions" | "generating" | "review" | "saving";
 
 type ReviewGroup = {
@@ -42,7 +61,22 @@ type ProposalResponse = {
   proposal: QuestionnaireProposal;
   skills: CatalogSkill[];
   usedFallback: boolean;
+  noHuesitos?: boolean;
+  huesitos?: { spent?: unknown } | null;
 };
+
+// Coste pequeño dentro de un botón: "· 4 🦴"
+function ButtonCost({ cost, boneClassName }: { cost: number; boneClassName: string }) {
+  return (
+    <>
+      <span aria-hidden="true">·</span>
+      <span className="flex items-center gap-1">
+        {cost}
+        <BoneIcon className={`h-3 w-6 ${boneClassName}`} />
+      </span>
+    </>
+  );
+}
 
 // Muestra el texto de la IA con párrafos y **negritas**, sin asteriscos visibles.
 function RichText({ text, className }: { text: string; className?: string }) {
@@ -76,6 +110,7 @@ export default function PetQuestionnairePage() {
   const router = useRouter();
   const locale = toQuestionnaireLocale(useLocale());
   const petId = Number(params.id);
+  const huesitoText = HUESITO_TEXT[locale === "en" ? "en" : "es"];
 
   const tx = (key: QuestionnaireTextKey, values?: Record<string, string | number>) =>
     questionnaireText(locale, key, values);
@@ -89,6 +124,7 @@ export default function PetQuestionnairePage() {
   const [objective, setObjective] = useState("");
   const [summary, setSummary] = useState("");
   const [usedFallback, setUsedFallback] = useState(false);
+  const [noHuesitos, setNoHuesitos] = useState(false);
   const [reviewGroups, setReviewGroups] = useState<ReviewGroup[]>([]);
   const [skillsById, setSkillsById] = useState<Map<number, CatalogSkill>>(new Map());
 
@@ -257,6 +293,7 @@ export default function PetQuestionnairePage() {
       setObjective(data.proposal.objective);
       setSummary(data.proposal.summary);
       setUsedFallback(data.usedFallback);
+      setNoHuesitos(data.noHuesitos === true);
       setSkillsById(new Map(data.skills.map((skill) => [skill.id, skill])));
       setReviewGroups(
         data.proposal.groups.map((group) => ({
@@ -267,6 +304,15 @@ export default function PetQuestionnairePage() {
           removed: [],
         }))
       );
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (
+        data.huesitos &&
+        typeof data.huesitos.spent === "number" &&
+        data.huesitos.spent > 0
+      ) {
+        notifyHuesitosChanged();
+      }
 
       // El objetivo pasa a la ficha automáticamente, sin esperar a "Aceptar".
       await saveObjectiveToPet(data.proposal.objective);
@@ -466,13 +512,27 @@ export default function PetQuestionnairePage() {
         .update({ status: "accepted", updated_at: new Date().toISOString() })
         .eq("pet_id", petId);
 
-      // Primer orden recomendado (si falla, se puede recalcular desde Habilidades).
+      // Primer orden recomendado: gratis si el perro aún no tiene uno hecho
+      // por la IA (si falla, se puede recalcular desde Habilidades).
       try {
-        await fetch("/api/training-order", {
+        const orderRes = await fetch("/api/training-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ petId }),
         });
+
+        if (orderRes.ok) {
+          const orderData: { huesitos?: { spent?: unknown } | null } =
+            await orderRes.json();
+
+          if (
+            orderData.huesitos &&
+            typeof orderData.huesitos.spent === "number" &&
+            orderData.huesitos.spent > 0
+          ) {
+            notifyHuesitosChanged();
+          }
+        }
       } catch (orderError) {
         console.error("Error calculando el primer orden:", orderError);
       }
@@ -539,10 +599,22 @@ export default function PetQuestionnairePage() {
           </h1>
           <p className="mt-2 text-slate-600">{tx("reviewSubtitle")}</p>
 
-          {usedFallback && (
-            <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-              ⚠️ {tx("fallbackNotice")}
+          {noHuesitos ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 p-4 text-sm font-semibold text-amber-900">
+              <span>{huesitoText.noHuesitos}</span>
+              <Link
+                href="/settings#huesitos"
+                className="underline underline-offset-2 hover:text-amber-700"
+              >
+                {huesitoText.getMore}
+              </Link>
             </div>
+          ) : (
+            usedFallback && (
+              <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                ⚠️ {tx("fallbackNotice")}
+              </div>
+            )
           )}
 
           {summary && (
@@ -634,9 +706,10 @@ export default function PetQuestionnairePage() {
             <button
               type="button"
               onClick={() => void generateProposal()}
-              className="rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 shadow transition hover:bg-blue-50"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 shadow transition hover:bg-blue-50"
             >
-              {tx("retry")}
+              <span>{tx("retry")}</span>
+              <ButtonCost cost={QUESTIONNAIRE_COST} boneClassName="text-blue-700" />
             </button>
             <button
               type="button"
@@ -784,9 +857,16 @@ export default function PetQuestionnairePage() {
             type="button"
             onClick={() => void handleNext()}
             disabled={!canContinue}
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLast ? tx("finish") : tx("next")}
+            {isLast ? (
+              <>
+                <span>{tx("finish")}</span>
+                <ButtonCost cost={QUESTIONNAIRE_COST} boneClassName="text-blue-700" />
+              </>
+            ) : (
+              tx("next")
+            )}
           </button>
         </div>
       </div>

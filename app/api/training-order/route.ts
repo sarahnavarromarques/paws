@@ -16,8 +16,12 @@ import {
 // Se ejecuta en el servidor: la clave de la IA nunca llega al navegador.
 export const runtime = "nodejs";
 
-// La IA tarda unos 20-30 s en ordenar muchos grupos: margen para Vercel.
-export const maxDuration = 60;
+// La IA tarda unos 20-30 s en ordenar muchos grupos (y puede haber un
+// segundo intento): margen para Vercel.
+export const maxDuration = 120;
+
+// Intentos con la IA si la respuesta llega con un formato que no se puede usar.
+const MAX_ATTEMPTS = 2;
 
 const MODEL = "claude-haiku-4-5";
 const FEATURE = "training-order" as const;
@@ -25,6 +29,11 @@ const FEATURE = "training-order" as const;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const TOOL_NAME = "save_training_order";
+
+// Aviso que se añade en el segundo intento
+const RETRY_NOTE = `
+
+IMPORTANTE: en el intento anterior la respuesta llegó con un formato que no se pudo usar. "groups" debe ser una LISTA (array) de objetos y, dentro de cada grupo, "skills" también debe ser una LISTA de objetos, nunca un texto. Incluye todos los grupos y todas las habilidades. Dentro de los textos no uses comillas dobles: usa comillas angulares « ».`;
 
 type AiUser = NonNullable<Awaited<ReturnType<typeof getAiUser>>>;
 
@@ -34,6 +43,50 @@ type PetInfo = {
   objective: string | null;
   level: string | null;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Si la IA devuelve una lista como texto, intenta convertirla en lista real.
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") && !trimmed.startsWith("{")) return value;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+// Repara el formato de la respuesta antes de validarla
+function normalizeOrderInput(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+
+  const groups = parseMaybeJson(input.groups);
+
+  return {
+    ...input,
+    groups: Array.isArray(groups)
+      ? groups.map((group) => {
+          const parsedGroup = parseMaybeJson(group);
+          if (!isRecord(parsedGroup)) return parsedGroup;
+
+          const skills = parseMaybeJson(parsedGroup.skills);
+
+          return {
+            ...parsedGroup,
+            skills: Array.isArray(skills)
+              ? skills.map((skill) => parseMaybeJson(skill))
+              : skills,
+          };
+        })
+      : groups,
+  };
+}
 
 function buildPrompt(
   pet: PetInfo,
@@ -81,6 +134,8 @@ Guarda el resultado con la herramienta ${TOOL_NAME}. Reglas:
 - Cada grupo y cada habilidad llevan SIEMPRE dos motivos: reason_es (en español) y reason_en (en inglés).
 - En reason_es y summary_es usa los nombres "es" de las habilidades; en reason_en y summary_en usa los nombres "en".
 - Cada motivo: una sola frase, de 20 palabras como máximo, clara y práctica, dirigiéndote de tú.
+- Dentro de los textos NO uses comillas dobles. Para citar una habilidad usa comillas angulares, así: «Sentado».
+- "groups" es una LISTA (array) de objetos y "skills" de cada grupo también es una LISTA de objetos. Nunca los envíes como texto.
 - No inventes datos que no aparezcan arriba.`;
 }
 
@@ -116,7 +171,8 @@ async function askAI(
             },
             groups: {
               type: "array",
-              description: "Todos los grupos, en el orden recomendado.",
+              description:
+                "Todos los grupos, en el orden recomendado. Lista (array) de objetos, nunca un texto.",
               items: {
                 type: "object",
                 properties: {
@@ -126,7 +182,7 @@ async function askAI(
                   skills: {
                     type: "array",
                     description:
-                      "Todas las habilidades del grupo, en el orden recomendado.",
+                      "Todas las habilidades del grupo, en el orden recomendado. Lista (array) de objetos, nunca un texto.",
                     items: {
                       type: "object",
                       properties: {
@@ -159,11 +215,20 @@ async function askAI(
     usage: message.usage,
   });
 
+  // Siempre (también en producción): resumen de la llamada para los logs de Vercel.
+  console.log(
+    `[training-order] stop_reason=${message.stop_reason} output_tokens=${message.usage.output_tokens}`
+  );
+
+  if (message.stop_reason === "max_tokens") {
+    console.error("[training-order] La IA alcanzó el tope de tokens: respuesta cortada.");
+    return null;
+  }
+
   const toolBlock = message.content.find((block) => block.type === "tool_use");
 
   // Solo en local: ver qué devuelve la IA exactamente
   if (IS_DEV) {
-    console.log("[training-order] stop_reason:", message.stop_reason);
     console.log(
       "[training-order] Respuesta de la IA:\n",
       toolBlock && toolBlock.type === "tool_use"
@@ -176,7 +241,7 @@ async function askAI(
     return null;
   }
 
-  return toolBlock.input;
+  return normalizeOrderInput(toolBlock.input);
 }
 
 export async function POST(request: Request) {
@@ -293,49 +358,77 @@ export async function POST(request: Request) {
       }),
   }));
 
+  // --- ¿Es el primer orden de este perro hecho por la IA? Entonces es gratis ---
+
+  const { data: existingOrder } = await supabase
+    .from("training_order_recommendations")
+    .select("used_fallback")
+    .eq("pet_id", petId)
+    .maybeSingle();
+
+  const isFirstAiOrder = !existingOrder || existingOrder.used_fallback === true;
+
   // --- IA, con orden local de respaldo ---
 
   let order: TrainingOrderData = buildLocalOrder(inputGroups);
   let usedFallback = true;
   let huesitos: SpendResult | null = null;
 
-  // Sin huesitos suficientes: se usa directamente el orden local.
-  const canPay = await hasHuesitosFor(supabase, userId, FEATURE);
+  // Sin huesitos suficientes (y sin ser el primero gratis): orden local.
+  const canPay =
+    isFirstAiOrder || (await hasHuesitosFor(supabase, userId, FEATURE));
   const noHuesitos = !canPay;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (apiKey && canPay) {
-    try {
-      const accountType = await getCurrentAccountType();
-      const audience = getAudienceInstructions(accountType, false);
+    const accountType = await getCurrentAccountType();
+    const audience = getAudienceInstructions(accountType, false);
 
-      const raw = await askAI(
-        apiKey,
-        buildPrompt(
-          {
-            name: pet.name,
-            breed: pet.breed ?? null,
-            objective: pet.objective ?? null,
-            level: pet.level ?? null,
-          },
-          inputGroups,
-          audience
-        ),
-        aiUser
-      );
+    const prompt = buildPrompt(
+      {
+        name: pet.name,
+        breed: pet.breed ?? null,
+        objective: pet.objective ?? null,
+        level: pet.level ?? null,
+      },
+      inputGroups,
+      audience
+    );
 
-      const sanitized = sanitizeOrder(raw, inputGroups);
+    // Hasta 2 intentos: si la primera respuesta no se puede usar, se repite
+    // avisando a la IA del problema. Solo se cobra una vez, si sale bien.
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const raw = await askAI(
+          apiKey,
+          attempt === 1 ? prompt : `${prompt}${RETRY_NOTE}`,
+          aiUser
+        );
 
-      if (sanitized) {
-        order = sanitized;
-        usedFallback = false;
+        const sanitized = raw ? sanitizeOrder(raw, inputGroups) : null;
 
-        // La IA ha respondido bien: se cobran los huesitos.
-        huesitos = await spendHuesitos(supabase, FEATURE);
+        if (sanitized) {
+          order = sanitized;
+          usedFallback = false;
+          break;
+        }
+
+        console.error(
+          `[training-order] Intento ${attempt}: la respuesta de la IA no se pudo usar.`
+        );
+      } catch (error) {
+        console.error(
+          `[training-order] Intento ${attempt}: error llamando a la IA:`,
+          error
+        );
       }
-    } catch (error) {
-      console.error("Error llamando a la IA (training-order):", error);
+    }
+
+    // La IA ha respondido bien: se cobran los huesitos (una sola vez),
+    // salvo que sea el primer orden de este perro, que es gratis.
+    if (!usedFallback && !isFirstAiOrder) {
+      huesitos = await spendHuesitos(supabase, FEATURE);
     }
   }
 
@@ -365,6 +458,7 @@ export async function POST(request: Request) {
     usedFallback,
     noHuesitos,
     huesitos,
+    freeFirstOrder: isFirstAiOrder && !usedFallback,
     updatedAt,
     saved: !saveError,
   });

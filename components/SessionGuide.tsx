@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import BoneIcon from "@/components/BoneIcon";
+import { HUESITO_COSTS } from "@/lib/huesitos-shared";
+import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 import {
   CHAT_MAX_LENGTH,
   parseStoredGuide,
@@ -14,6 +18,27 @@ import {
 } from "@/lib/session-guide";
 
 const supabase = createClient();
+
+const GUIDE_COST = HUESITO_COSTS["session-guide"];
+const CHAT_COST = HUESITO_COSTS["session-chat"];
+
+// Textos de los huesitos (español / inglés)
+const HUESITO_TEXT = {
+  es: {
+    guideNoHuesitos:
+      "Te has quedado sin huesitos: esta es la guía básica, preparada sin IA.",
+    chatNoHuesitos:
+      "Te has quedado sin huesitos: el chat necesita 1 huesito por pregunta. Tu pregunta sigue escrita abajo.",
+    getMore: "Ver mis huesitos",
+  },
+  en: {
+    guideNoHuesitos:
+      "You've run out of bones: this is the basic guide, prepared without AI.",
+    chatNoHuesitos:
+      "You've run out of bones: the chat needs 1 bone per question. Your question is still written below.",
+    getMore: "See my bones",
+  },
+};
 
 type Props = {
   trainingId: number;
@@ -27,15 +52,24 @@ type GuideResponse = {
   guide?: unknown;
   locale?: unknown;
   usedFallback?: unknown;
+  noHuesitos?: unknown;
+  huesitos?: unknown;
   saved?: unknown;
 };
 
 type ChatResponse = {
   messages?: unknown;
+  huesitos?: unknown;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Cuántos huesitos se han gastado según la respuesta del servidor
+function readSpent(huesitos: unknown): number {
+  if (!isRecord(huesitos)) return 0;
+  return typeof huesitos.spent === "number" ? huesitos.spent : 0;
 }
 
 function parseMessages(value: unknown): ChatMessage[] {
@@ -64,16 +98,31 @@ function parseMessages(value: unknown): ChatMessage[] {
   return result;
 }
 
+// Coste pequeño dentro de un botón: "· 2 🦴"
+function ButtonCost({ cost, boneClassName }: { cost: number; boneClassName: string }) {
+  return (
+    <>
+      <span aria-hidden="true">·</span>
+      <span className="flex items-center gap-1">
+        {cost}
+        <BoneIcon className={`h-3 w-6 ${boneClassName}`} />
+      </span>
+    </>
+  );
+}
+
 export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Props) {
   const t = useTranslations("SessionGuide");
   const locale = useLocale();
   const currentLocale = locale === "en" ? "en" : "es";
+  const huesitoText = HUESITO_TEXT[currentLocale];
 
   const [loadingData, setLoadingData] = useState(true);
 
   const [guide, setGuide] = useState<SessionGuideData | null>(null);
   const [guideLocale, setGuideLocale] = useState<string | null>(null);
   const [guideFallback, setGuideFallback] = useState(false);
+  const [guideNoHuesitos, setGuideNoHuesitos] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [guideError, setGuideError] = useState<string | null>(null);
   const [guideWarning, setGuideWarning] = useState<string | null>(null);
@@ -82,6 +131,7 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [chatNoHuesitos, setChatNoHuesitos] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -146,6 +196,7 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
     setPreparing(true);
     setGuideError(null);
     setGuideWarning(null);
+    setGuideNoHuesitos(false);
 
     try {
       const res = await fetch("/api/session-guide", {
@@ -168,6 +219,12 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
       setGuide(parsed);
       setGuideLocale(typeof data.locale === "string" ? data.locale : currentLocale);
       setGuideFallback(data.usedFallback === true);
+      setGuideNoHuesitos(data.noHuesitos === true);
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (readSpent(data.huesitos) > 0) {
+        notifyHuesitosChanged();
+      }
 
       if (data.saved === false) {
         setGuideWarning(t("errorNotSaved"));
@@ -193,6 +250,7 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
 
     setSending(true);
     setChatError(null);
+    setChatNoHuesitos(false);
 
     try {
       const res = await fetch("/api/session-chat", {
@@ -200,6 +258,12 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trainingId, message: question, locale: currentLocale }),
       });
+
+      // Sin huesitos: aviso claro; la pregunta se queda en la caja
+      if (res.status === 402) {
+        setChatNoHuesitos(true);
+        return;
+      }
 
       if (!res.ok) {
         throw new Error("bad_response");
@@ -214,6 +278,11 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
 
       setMessages((prev) => [...prev, ...newMessages]);
       setInput("");
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (readSpent(data.huesitos) > 0) {
+        notifyHuesitosChanged();
+      }
     } catch {
       // El texto se queda en la caja para poder reintentar
       setChatError(t("errorChat"));
@@ -254,15 +323,22 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
             type="button"
             onClick={handlePrepare}
             disabled={!canPrepare || preparing}
-            className="shrink-0 rounded-xl bg-sky-600 px-5 py-3 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-sky-600 px-5 py-3 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {preparing
-              ? t("preparing")
-              : guideInOtherLanguage
-              ? t("prepareInLanguage")
-              : guide
-              ? t("regenerate")
-              : t("prepare")}
+            {preparing ? (
+              t("preparing")
+            ) : (
+              <>
+                <span>
+                  {guideInOtherLanguage
+                    ? t("prepareInLanguage")
+                    : guide
+                    ? t("regenerate")
+                    : t("prepare")}
+                </span>
+                <ButtonCost cost={GUIDE_COST} boneClassName="text-sky-700" />
+              </>
+            )}
           </button>
         </div>
 
@@ -288,6 +364,18 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
           <p className="mt-4 rounded-xl bg-amber-100 px-4 py-3 font-semibold text-amber-900">
             {guideWarning}
           </p>
+        )}
+
+        {guideNoHuesitos && !preparing && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+            <span>{huesitoText.guideNoHuesitos}</span>
+            <Link
+              href="/settings#huesitos"
+              className="underline underline-offset-2 hover:text-amber-700"
+            >
+              {huesitoText.getMore}
+            </Link>
+          </div>
         )}
 
         {/* Mientras la IA prepara la sesión: Pawsi pensando */}
@@ -380,7 +468,7 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
               </div>
             )}
 
-            {guideFallback && (
+            {guideFallback && !guideNoHuesitos && (
               <p className="text-xs font-medium text-slate-500">{t("fallbackNote")}</p>
             )}
           </div>
@@ -441,6 +529,18 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
           </p>
         )}
 
+        {chatNoHuesitos && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+            <span>{huesitoText.chatNoHuesitos}</span>
+            <Link
+              href="/settings#huesitos"
+              className="underline underline-offset-2 hover:text-amber-700"
+            >
+              {huesitoText.getMore}
+            </Link>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <textarea
             rows={2}
@@ -456,9 +556,16 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
             type="button"
             onClick={() => void handleSend()}
             disabled={sending || !input.trim() || !hasSkill}
-            className="shrink-0 rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {sending ? t("sending") : t("send")}
+            {sending ? (
+              t("sending")
+            ) : (
+              <>
+                <span>{t("send")}</span>
+                <ButtonCost cost={CHAT_COST} boneClassName="text-violet-700" />
+              </>
+            )}
           </button>
         </div>
       </div>

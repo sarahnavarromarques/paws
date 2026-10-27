@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import Pawsi from "@/components/Pawsi";
+import BoneIcon from "@/components/BoneIcon";
+import { createClient } from "@/lib/supabase/client";
+import { HUESITO_COSTS } from "@/lib/huesitos-shared";
+import { notifyHuesitosChanged } from "@/lib/huesitos-client";
+
+const supabase = createClient();
+
+const COST = HUESITO_COSTS["analyze-progress"];
 
 type Skill = {
   name: string;
@@ -38,14 +48,28 @@ type Props = {
   pet: Pet;
   skills: Skill[];
   trainings: Training[];
-  // Si es true, analiza automáticamente al abrir la pantalla
+  // Si es true y el perro no tiene análisis guardado, analiza al abrir
   autoAnalyze?: boolean;
 };
 
 type TFunction = ReturnType<typeof useTranslations>;
 
-// Resumen calculado en local. Se usa si la IA falla o no hay clave,
-// para que la tarjeta nunca se quede sin respuesta.
+// Textos nuevos de los huesitos (español / inglés)
+const HUESITO_TEXT = {
+  es: {
+    savedOn: "Analizado el",
+    noHuesitos: "Te has quedado sin huesitos: este es el análisis básico.",
+    getMore: "Ver mis huesitos",
+  },
+  en: {
+    savedOn: "Analyzed on",
+    noHuesitos: "You've run out of bones: this is the basic analysis.",
+    getMore: "See my bones",
+  },
+};
+
+// Resumen calculado en local. Se usa si la IA falla, no hay clave
+// o no quedan huesitos, para que la tarjeta nunca se quede sin respuesta.
 function buildLocalAnalysis(
   pet: Pet,
   skills: Skill[],
@@ -107,6 +131,35 @@ function buildLocalAnalysis(
   return { resumen, patrones, recomendacion };
 }
 
+// Comprueba que lo guardado en la base de datos tiene la forma correcta
+function parseStoredAnalysis(value: unknown): Analysis | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (typeof record.resumen !== "string" || !record.resumen) {
+    return null;
+  }
+
+  return {
+    resumen: record.resumen,
+    patrones: typeof record.patrones === "string" ? record.patrones : "",
+    recomendacion:
+      typeof record.recomendacion === "string" ? record.recomendacion : "",
+  };
+}
+
+// Lee cuántos huesitos se han gastado según la respuesta del servidor
+function readSpent(data: unknown): number {
+  if (typeof data !== "object" || data === null) return 0;
+  const huesitos = (data as { huesitos?: unknown }).huesitos;
+  if (typeof huesitos !== "object" || huesitos === null) return 0;
+  const spent = (huesitos as { spent?: unknown }).spent;
+  return typeof spent === "number" ? spent : 0;
+}
+
 export default function ProgressAnalysis({
   pet,
   skills,
@@ -115,23 +168,69 @@ export default function ProgressAnalysis({
 }: Props) {
   const t = useTranslations("ProgressAnalysis");
   const locale = useLocale();
+  const huesitoText = HUESITO_TEXT[locale === "en" ? "en" : "es"];
 
-  const [loading, setLoading] = useState(autoAnalyze);
+  // El perro sale de la dirección de la página: /pets/ID/progress
+  const params = useParams<{ id?: string }>();
+  const petIdNumber = Number(params?.id);
+  const petId = Number.isInteger(petIdNumber) ? petIdNumber : null;
+
+  const [loading, setLoading] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(petId !== null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
+  const [noHuesitos, setNoHuesitos] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
-  // Evita analizar dos veces al abrir (React puede montar el componente dos veces en desarrollo)
-  const autoStartedRef = useRef(false);
+  // Evita cargar dos veces al abrir (React puede montar el componente dos veces en desarrollo)
+  const startedRef = useRef(false);
 
   const hasData = skills.length > 0 || trainings.length > 0;
+
+  // Guarda el análisis de la IA para mostrarlo gratis la próxima vez
+  async function saveAnalysis(result: Analysis): Promise<void> {
+    if (petId === null) return;
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from("progress_analyses").upsert(
+        {
+          pet_id: petId,
+          user_id: user.id,
+          locale,
+          data: result,
+          updated_at: now,
+        },
+        { onConflict: "pet_id" }
+      );
+
+      if (error) {
+        console.error("Error guardando el análisis:", error.message);
+        return;
+      }
+
+      setSavedAt(now);
+    } catch (err) {
+      console.error("Error inesperado guardando el análisis:", err);
+    }
+  }
 
   async function handleAnalyze() {
     setLoading(true);
     setUsedFallback(false);
+    setNoHuesitos(false);
 
     if (!hasData) {
       setAnalysis(buildLocalAnalysis(pet, skills, trainings, t));
       setUsedFallback(true);
+      setSavedAt(null);
       setLoading(false);
       return;
     }
@@ -143,39 +242,98 @@ export default function ProgressAnalysis({
         body: JSON.stringify({ pet, skills, trainings, locale }),
       });
 
+      // Sin huesitos: análisis básico con aviso, sin guardarlo
+      if (res.status === 402) {
+        setAnalysis(buildLocalAnalysis(pet, skills, trainings, t));
+        setUsedFallback(true);
+        setNoHuesitos(true);
+        setSavedAt(null);
+        return;
+      }
+
       if (!res.ok) {
         throw new Error("bad_response");
       }
 
-      const data = await res.json();
+      const data: unknown = await res.json();
+      const result = parseStoredAnalysis(
+        typeof data === "object" && data !== null
+          ? (data as { analysis?: unknown }).analysis
+          : null
+      );
 
-      if (!data?.analysis?.resumen) {
+      if (!result) {
         throw new Error("empty");
       }
 
-      setAnalysis({
-        resumen: data.analysis.resumen ?? "",
-        patrones: data.analysis.patrones ?? "",
-        recomendacion: data.analysis.recomendacion ?? "",
-      });
+      setAnalysis(result);
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (readSpent(data) > 0) {
+        notifyHuesitosChanged();
+      }
+
+      await saveAnalysis(result);
     } catch {
       // Si algo falla, usamos el resumen local. La app nunca se rompe.
       setAnalysis(buildLocalAnalysis(pet, skills, trainings, t));
       setUsedFallback(true);
+      setSavedAt(null);
     } finally {
       setLoading(false);
     }
   }
 
-  // Análisis automático al abrir la pantalla de progreso
+  // Al abrir: mostrar el análisis guardado; si no hay, analizar (si autoAnalyze)
   useEffect(() => {
-    if (!autoAnalyze || autoStartedRef.current) {
-      return;
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    async function start() {
+      if (petId !== null) {
+        try {
+          const { data } = await supabase
+            .from("progress_analyses")
+            .select("data, updated_at")
+            .eq("pet_id", petId)
+            .maybeSingle();
+
+          const stored = data ? parseStoredAnalysis(data.data) : null;
+
+          if (stored && data) {
+            setAnalysis(stored);
+            setSavedAt(data.updated_at);
+            setLoadingSaved(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Error cargando el análisis guardado:", err);
+        }
+
+        setLoadingSaved(false);
+      }
+
+      if (autoAnalyze) {
+        await handleAnalyze();
+      }
     }
-    autoStartedRef.current = true;
-    void handleAnalyze();
+
+    void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoAnalyze]);
+  }, []);
+
+  const busy = loading || loadingSaved;
+  const hasAiAnalysis = analysis !== null && !usedFallback;
+
+  const savedDateText = savedAt
+    ? new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "es-ES", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(savedAt))
+    : null;
 
   return (
     // data-tour: el tutorial ilumina esta tarjeta
@@ -191,18 +349,30 @@ export default function ProgressAnalysis({
           <p className="mt-2 text-teal-800">
             {t("description", { name: pet.name })}
           </p>
+          {savedDateText && !loading && (
+            <p className="mt-1 text-xs font-semibold text-teal-600">
+              {huesitoText.savedOn} {savedDateText}
+            </p>
+          )}
         </div>
 
         <button
-          onClick={handleAnalyze}
-          disabled={loading}
-          className="shrink-0 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => void handleAnalyze()}
+          disabled={busy}
+          className="flex shrink-0 items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading
-            ? t("analyzing")
-            : analysis
-            ? t("reAnalyze")
-            : t("analyze")}
+          {loading ? (
+            t("analyzing")
+          ) : (
+            <>
+              <span>{hasAiAnalysis ? t("reAnalyze") : t("analyze")}</span>
+              <span aria-hidden="true">·</span>
+              <span className="flex items-center gap-1">
+                {COST}
+                <BoneIcon className="h-3 w-6 text-teal-700" />
+              </span>
+            </>
+          )}
         </button>
       </div>
 
@@ -216,6 +386,18 @@ export default function ProgressAnalysis({
 
       {!loading && analysis && (
         <div className="mt-6 space-y-5">
+          {noHuesitos && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+              <span>{huesitoText.noHuesitos}</span>
+              <Link
+                href="/settings#huesitos"
+                className="underline underline-offset-2 hover:text-amber-700"
+              >
+                {huesitoText.getMore}
+              </Link>
+            </div>
+          )}
+
           <div className="rounded-xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-widest text-teal-600">
               {t("summaryLabel")}
@@ -241,7 +423,7 @@ export default function ProgressAnalysis({
             </div>
           )}
 
-          {usedFallback && (
+          {usedFallback && !noHuesitos && (
             <p className="text-xs font-medium text-slate-500">
               {t("fallbackNote")}
             </p>

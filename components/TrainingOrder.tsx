@@ -5,12 +5,31 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import Pawsi from "@/components/Pawsi";
+import BoneIcon from "@/components/BoneIcon";
+import { HUESITO_COSTS } from "@/lib/huesitos-shared";
+import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 import {
   isMastered,
   parseStoredOrder,
   resolveNextSkillId,
   type TrainingOrderData,
 } from "@/lib/training-order";
+
+const COST = HUESITO_COSTS["training-order"];
+
+// Textos de los huesitos (español / inglés)
+const HUESITO_TEXT = {
+  es: {
+    noHuesitos:
+      "Te has quedado sin huesitos: este es el orden básico, calculado sin IA.",
+    getMore: "Ver mis huesitos",
+  },
+  en: {
+    noHuesitos:
+      "You've run out of bones: this is the basic order, calculated without AI.",
+    getMore: "See my bones",
+  },
+};
 
 export type TrainingOrderGroupView = {
   groupId: number;
@@ -57,6 +76,8 @@ type ApiResponse = {
   order?: unknown;
   updatedAt?: unknown;
   usedFallback?: unknown;
+  noHuesitos?: unknown;
+  huesitos?: { spent?: unknown } | null;
   saved?: unknown;
 };
 
@@ -88,10 +109,12 @@ export default function TrainingOrder({
   const t = useTranslations("TrainingOrder");
   const locale = useLocale();
   const isEn = locale === "en";
+  const huesitoText = HUESITO_TEXT[isEn ? "en" : "es"];
 
   const [order, setOrder] = useState<TrainingOrderData | null>(initialOrder);
   const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);
   const [usedFallback, setUsedFallback] = useState(initialUsedFallback);
+  const [noHuesitos, setNoHuesitos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -223,6 +246,7 @@ export default function TrainingOrder({
     setLoading(true);
     setError(null);
     setWarning(null);
+    setNoHuesitos(false);
 
     try {
       const res = await fetch("/api/training-order", {
@@ -249,6 +273,16 @@ export default function TrainingOrder({
           : new Date().toISOString()
       );
       setUsedFallback(data.usedFallback === true);
+      setNoHuesitos(data.noHuesitos === true);
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (
+        data.huesitos &&
+        typeof data.huesitos.spent === "number" &&
+        data.huesitos.spent > 0
+      ) {
+        notifyHuesitosChanged();
+      }
 
       if (data.saved === false) {
         setWarning(t("errorNotSaved"));
@@ -278,13 +312,20 @@ export default function TrainingOrder({
             data-tour="order-calculate"
             onClick={handleCalculate}
             disabled={loading}
-            className="shrink-0 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading
-              ? t("calculating")
-              : order
-              ? t("recalculate")
-              : t("calculate")}
+            {loading ? (
+              t("calculating")
+            ) : (
+              <>
+                <span>{order ? t("recalculate") : t("calculate")}</span>
+                <span aria-hidden="true">·</span>
+                <span className="flex items-center gap-1">
+                  {COST}
+                  <BoneIcon className="h-3 w-6 text-indigo-700" />
+                </span>
+              </>
+            )}
           </button>
         ) : (
           <Link
@@ -305,6 +346,18 @@ export default function TrainingOrder({
       {warning && (
         <div className="mt-4 rounded-xl bg-amber-100 px-5 py-3 font-semibold text-amber-900">
           {warning}
+        </div>
+      )}
+
+      {noHuesitos && !loading && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 px-5 py-3 text-sm font-semibold text-amber-900">
+          <span>{huesitoText.noHuesitos}</span>
+          <Link
+            href="/settings#huesitos"
+            className="underline underline-offset-2 hover:text-amber-700"
+          >
+            {huesitoText.getMore}
+          </Link>
         </div>
       )}
 
@@ -463,7 +516,7 @@ export default function TrainingOrder({
               className="text-xs font-medium text-slate-500"
             >
               {t("updatedAt", { date: formattedDate })}
-              {usedFallback ? ` · ${t("fallbackNote")}` : ""}
+              {usedFallback && !noHuesitos ? ` · ${t("fallbackNote")}` : ""}
             </p>
           )}
         </div>

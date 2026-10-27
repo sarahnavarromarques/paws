@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
@@ -8,8 +9,29 @@ import { createClient } from "@/lib/supabase/client";
 import SessionGuide from "@/components/SessionGuide";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import BoneIcon from "@/components/BoneIcon";
+import { HUESITO_COSTS } from "@/lib/huesitos-shared";
+import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 
 const supabase = createClient();
+
+const PROGRESS_COST = HUESITO_COSTS["session-progress"];
+
+// Textos de los huesitos (español / inglés)
+const HUESITO_TEXT = {
+  es: {
+    spent: (n: number) => `Ha usado ${n}`,
+    noHuesitos:
+      "Te has quedado sin huesitos: el progreso se ha calculado con el método básico, sin IA.",
+    getMore: "Ver mis huesitos",
+  },
+  en: {
+    spent: (n: number) => `Used ${n}`,
+    noHuesitos:
+      "You've run out of bones: progress was calculated with the basic method, without AI.",
+    getMore: "See my bones",
+  },
+};
 
 type Skill = {
   id: number;
@@ -40,11 +62,21 @@ function getSkillName(skill: Skill, locale: string): string {
   return locale === "en" && skill.name_en ? skill.name_en : skill.name;
 }
 
+// Cuántos huesitos se han gastado según la respuesta del servidor
+function readSpent(data: unknown): number {
+  if (typeof data !== "object" || data === null) return 0;
+  const huesitos = (data as { huesitos?: unknown }).huesitos;
+  if (typeof huesitos !== "object" || huesitos === null) return 0;
+  const spent = (huesitos as { spent?: unknown }).spent;
+  return typeof spent === "number" ? spent : 0;
+}
+
 export default function EditTrainingPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const t = useTranslations("EditTraining");
   const locale = useLocale();
+  const huesitoText = HUESITO_TEXT[locale === "en" ? "en" : "es"];
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,6 +111,8 @@ export default function EditTrainingPage() {
     to: number;
     comentario: string;
     usedFallback: boolean;
+    noHuesitos: boolean;
+    spent: number;
   } | null>(null);
 
   useEffect(() => {
@@ -289,7 +323,7 @@ export default function EditTrainingPage() {
 
     const numericDuration = duration ? Number(duration) : null;
 
-    // Cálculo local de reserva (por si la IA falla)
+    // Cálculo local de reserva (si la IA falla o no quedan huesitos)
     function localFallback(): { newProgress: number; comentario: string } {
       const a = Number(attempts);
       const s = Number(successes);
@@ -317,6 +351,8 @@ export default function EditTrainingPage() {
     let newProgress = currentProgress;
     let comentario = "";
     let usedFallback = false;
+    let noHuesitos = false;
+    let spent = 0;
 
     try {
       const res = await fetch("/api/session-progress", {
@@ -344,6 +380,12 @@ export default function EditTrainingPage() {
         }),
       });
 
+      // Sin huesitos: se usa el cálculo básico, con aviso
+      if (res.status === 402) {
+        noHuesitos = true;
+        throw new Error("no_huesitos");
+      }
+
       if (!res.ok) throw new Error("bad_response");
 
       const data = await res.json();
@@ -357,6 +399,12 @@ export default function EditTrainingPage() {
 
       newProgress = data.result.newProgress;
       comentario = data.result.comentario ?? "";
+      spent = readSpent(data);
+
+      // Se han gastado huesitos: la pastilla del saldo se actualiza sola
+      if (spent > 0) {
+        notifyHuesitosChanged();
+      }
     } catch {
       const fb = localFallback();
       newProgress = fb.newProgress;
@@ -390,6 +438,8 @@ export default function EditTrainingPage() {
       to: newProgress,
       comentario,
       usedFallback,
+      noHuesitos,
+      spent,
     });
   }
 
@@ -682,11 +732,32 @@ export default function EditTrainingPage() {
                 {aiResult.comentario && (
                   <p className="mt-3 text-green-900">{aiResult.comentario}</p>
                 )}
-                {aiResult.usedFallback && (
+
+                {aiResult.noHuesitos && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+                    <span>{huesitoText.noHuesitos}</span>
+                    <Link
+                      href="/settings#huesitos"
+                      className="underline underline-offset-2 hover:text-amber-700"
+                    >
+                      {huesitoText.getMore}
+                    </Link>
+                  </div>
+                )}
+
+                {aiResult.usedFallback && !aiResult.noHuesitos && (
                   <p className="mt-3 text-xs font-medium text-slate-500">
                     {t("fallbackNote")}
                   </p>
                 )}
+
+                {aiResult.spent > 0 && (
+                  <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-green-700">
+                    {huesitoText.spent(aiResult.spent)}
+                    <BoneIcon className="h-3 w-6" />
+                  </p>
+                )}
+
                 <button
                   type="button"
                   onClick={() => router.back()}
@@ -705,13 +776,22 @@ export default function EditTrainingPage() {
                 type="button"
                 onClick={saveTraining}
                 disabled={saving}
-                className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving
-                  ? t("savingButton")
-                  : showSessionQuestions
-                  ? t("completeAndAnalyzeButton")
-                  : t("saveChangesButton")}
+                {saving ? (
+                  t("savingButton")
+                ) : showSessionQuestions ? (
+                  <>
+                    <span>{t("completeAndAnalyzeButton")}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="flex items-center gap-1">
+                      {PROGRESS_COST}
+                      <BoneIcon className="h-3 w-6 text-blue-700" />
+                    </span>
+                  </>
+                ) : (
+                  t("saveChangesButton")
+                )}
               </button>
 
               <button
