@@ -88,6 +88,63 @@ export type Database = {
           },
         ]
       }
+      huesito_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          feature: string | null
+          id: number
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          feature?: string | null
+          id?: never
+          kind: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          feature?: string | null
+          id?: never
+          kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      huesito_wallets: {
+        Row: {
+          created_at: string
+          purchased_balance: number
+          subscription_balance: number
+          subscription_expires_at: string | null
+          unlimited: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          purchased_balance?: number
+          subscription_balance?: number
+          subscription_expires_at?: string | null
+          unlimited?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          purchased_balance?: number
+          subscription_balance?: number
+          subscription_expires_at?: string | null
+          unlimited?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pet_questionnaires: {
         Row: {
           answers: Json
@@ -745,7 +802,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      spend_huesitos: {
+        Args: { p_amount: number; p_feature: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

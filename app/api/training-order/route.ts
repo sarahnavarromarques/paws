@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   MASTERED_THRESHOLD,
   buildLocalOrder,
@@ -19,6 +20,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "claude-haiku-4-5";
+const FEATURE = "training-order" as const;
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -152,7 +154,7 @@ async function askAI(
   await recordAiUsage({
     supabase: aiUser.supabase,
     userId: aiUser.userId,
-    feature: "training-order",
+    feature: FEATURE,
     model: MODEL,
     usage: message.usage,
   });
@@ -295,10 +297,15 @@ export async function POST(request: Request) {
 
   let order: TrainingOrderData = buildLocalOrder(inputGroups);
   let usedFallback = true;
+  let huesitos: SpendResult | null = null;
+
+  // Sin huesitos suficientes: se usa directamente el orden local.
+  const canPay = await hasHuesitosFor(supabase, userId, FEATURE);
+  const noHuesitos = !canPay;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (apiKey) {
+  if (apiKey && canPay) {
     try {
       const accountType = await getCurrentAccountType();
       const audience = getAudienceInstructions(accountType, false);
@@ -323,6 +330,9 @@ export async function POST(request: Request) {
       if (sanitized) {
         order = sanitized;
         usedFallback = false;
+
+        // La IA ha respondido bien: se cobran los huesitos.
+        huesitos = await spendHuesitos(supabase, FEATURE);
       }
     } catch (error) {
       console.error("Error llamando a la IA (training-order):", error);
@@ -353,6 +363,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     order,
     usedFallback,
+    noHuesitos,
+    huesitos,
     updatedAt,
     saved: !saveError,
   });

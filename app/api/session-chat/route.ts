@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
 import {
   CHAT_MAX_LENGTH,
   guideToPlainText,
@@ -16,6 +17,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "claude-haiku-4-5";
+const FEATURE = "session-chat" as const;
 
 // Cuántos mensajes anteriores se mandan a la IA como contexto
 const HISTORY_LIMIT = 20;
@@ -55,6 +57,11 @@ export async function POST(request: Request) {
   }
 
   const { supabase, userId } = aiUser;
+
+  // El chat no tiene versión local: sin huesitos no se puede preguntar.
+  if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {
+    return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
+  }
 
   // --- Contexto: entrenamiento, perro, habilidad, progreso y guía ---
 
@@ -189,7 +196,7 @@ Reglas:
     await recordAiUsage({
       supabase,
       userId,
-      feature: "session-chat",
+      feature: FEATURE,
       model: MODEL,
       usage: message.usage,
     });
@@ -206,6 +213,9 @@ Reglas:
   if (!answer) {
     return NextResponse.json({ error: "empty_answer" }, { status: 502 });
   }
+
+  // La IA ha respondido bien: se cobran los huesitos.
+  const huesitos = await spendHuesitos(supabase, FEATURE);
 
   // --- Guardar la pregunta y la respuesta (solo si la IA ha respondido) ---
 
@@ -246,6 +256,7 @@ Reglas:
 
   return NextResponse.json({
     messages,
+    huesitos,
     saved: !saveError,
   });
 }

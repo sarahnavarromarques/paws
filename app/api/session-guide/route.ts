@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   buildLocalGuide,
   sanitizeGuide,
@@ -15,6 +16,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "claude-haiku-4-5";
+const FEATURE = "session-guide" as const;
 const IS_DEV = process.env.NODE_ENV !== "production";
 const TOOL_NAME = "save_session_guide";
 
@@ -147,10 +149,15 @@ export async function POST(request: Request) {
     isEn
   );
   let usedFallback = true;
+  let huesitos: SpendResult | null = null;
+
+  // Sin huesitos suficientes: se usa directamente la guía local.
+  const canPay = await hasHuesitosFor(supabase, userId, FEATURE);
+  const noHuesitos = !canPay;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (apiKey) {
+  if (apiKey && canPay) {
     try {
       const accountType = await getCurrentAccountType();
       const audience = getAudienceInstructions(accountType, isEn);
@@ -277,7 +284,7 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
       await recordAiUsage({
         supabase,
         userId,
-        feature: "session-guide",
+        feature: FEATURE,
         model: MODEL,
         usage: message.usage,
       });
@@ -294,6 +301,9 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
         if (sanitized) {
           guide = sanitized;
           usedFallback = false;
+
+          // La IA ha respondido bien: se cobran los huesitos.
+          huesitos = await spendHuesitos(supabase, FEATURE);
         }
       }
     } catch (error) {
@@ -327,6 +337,8 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
     guide,
     locale,
     usedFallback,
+    noHuesitos,
+    huesitos,
     saved: !saveError,
   });
 }

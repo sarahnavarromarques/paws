@@ -4,11 +4,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
 
 // Se ejecuta en el servidor de Next.js. La clave queda oculta aquí.
 export const runtime = "nodejs";
 
 const MODEL = "claude-haiku-4-5";
+const FEATURE = "session-progress" as const;
 
 // Cuántas preguntas del chat se pasan como contexto, y su longitud máxima
 const CHAT_CONTEXT_LIMIT = 10;
@@ -111,6 +113,11 @@ export async function POST(request: Request) {
 
   if (!skillName || !answers) {
     return NextResponse.json({ error: "missing_data" }, { status: 400 });
+  }
+
+  // Sin huesitos suficientes: la pantalla usa su cálculo local.
+  if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {
+    return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
   }
 
   // Tipo de cuenta del usuario: solo cambia el tono del comentario
@@ -217,7 +224,7 @@ Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
     await recordAiUsage({
       supabase,
       userId,
-      feature: "session-progress",
+      feature: FEATURE,
       model: MODEL,
       usage: message.usage,
     });
@@ -247,12 +254,16 @@ Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
     if (newProgress < 0) newProgress = 0;
     if (newProgress > 100) newProgress = 100;
 
+    // La IA ha respondido bien: se cobran los huesitos.
+    const huesitos = await spendHuesitos(supabase, FEATURE);
+
     return NextResponse.json({
       result: {
         newProgress,
         comentario:
           typeof parsed.comentario === "string" ? parsed.comentario : "",
       },
+      huesitos,
     });
   } catch (error) {
     console.error("Error llamando a la IA (session-progress):", error);

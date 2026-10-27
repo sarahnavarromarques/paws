@@ -4,12 +4,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
 
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
 // La clave de la API queda oculta y segura aquí.
 export const runtime = "nodejs";
 
 const MODEL = "claude-haiku-4-5";
+const FEATURE = "analyze-progress" as const;
 
 type SkillInput = {
   name: string;
@@ -41,6 +43,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const { supabase, userId } = aiUser;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   // Si no hay clave, avisamos para que el frontend use su resumen local.
@@ -68,6 +72,11 @@ export async function POST(request: Request) {
 
   if (!pet || !pet.name) {
     return NextResponse.json({ error: "no_pet" }, { status: 400 });
+  }
+
+  // Sin huesitos suficientes: el frontend usa su resumen local.
+  if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {
+    return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
   }
 
   // Tipo de cuenta del usuario: la IA adapta su lenguaje a quien lo lee
@@ -177,9 +186,9 @@ Write in English, addressing the reader directly, clear and practical. Don't inv
 
     // Registramos el coste real de esta llamada.
     await recordAiUsage({
-      supabase: aiUser.supabase,
-      userId: aiUser.userId,
-      feature: "analyze-progress",
+      supabase,
+      userId,
+      feature: FEATURE,
       model: MODEL,
       usage: message.usage,
     });
@@ -188,6 +197,13 @@ Write in English, addressing the reader directly, clear and practical. Don't inv
       .map((block) => (block.type === "text" ? block.text : ""))
       .join("")
       .trim();
+
+    if (!raw) {
+      return NextResponse.json({ error: "empty" }, { status: 502 });
+    }
+
+    // La IA ha respondido: se cobran los huesitos.
+    const huesitos = await spendHuesitos(supabase, FEATURE);
 
     const cleaned = raw
       .replace(/```json/gi, "")
@@ -214,6 +230,7 @@ Write in English, addressing the reader directly, clear and practical. Don't inv
           patrones: "",
           recomendacion: "",
         },
+        huesitos,
       });
     }
 
@@ -224,6 +241,7 @@ Write in English, addressing the reader directly, clear and practical. Don't inv
         recomendacion:
           typeof parsed.recomendacion === "string" ? parsed.recomendacion : "",
       },
+      huesitos,
     });
   } catch (error) {
     console.error("Error llamando a la IA (analyze-progress):", error);

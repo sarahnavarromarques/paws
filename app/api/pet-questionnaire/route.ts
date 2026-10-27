@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   MAX_PROPOSAL_GROUPS,
   MAX_SKILLS_PER_GROUP,
@@ -30,6 +31,7 @@ export const maxDuration = 300;
 const MAX_OUTPUT_TOKENS = 16000;
 
 const MODEL = "claude-haiku-4-5";
+const FEATURE = "pet-questionnaire" as const;
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -192,7 +194,7 @@ async function askAI(
   await recordAiUsage({
     supabase: aiUser.supabase,
     userId: aiUser.userId,
-    feature: "pet-questionnaire",
+    feature: FEATURE,
     model: MODEL,
     usage: message.usage,
   });
@@ -312,12 +314,17 @@ export async function POST(request: Request) {
 
   let proposal: QuestionnaireProposal = buildLocalProposal(answers, catalog, locale);
   let usedFallback = true;
+  let huesitos: SpendResult | null = null;
+
+  // Sin huesitos suficientes: se usa directamente la propuesta local.
+  const canPay = await hasHuesitosFor(supabase, userId, FEATURE);
+  const noHuesitos = !canPay;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     console.error("[pet-questionnaire] Falta ANTHROPIC_API_KEY.");
-  } else {
+  } else if (canPay) {
     try {
       const accountType = await getCurrentAccountType();
       const audience = getAudienceInstructions(accountType, false);
@@ -347,6 +354,9 @@ export async function POST(request: Request) {
         if (sanitized) {
           proposal = sanitized;
           usedFallback = false;
+
+          // La IA ha respondido bien: se cobran los huesitos.
+          huesitos = await spendHuesitos(supabase, FEATURE);
         } else {
           console.error(
             "[pet-questionnaire] La respuesta de la IA no pasó la validación; se usa la propuesta de respaldo."
@@ -386,6 +396,8 @@ export async function POST(request: Request) {
     proposal,
     skills,
     usedFallback,
+    noHuesitos,
+    huesitos,
     saved: !saveError,
   });
 }
