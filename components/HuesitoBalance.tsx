@@ -10,17 +10,15 @@ import { createClient } from "@/lib/supabase/client";
 import { toHuesitoWallet, type HuesitoWallet } from "@/lib/huesitos-shared";
 import { HUESITOS_CHANGED_EVENT } from "@/lib/huesitos-client";
 
-// Páginas donde se muestra el saldo, junto a la bandera.
-const VISIBLE_PATHS = ["/dashboard"];
-
 // Por debajo de esta cantidad, la pastilla avisa en color ámbar.
 const LOW_BALANCE = 5;
 
+// Saldo de huesitos junto a la bandera, en todas las páginas.
+// Solo aparece si hay sesión iniciada (en login y registro no sale).
 export default function HuesitoBalance() {
   const pathname = usePathname();
   const locale = useLocale();
   const isEn = locale === "en";
-  const visible = VISIBLE_PATHS.includes(pathname);
 
   const [wallet, setWallet] = useState<HuesitoWallet | null>(null);
 
@@ -55,11 +53,14 @@ export default function HuesitoBalance() {
     }
   }, []);
 
+  // Se vuelve a leer al cambiar de página (así también aparece justo
+  // después de iniciar sesión y desaparece al cerrarla).
   useEffect(() => {
-    if (!visible) return;
-
     void loadWallet();
+  }, [pathname, loadWallet]);
 
+  // Y al momento, cada vez que una pantalla gasta huesitos.
+  useEffect(() => {
     function handleChange() {
       void loadWallet();
     }
@@ -69,9 +70,9 @@ export default function HuesitoBalance() {
     return () => {
       window.removeEventListener(HUESITOS_CHANGED_EVENT, handleChange);
     };
-  }, [visible, loadWallet]);
+  }, [loadWallet]);
 
-  if (!visible || !wallet) {
+  if (!wallet) {
     return null;
   }
 
