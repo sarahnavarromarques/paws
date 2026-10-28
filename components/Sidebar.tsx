@@ -25,6 +25,7 @@ type NavKey =
   | "pets"
   | "clients"
   | "homework"
+  | "pro"
   | "calendar"
   | "clicker"
   | "settings"
@@ -35,6 +36,7 @@ const NAV_ITEMS: { href: string; key: NavKey; icon: string }[] = [
   { href: "/pets", key: "pets", icon: "🐶" },
   { href: "/clients", key: "clients", icon: "🧑‍🏫" },
   { href: "/homework", key: "homework", icon: "📝" },
+  { href: "/pro", key: "pro", icon: "⭐" },
   { href: "/calendar", key: "calendar", icon: "📅" },
   { href: "/clicker", key: "clicker", icon: "🔔" },
   { href: "/settings", key: "settings", icon: "⚙️" },
@@ -162,6 +164,8 @@ export default function Sidebar() {
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.key === "clients") return showClients;
     if (item.key === "homework") return showHomework;
+    // PAWS PRO es para adiestradores, centros y refugios
+    if (item.key === "pro") return showClients;
     return true;
   });
 

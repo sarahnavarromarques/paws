@@ -1,0 +1,36 @@
+{
+  "Sidebar": {
+    "pro": "PAWS PRO"
+  },
+  "Pro": {
+    "title": "PAWS PRO",
+    "subtitle": "Todo lo que necesitas para trabajar con tus clientes, por un precio fijo al mes.",
+    "backToDashboard": "Volver al panel",
+    "loading": "Cargando...",
+    "loginFirst": "Entra en tu cuenta para contratar PAWS PRO.",
+    "login": "Entrar",
+    "founderOffer": "🎉 Precio de fundador: 50% para siempre",
+    "regularPrice": "29 €",
+    "founderPrice": "14,50 €",
+    "perMonth": "/ mes",
+    "taxIncluded": "Impuestos incluidos.",
+    "featureClients": "Clientes ilimitados: invítalos por WhatsApp con un enlace.",
+    "featureHomework": "Deberes para casa y seguimiento de cuánto practica cada cliente.",
+    "featureHuesitos": "300 huesitos al mes para las herramientas de IA (se renuevan cada mes).",
+    "featureClientsFree": "Tus clientes usan PAWS gratis.",
+    "subscribe": "Hazte PRO",
+    "redirecting": "Abriendo Stripe...",
+    "cancelAnytime": "Pago seguro con Stripe. Cancela cuando quieras.",
+    "processing": "Estamos confirmando tu pago. Tarda unos segundos; si no cambia, recarga la página.",
+    "welcomeTitle": "¡Bienvenido a PAWS PRO! 🎉",
+    "activeTitle": "Eres PAWS PRO",
+    "activeText": "Tienes 300 huesitos cada mes y todas las herramientas para tus clientes.",
+    "founderBadge": "⭐ Precio de fundador",
+    "pastDue": "No hemos podido cobrar el último pago. Revisa tu tarjeta en «Gestionar suscripción».",
+    "renewsOn": "Se renueva el {date}.",
+    "endsOn": "Cancelada: seguirás siendo PRO hasta el {date}.",
+    "manage": "Gestionar suscripción",
+    "errorAlreadyPro": "Ya tienes PAWS PRO.",
+    "errorGeneric": "No se ha podido abrir Stripe. Inténtalo de nuevo."
+  }
+}

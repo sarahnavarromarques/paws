@@ -1,0 +1,36 @@
+{
+  "Sidebar": {
+    "pro": "PAWS PRO"
+  },
+  "Pro": {
+    "title": "PAWS PRO",
+    "subtitle": "Everything you need to work with your clients, for a fixed monthly price.",
+    "backToDashboard": "Back to dashboard",
+    "loading": "Loading...",
+    "loginFirst": "Log in to subscribe to PAWS PRO.",
+    "login": "Log in",
+    "founderOffer": "🎉 Founder price: 50% off forever",
+    "regularPrice": "€29",
+    "founderPrice": "€14.50",
+    "perMonth": "/ month",
+    "taxIncluded": "Taxes included.",
+    "featureClients": "Unlimited clients: invite them on WhatsApp with a link.",
+    "featureHomework": "Homework and tracking of how much each client practices.",
+    "featureHuesitos": "300 huesitos a month for the AI tools (renewed every month).",
+    "featureClientsFree": "Your clients use PAWS for free.",
+    "subscribe": "Go PRO",
+    "redirecting": "Opening Stripe...",
+    "cancelAnytime": "Secure payment with Stripe. Cancel anytime.",
+    "processing": "We're confirming your payment. It takes a few seconds; if nothing changes, reload the page.",
+    "welcomeTitle": "Welcome to PAWS PRO! 🎉",
+    "activeTitle": "You're PAWS PRO",
+    "activeText": "You get 300 huesitos every month and all the tools for your clients.",
+    "founderBadge": "⭐ Founder price",
+    "pastDue": "We couldn't charge your last payment. Check your card in “Manage subscription”.",
+    "renewsOn": "Renews on {date}.",
+    "endsOn": "Cancelled: you'll stay PRO until {date}.",
+    "manage": "Manage subscription",
+    "errorAlreadyPro": "You already have PAWS PRO.",
+    "errorGeneric": "Stripe couldn't be opened. Please try again."
+  }
+}

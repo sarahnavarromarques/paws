@@ -47,6 +47,45 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          is_founder: boolean
+          price_id: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          is_founder?: boolean
+          price_id?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          is_founder?: boolean
+          price_id?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       breeds: {
         Row: {
           description: string | null
@@ -726,6 +765,24 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_events: {
+        Row: {
+          created_at: string
+          id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       trainer_invites: {
         Row: {
           accepted_at: string | null
@@ -1029,6 +1086,10 @@ export type Database = {
         }[]
       }
       get_trainer_invite: { Args: { p_token: string }; Returns: Json }
+      grant_subscription_huesitos: {
+        Args: { p_amount: number; p_expires: string; p_user_id: string }
+        Returns: undefined
+      }
       is_trainer_of_pet: { Args: { p_pet_id: number }; Returns: boolean }
       paws_display_name: { Args: { p_user_id: string }; Returns: string }
       spend_huesitos: {
