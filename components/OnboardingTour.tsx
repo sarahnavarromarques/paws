@@ -7,6 +7,11 @@ import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { saveUserLanguage, type AppLanguage } from "@/lib/language";
 import Pawsi from "@/components/Pawsi";
+import {
+  DEFAULT_ACCOUNT_TYPE,
+  isAccountType,
+  type AccountType,
+} from "@/lib/account-type";
 
 // Pantallas donde el tutorial nunca se muestra (sin sesión iniciada)
 const HIDDEN_PATHS = [
@@ -22,6 +27,7 @@ const HIDDEN_PATHS = [
 const STEP_KEY = "paws-onboarding-v2-step";
 const DONE_KEY = "paws-onboarding-v2-done";
 const LANG_KEY = "paws-onboarding-v2-lang-chosen";
+const ACCOUNT_KEY = "paws-onboarding-v2-account-chosen";
 export const START_TOUR_EVENT = "paws:start-onboarding";
 export const ONBOARDING_FINISHED_EVENT = "paws:onboarding-finished";
 // Aviso al resto de la app de si hay un tutorial o una guía en pantalla
@@ -797,6 +803,59 @@ const UI = {
   hideAll: { es: "No mostrar más guías", en: "Don't show more guides" },
 } satisfies Record<string, Text>;
 
+// Pregunta "¿Cómo vas a usar PAWS?" (después del idioma)
+const ACCOUNT_UI = {
+  title: { es: "¿Cómo vas a usar PAWS?", en: "How will you use PAWS?" },
+  hint: {
+    es: "Podrás cambiarlo cuando quieras en Ajustes",
+    en: "You can change it any time in Settings",
+  },
+} satisfies Record<string, Text>;
+
+const ACCOUNT_OPTIONS: {
+  value: AccountType;
+  icon: string;
+  name: Text;
+  description: Text;
+}[] = [
+  {
+    value: "particular",
+    icon: "🏠",
+    name: { es: "Tengo perro", en: "I have a dog" },
+    description: {
+      es: "Entreno a mi perro (o voy con un adiestrador)",
+      en: "I train my own dog (or work with a trainer)",
+    },
+  },
+  {
+    value: "profesional",
+    icon: "🎓",
+    name: { es: "Soy adiestrador/a", en: "I'm a dog trainer" },
+    description: {
+      es: "Trabajo con perros de clientes",
+      en: "I work with clients' dogs",
+    },
+  },
+  {
+    value: "centro",
+    icon: "🏫",
+    name: { es: "Centro de adiestramiento", en: "Training center" },
+    description: {
+      es: "Varios adiestradores en un mismo centro",
+      en: "Several trainers in one center",
+    },
+  },
+  {
+    value: "refugio",
+    icon: "🐾",
+    name: { es: "Refugio o protectora", en: "Shelter or rescue" },
+    description: {
+      es: "Preparamos perros para su adopción",
+      en: "We prepare dogs for adoption",
+    },
+  },
+];
+
 const NAVY = "#1e3a5f";
 const CARD_HEIGHT = 300;
 
@@ -1134,6 +1193,10 @@ export default function OnboardingTour() {
   const [ready, setReady] = useState(false);
   const [choosingLanguage, setChoosingLanguage] = useState(false);
   const [savingLanguage, setSavingLanguage] = useState(false);
+  // Las preguntas iniciales son dos pantallas: idioma y tipo de cuenta
+  const [setupStep, setSetupStep] = useState<"language" | "account">("language");
+  const [currentAccountType, setCurrentAccountType] =
+    useState<AccountType>(DEFAULT_ACCOUNT_TYPE);
   const checkedRef = useRef(false);
   const targetRef = useRef<HTMLElement | null>(null);
 
@@ -1187,11 +1250,14 @@ export default function OnboardingTour() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("tours_seen")
+        .select("tours_seen, account_type")
         .eq("id", user.id)
         .maybeSingle();
 
       const seenList = profile?.tours_seen ?? [];
+      if (isAccountType(profile?.account_type)) {
+        setCurrentAccountType(profile.account_type);
+      }
       const welcomeDone =
         seenList.includes(WELCOME_ID) || readStorage(DONE_KEY) === user.id;
 
@@ -1207,12 +1273,15 @@ export default function OnboardingTour() {
           ? saved
           : 0;
 
-      // Elegir idioma solo al empezar desde el principio y si aún no se eligió
+      // Elegir idioma y tipo de cuenta solo al empezar desde el principio
+      // y si aún no se eligieron
       const needsLanguage = start === 0 && readStorage(LANG_KEY) !== user.id;
+      const needsAccount = start === 0 && readStorage(ACCOUNT_KEY) !== user.id;
 
       setSection(null);
       setStepIndex(start);
-      setChoosingLanguage(needsLanguage);
+      setSetupStep(needsLanguage ? "language" : "account");
+      setChoosingLanguage(needsLanguage || needsAccount);
       setActive(true);
     };
 
@@ -1527,7 +1596,7 @@ export default function OnboardingTour() {
     if (userId) writeStorage(LANG_KEY, userId);
 
     if (language === lang) {
-      setChoosingLanguage(false);
+      goToAccountOrFinishSetup();
       return;
     }
 
@@ -1535,12 +1604,55 @@ export default function OnboardingTour() {
     const saved = await saveUserLanguage(language);
 
     if (saved) {
-      // Recarga completa: el tutorial empieza ya en el idioma elegido
+      // Recarga completa: el tutorial sigue ya en el idioma elegido
+      // (con la pregunta del tipo de cuenta, si falta)
       window.location.reload();
       return;
     }
 
     // Si falla el guardado, seguimos con el idioma actual
+    setSavingLanguage(false);
+    goToAccountOrFinishSetup();
+  };
+
+  // Después del idioma: preguntar el tipo de cuenta si aún no se eligió
+  const goToAccountOrFinishSetup = () => {
+    if (userId && readStorage(ACCOUNT_KEY) !== userId) {
+      setSetupStep("account");
+    } else {
+      setChoosingLanguage(false);
+    }
+  };
+
+  // Elegir el tipo de cuenta (particular, adiestrador, centro, refugio)
+  const chooseAccountType = async (accountType: AccountType) => {
+    if (savingLanguage) return;
+
+    // Marcar como elegido para no volver a preguntar
+    if (userId) writeStorage(ACCOUNT_KEY, userId);
+
+    if (accountType === currentAccountType || !userId) {
+      setChoosingLanguage(false);
+      return;
+    }
+
+    setSavingLanguage(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      account_type: accountType,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (!error) {
+      // Recarga completa: los textos de la app cambian según el tipo de cuenta
+      // ("mascotas" → "perros", menú "Mis clientes"...)
+      window.location.reload();
+      return;
+    }
+
+    // Si falla el guardado, seguimos con el tipo actual
+    console.error("Error guardando el tipo de cuenta:", error);
     setSavingLanguage(false);
     setChoosingLanguage(false);
   };
@@ -1563,6 +1675,43 @@ export default function OnboardingTour() {
   };
 
   if (isHidden) return null;
+
+  // ---------- Pantalla "¿Cómo vas a usar PAWS?" (después del idioma) ----------
+  if (active && choosingLanguage && setupStep === "account") {
+    return (
+      <div className="paws-fade fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 overflow-y-auto bg-white px-6 py-8 text-center">
+        <style>{TOUR_CSS}</style>
+
+        <SpeechBubble>{ACCOUNT_UI.title[lang]}</SpeechBubble>
+
+        <div className="paws-float">
+          <Pawsi pose="piensa" size={150} />
+        </div>
+
+        <div className="grid w-full max-w-sm gap-3">
+          {ACCOUNT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              disabled={savingLanguage}
+              onClick={() => void chooseAccountType(option.value)}
+              className="flex items-center gap-3 rounded-xl bg-[#1e3a5f] px-5 py-3 text-left text-white shadow-[0_4px_0_#0f2540] transition active:translate-y-1 active:shadow-none disabled:opacity-60"
+            >
+              <span className="text-2xl">{option.icon}</span>
+              <span>
+                <span className="block text-lg font-bold">{option.name[lang]}</span>
+                <span className="block text-sm text-sky-200">
+                  {option.description[lang]}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <p className="max-w-sm text-sm text-gray-500">{ACCOUNT_UI.hint[lang]}</p>
+      </div>
+    );
+  }
 
   // ---------- Pantalla "Elige tu idioma" (antes del tutorial) ----------
   if (active && choosingLanguage) {
