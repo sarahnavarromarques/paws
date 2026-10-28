@@ -1143,7 +1143,8 @@ export default function OnboardingTour() {
   const steps = currentSection ? currentSection.steps : WELCOME_STEPS;
   const step: TourStep = steps[stepIndex] ?? steps[0];
   const running = active || currentSection !== null;
-  const isHidden = HIDDEN_PATHS.includes(pathname);
+  const isHidden =
+    HIDDEN_PATHS.includes(pathname) || pathname.startsWith("/invite/");
 
   // Hay tutorial en pantalla (o aún no sabemos si va a salir)
   const tourOnScreen =

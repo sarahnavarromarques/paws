@@ -16,7 +16,7 @@ const DEFAULT_LOCALE: Locale = "es";
 
 // Funciones cuyos textos viven en su propio archivo:
 // messages/features/<nombre>.<idioma>.json
-const FEATURE_MESSAGES = ["vaccines", "health"] as const;
+const FEATURE_MESSAGES = ["vaccines", "health", "trainer"] as const;
 
 function isLocale(value: unknown): value is Locale {
   return (

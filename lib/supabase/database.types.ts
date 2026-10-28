@@ -88,6 +88,105 @@ export type Database = {
           },
         ]
       }
+      homework_assignments: {
+        Row: {
+          active: boolean
+          attempts_per_session: number
+          created_at: string
+          id: string
+          instructions: string | null
+          pet_id: number
+          sessions_per_week: number
+          skill_id: number | null
+          title: string
+          trainer_id: string
+        }
+        Insert: {
+          active?: boolean
+          attempts_per_session?: number
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          pet_id: number
+          sessions_per_week?: number
+          skill_id?: number | null
+          title: string
+          trainer_id: string
+        }
+        Update: {
+          active?: boolean
+          attempts_per_session?: number
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          pet_id?: number
+          sessions_per_week?: number
+          skill_id?: number | null
+          title?: string
+          trainer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_assignments_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework_logs: {
+        Row: {
+          assignment_id: string
+          attempts: number
+          id: string
+          logged_at: string
+          pet_id: number
+          successes: number
+          user_id: string
+        }
+        Insert: {
+          assignment_id: string
+          attempts: number
+          id?: string
+          logged_at?: string
+          pet_id: number
+          successes: number
+          user_id?: string
+        }
+        Update: {
+          assignment_id?: string
+          attempts?: number
+          id?: string
+          logged_at?: string
+          pet_id?: number
+          successes?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_logs_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "homework_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_logs_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       huesito_transactions: {
         Row: {
           amount: number
@@ -227,6 +326,51 @@ export type Database = {
             columns: ["skill_id"]
             isOneToOne: false
             referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_trainers: {
+        Row: {
+          client_name: string | null
+          created_at: string
+          id: string
+          invite_id: string | null
+          owner_id: string
+          pet_id: number
+          trainer_id: string
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          invite_id?: string | null
+          owner_id: string
+          pet_id: number
+          trainer_id: string
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          invite_id?: string | null
+          owner_id?: string
+          pet_id?: number
+          trainer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_trainers_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "trainer_invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_trainers_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
             referencedColumns: ["id"]
           },
         ]
@@ -582,6 +726,36 @@ export type Database = {
         }
         Relationships: []
       }
+      trainer_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          client_name: string
+          created_at: string
+          id: string
+          token: string
+          trainer_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          client_name: string
+          created_at?: string
+          id?: string
+          token?: string
+          trainer_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          client_name?: string
+          created_at?: string
+          id?: string
+          token?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
       training_chat_messages: {
         Row: {
           content: string
@@ -837,6 +1011,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_trainer_invite: {
+        Args: { p_pet_ids: number[]; p_token: string }
+        Returns: Json
+      }
+      get_my_trainer_links: {
+        Args: never
+        Returns: {
+          client_name: string
+          created_at: string
+          link_id: string
+          other_name: string
+          pet_id: number
+          pet_name: string
+          pet_photo: string
+          role: string
+        }[]
+      }
+      get_trainer_invite: { Args: { p_token: string }; Returns: Json }
+      is_trainer_of_pet: { Args: { p_pet_id: number }; Returns: boolean }
+      paws_display_name: { Args: { p_user_id: string }; Returns: string }
       spend_huesitos: {
         Args: { p_amount: number; p_feature: string }
         Returns: Json

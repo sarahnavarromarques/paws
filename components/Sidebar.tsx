@@ -16,9 +16,15 @@ const HIDDEN_PATHS = [
   "/update-password",
 ];
 
+// Pantallas que empiezan así tampoco muestran el menú
+// (la invitación se abre muchas veces sin sesión iniciada)
+const HIDDEN_PREFIXES = ["/invite/"];
+
 type NavKey =
   | "dashboard"
   | "pets"
+  | "clients"
+  | "homework"
   | "calendar"
   | "clicker"
   | "settings"
@@ -27,11 +33,16 @@ type NavKey =
 const NAV_ITEMS: { href: string; key: NavKey; icon: string }[] = [
   { href: "/dashboard", key: "dashboard", icon: "🏠" },
   { href: "/pets", key: "pets", icon: "🐶" },
+  { href: "/clients", key: "clients", icon: "🧑‍🏫" },
+  { href: "/homework", key: "homework", icon: "📝" },
   { href: "/calendar", key: "calendar", icon: "📅" },
   { href: "/clicker", key: "clicker", icon: "🔔" },
   { href: "/settings", key: "settings", icon: "⚙️" },
   { href: "/credits", key: "credits", icon: "📚" },
 ];
+
+// Tipos de cuenta que ven "Mis clientes" aunque todavía no tengan ninguno
+const TRAINER_ACCOUNT_TYPES = ["profesional", "centro", "refugio"];
 
 type PetRow = Database["public"]["Tables"]["pets"]["Row"];
 type PetItem = Pick<PetRow, "id" | "name">;
@@ -49,6 +60,9 @@ export default function Sidebar() {
   const [expandedPets, setExpandedPets] = useState<Set<PetItem["id"]>>(
     () => new Set()
   );
+  // "Mis clientes" (adiestradores) y "Deberes" (dueños con adiestrador)
+  const [showClients, setShowClients] = useState(false);
+  const [showHomework, setShowHomework] = useState(false);
 
   // Cerrar el menú cada vez que cambia la pantalla
   // (también cuando la navegación la hace el tutorial)
@@ -77,6 +91,27 @@ export default function Sidebar() {
       if (!cancelled && !error && data) {
         setPets(data);
       }
+
+      // Qué apartados de adiestrador/dueño se muestran
+      const [profileRes, linksRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("account_type")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase.rpc("get_my_trainer_links"),
+      ]);
+
+      if (cancelled) return;
+
+      const links = linksRes.data ?? [];
+      const accountType = profileRes.data?.account_type ?? "";
+
+      setShowClients(
+        TRAINER_ACCOUNT_TYPES.includes(accountType) ||
+          links.some((link) => link.role === "trainer")
+      );
+      setShowHomework(links.some((link) => link.role === "owner"));
     };
 
     loadPets();
@@ -117,7 +152,18 @@ export default function Sidebar() {
     };
   }, [open]);
 
-  if (HIDDEN_PATHS.includes(pathname)) return null;
+  if (
+    HIDDEN_PATHS.includes(pathname) ||
+    HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  ) {
+    return null;
+  }
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.key === "clients") return showClients;
+    if (item.key === "homework") return showHomework;
+    return true;
+  });
 
   // En el panel no hace falta el botón de volver al panel
   const onDashboard = pathname === "/dashboard";
@@ -247,7 +293,7 @@ export default function Sidebar() {
 
         <nav className="flex-1 overflow-y-auto p-3">
           <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => {
+            {visibleNavItems.map((item) => {
               const active = isActive(item.href);
               return (
                 <li key={item.href}>

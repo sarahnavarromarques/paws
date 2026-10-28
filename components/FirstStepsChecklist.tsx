@@ -21,6 +21,11 @@ const HIDDEN_PATHS = [
   "/update-password",
 ];
 
+// La invitación de un adiestrador tampoco muestra la lista
+function isHiddenPath(pathname: string): boolean {
+  return HIDDEN_PATHS.includes(pathname) || pathname.startsWith("/invite/");
+}
+
 // Espera tras cerrarse el tutorial antes de mostrar la lista, para que no
 // asome entre la bienvenida y la guía de la pantalla siguiente (ms)
 const SHOW_DELAY_MS = 800;
@@ -147,7 +152,7 @@ export default function FirstStepsChecklist() {
 
   // Volver a comprobar cada vez que se cambia de pantalla
   useEffect(() => {
-    if (HIDDEN_PATHS.includes(pathname)) return;
+    if (isHiddenPath(pathname)) return;
     void load();
   }, [pathname, load]);
 
@@ -207,7 +212,7 @@ export default function FirstStepsChecklist() {
       .eq("id", userId);
   };
 
-  if (!visible || tourRunning || HIDDEN_PATHS.includes(pathname)) return null;
+  if (!visible || tourRunning || isHiddenPath(pathname)) return null;
 
   const petBase = firstPetId !== null ? `/pets/${firstPetId}` : "/pets";
 

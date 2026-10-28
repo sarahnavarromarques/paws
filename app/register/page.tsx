@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorKey } from "@/lib/auth-errors";
+import { safeNextPath } from "@/lib/homework";
 
 const supabase = createClient();
 
@@ -19,6 +20,14 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+
+  // A dónde volver después (por ejemplo, a una invitación de un adiestrador)
+  const [nextPath, setNextPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNextPath(safeNextPath(params.get("next")));
+  }, []);
 
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,7 +56,7 @@ export default function RegisterPage() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(nextPath ?? "/dashboard");
     router.refresh();
   }
 
@@ -94,7 +103,7 @@ export default function RegisterPage() {
         <p className="mt-6 text-center text-sm text-slate-500">
           {t("haveAccount")}{" "}
           <Link
-            href="/login"
+            href={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"}
             className="font-semibold text-blue-600 hover:underline"
           >
             {t("loginLink")}
