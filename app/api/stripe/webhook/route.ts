@@ -37,14 +37,26 @@ function readSubscription(value: unknown): SubscriptionInfo | null {
   // El precio y el fin del periodo están en la primera línea de la suscripción
   const firstItem = asObject(asArray(asObject(sub.items)?.data)[0]);
 
+  const periodEnd =
+    asNumber(firstItem?.current_period_end) ?? asNumber(sub.current_period_end);
+
+  // Stripe marca una cancelación programada de dos formas:
+  // - cancel_at_period_end = true
+  // - cancel_at = fecha en la que terminará (es lo que usa el portal de clientes)
+  const cancelAt = asNumber(sub.cancel_at);
+  const cancelScheduled = sub.cancel_at_period_end === true || cancelAt !== null;
+
   return {
     id,
     customerId: idOf(sub.customer),
     status: asString(sub.status) ?? "incomplete",
     priceId: idOf(firstItem?.price),
+    // Si está cancelada, guardamos el día en que deja de ser PRO
     periodEnd:
-      asNumber(firstItem?.current_period_end) ?? asNumber(sub.current_period_end),
-    cancelAtPeriodEnd: sub.cancel_at_period_end === true,
+      cancelAt !== null && periodEnd !== null
+        ? Math.min(cancelAt, periodEnd)
+        : cancelAt ?? periodEnd,
+    cancelAtPeriodEnd: cancelScheduled,
     userId: asString(asObject(sub.metadata)?.user_id),
   };
 }
