@@ -127,6 +127,30 @@ export type Database = {
           },
         ]
       }
+      founder_invites: {
+        Row: {
+          created_at: string
+          label: string
+          redeemed_at: string | null
+          redeemed_by: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          label?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          label?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          token?: string
+        }
+        Relationships: []
+      }
       homework_assignments: {
         Row: {
           active: boolean

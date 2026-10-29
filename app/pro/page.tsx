@@ -39,6 +39,8 @@ export default function ProPage() {
   const [loading, setLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  // Ha usado un enlace de fundador: paga con el 50% para siempre
+  const [isFounder, setIsFounder] = useState(false);
   const [justPaid, setJustPaid] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +55,21 @@ export default function ProPage() {
       return null;
     }
 
-    const { data } = await supabase
-      .from("billing_subscriptions")
-      .select("status, current_period_end, cancel_at_period_end, is_founder")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const [{ data }, { data: founderInvite }] = await Promise.all([
+      supabase
+        .from("billing_subscriptions")
+        .select("status, current_period_end, cancel_at_period_end, is_founder")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("founder_invites")
+        .select("token")
+        .eq("redeemed_by", user.id)
+        .maybeSingle(),
+    ]);
 
     setSubscription(data);
+    setIsFounder(!!founderInvite);
     return data;
   }, []);
 
@@ -225,17 +235,27 @@ export default function ProPage() {
                 <Pawsi pose="premio" size={120} />
               </div>
 
-              <span className="mt-4 rounded-full bg-amber-100 px-4 py-1 text-sm font-semibold text-amber-800">
-                {t("founderOffer")}
-              </span>
+              {isFounder && (
+                <span className="mt-4 rounded-full bg-amber-100 px-4 py-1 text-sm font-semibold text-amber-800">
+                  {t("founderOffer")}
+                </span>
+              )}
 
               <div className="mt-4 flex items-end justify-center gap-3">
-                <span className="text-2xl font-semibold text-slate-400 line-through">
-                  {t("regularPrice")}
-                </span>
-                <span className="text-5xl font-extrabold text-[#1e3a5f]">
-                  {t("founderPrice")}
-                </span>
+                {isFounder ? (
+                  <>
+                    <span className="text-2xl font-semibold text-slate-400 line-through">
+                      {t("regularPrice")}
+                    </span>
+                    <span className="text-5xl font-extrabold text-[#1e3a5f]">
+                      {t("founderPrice")}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-5xl font-extrabold text-[#1e3a5f]">
+                    {t("regularPrice")}
+                  </span>
+                )}
                 <span className="pb-1 text-slate-500">{t("perMonth")}</span>
               </div>
               <p className="mt-2 text-sm text-slate-500">{t("taxIncluded")}</p>

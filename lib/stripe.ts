@@ -30,9 +30,8 @@ export function getProPriceId(): string | null {
   return process.env.STRIPE_PRICE_PRO || null;
 }
 
-// Cupón de fundadores que se aplica solo al pagar.
-// Si la variable está vacía, en el pago aparece una casilla para
-// escribir el código promocional (FUNDADOR50).
+// Cupón de fundadores (50% para siempre). Solo se aplica a quien
+// ha usado un enlace de fundador (tabla founder_invites).
 export function getFounderCouponId(): string | null {
   return process.env.STRIPE_FOUNDER_COUPON || null;
 }

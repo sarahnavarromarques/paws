@@ -73,27 +73,26 @@ export async function POST(request: Request) {
       : {}),
   };
 
-  const founderCoupon = getFounderCouponId();
+  // ¿Ha usado un enlace de fundador? Entonces tiene el 50% para siempre
+  const { data: founderInvite } = await supabase
+    .from("founder_invites")
+    .select("token")
+    .eq("redeemed_by", user.id)
+    .maybeSingle();
+
+  const founderCoupon = founderInvite ? getFounderCouponId() : null;
+
+  if (founderInvite && !founderCoupon) {
+    console.error("[stripe/checkout] Falta STRIPE_FOUNDER_COUPON para un fundador");
+    return NextResponse.json({ error: "not_configured" }, { status: 500 });
+  }
 
   try {
-    if (founderCoupon) {
-      try {
-        // Descuento de fundador aplicado automáticamente
-        const session = await stripe.checkout.sessions.create({
-          ...baseParams,
-          discounts: [{ coupon: founderCoupon }],
-        });
-        return NextResponse.json({ url: session.url });
-      } catch (error) {
-        // Cupón agotado o caducado: se paga con la casilla de código
-        console.warn("[stripe/checkout] Cupón de fundador no disponible:", error);
-      }
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      ...baseParams,
-      allow_promotion_codes: true,
-    });
+    const session = await stripe.checkout.sessions.create(
+      founderCoupon
+        ? { ...baseParams, discounts: [{ coupon: founderCoupon }] }
+        : baseParams
+    );
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("[stripe/checkout] Error creando el pago:", error);
