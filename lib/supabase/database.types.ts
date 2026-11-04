@@ -1096,6 +1096,7 @@ export type Database = {
         Args: { p_pet_ids: number[]; p_token: string }
         Returns: Json
       }
+      get_my_trainer_access: { Args: never; Returns: Json }
       get_my_trainer_links: {
         Args: never
         Returns: {
@@ -1114,6 +1115,7 @@ export type Database = {
         Args: { p_amount: number; p_expires: string; p_user_id: string }
         Returns: undefined
       }
+      has_trainer_access: { Args: { p_user_id: string }; Returns: boolean }
       is_trainer_of_pet: { Args: { p_pet_id: number }; Returns: boolean }
       paws_display_name: { Args: { p_user_id: string }; Returns: string }
       spend_huesitos: {

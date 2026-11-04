@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import PawsiLoading from "@/components/PawsiLoading";
+import TrainerAccessGate from "@/components/TrainerAccessGate";
 import {
   COMPLIANCE_CLASSES,
   buildInviteUrl,
@@ -284,30 +285,32 @@ export default function ClientsPage() {
           <h2 className="text-2xl font-bold text-[#1e3a5f]">{t("inviteTitle")}</h2>
           <p className="mt-2 text-slate-600">{t("inviteHelp")}</p>
 
-          <form
-            onSubmit={handleCreateInvite}
-            className="mt-4 flex flex-col gap-3 sm:flex-row"
-          >
-            <input
-              type="text"
-              value={clientName}
-              maxLength={80}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder={t("clientNamePlaceholder")}
-              className="flex-1 rounded-xl border border-slate-300 p-3 text-slate-900 placeholder:text-slate-400"
-            />
-            <button
-              type="submit"
-              disabled={creating || !clientName.trim()}
-              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+          <TrainerAccessGate>
+            <form
+              onSubmit={handleCreateInvite}
+              className="mt-4 flex flex-col gap-3 sm:flex-row"
             >
-              {creating ? t("creating") : t("createInvite")}
-            </button>
-          </form>
+              <input
+                type="text"
+                value={clientName}
+                maxLength={80}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder={t("clientNamePlaceholder")}
+                className="flex-1 rounded-xl border border-slate-300 p-3 text-slate-900 placeholder:text-slate-400"
+              />
+              <button
+                type="submit"
+                disabled={creating || !clientName.trim()}
+                className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                {creating ? t("creating") : t("createInvite")}
+              </button>
+            </form>
 
-          {createError && (
-            <p className="mt-3 text-sm font-semibold text-red-600">{t("errorCreate")}</p>
-          )}
+            {createError && (
+              <p className="mt-3 text-sm font-semibold text-red-600">{t("errorCreate")}</p>
+            )}
+          </TrainerAccessGate>
 
           {newInvite && (
             <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">

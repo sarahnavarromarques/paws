@@ -4,7 +4,7 @@
   },
   "Pro": {
     "title": "PAWS PRO",
-    "subtitle": "Everything you need to work with your clients, for a fixed monthly price.",
+    "subtitle": "Free for 30 days. After that, everything you need to work with your clients for a fixed monthly price.",
     "backToDashboard": "Back to dashboard",
     "loading": "Loading...",
     "loginFirst": "Log in to subscribe to PAWS PRO.",
@@ -14,7 +14,7 @@
     "founderPrice": "€14.50",
     "perMonth": "/ month",
     "taxIncluded": "Taxes included.",
-    "featureClients": "Unlimited clients: invite them on WhatsApp with a link.",
+    "featureClients": "Invite as many clients as you want with a WhatsApp link.",
     "featureHomework": "Homework and tracking of how much each client practices.",
     "featureHuesitos": "300 huesitos a month for the AI tools (renewed every month).",
     "featureClientsFree": "Your clients use PAWS for free.",
@@ -31,7 +31,9 @@
     "endsOn": "Cancelled: you'll stay PRO until {date}.",
     "manage": "Manage subscription",
     "errorAlreadyPro": "You already have PAWS PRO.",
-    "errorGeneric": "Stripe couldn't be opened. Please try again."
+    "errorGeneric": "Stripe couldn't be opened. Please try again.",
+    "trialActive": "{days, plural, one {You have # day of free trial left.} other {You have # days of free trial left.}}",
+    "trialEnded": "Your free trial has ended."
   },
   "FounderInvite": {
     "title": "Founder invitation",
@@ -77,6 +79,12 @@
     "sendWhatsApp": "Send on WhatsApp",
     "delete": "Delete",
     "confirmDelete": "Delete this link? It will stop working.",
-    "whatsAppMessage": "Here's your personal PAWS founder link: {url}\n\nWith it you'll get PAWS PRO at 50% off forever. It's just for you and only works once."
+    "whatsAppMessage": "Great! 🐾 Here's your personal PAWS founder link:\n{url}\n\n1️⃣ Open it and create your free account (or log in if you already have one).\n2️⃣ Tap “Activate my founder price”.\n3️⃣ Done: you'll get PAWS PRO at half price forever.\n\nThe link is just for you and only works once. Any questions, message me here."
+  },
+  "TrainerAccess": {
+    "trialDaysLeft": "{days, plural, one {Free trial: # day left} other {Free trial: # days left}}",
+    "goPro": "Go PRO",
+    "expiredTitle": "Your 30-day free trial has ended",
+    "expiredText": "You can still see your clients and how they practice. To invite new clients and send homework, go PRO."
   }
 }

@@ -8,6 +8,11 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import {
+  readTrainerAccess,
+  trialDaysLeft,
+  type TrainerAccess,
+} from "@/lib/trainer-access";
 
 const supabase = createClient();
 
@@ -41,6 +46,8 @@ export default function ProPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   // Ha usado un enlace de fundador: paga con el 50% para siempre
   const [isFounder, setIsFounder] = useState(false);
+  // Prueba gratis de 30 días
+  const [access, setAccess] = useState<TrainerAccess | null>(null);
   const [justPaid, setJustPaid] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +62,7 @@ export default function ProPage() {
       return null;
     }
 
-    const [{ data }, { data: founderInvite }] = await Promise.all([
+    const [{ data }, { data: founderInvite }, { data: accessData }] = await Promise.all([
       supabase
         .from("billing_subscriptions")
         .select("status, current_period_end, cancel_at_period_end, is_founder")
@@ -66,10 +73,12 @@ export default function ProPage() {
         .select("token")
         .eq("redeemed_by", user.id)
         .maybeSingle(),
+      supabase.rpc("get_my_trainer_access"),
     ]);
 
     setSubscription(data);
     setIsFounder(!!founderInvite);
+    setAccess(readTrainerAccess(accessData));
     return data;
   }, []);
 
@@ -259,6 +268,20 @@ export default function ProPage() {
                 <span className="pb-1 text-slate-500">{t("perMonth")}</span>
               </div>
               <p className="mt-2 text-sm text-slate-500">{t("taxIncluded")}</p>
+
+              {access && !access.isPro && (
+                <p
+                  className={`mt-4 rounded-xl px-4 py-2 text-sm font-semibold ${
+                    access.hasAccess
+                      ? "bg-blue-50 text-blue-900"
+                      : "bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  {access.hasAccess
+                    ? t("trialActive", { days: trialDaysLeft(access.trialEndsAt) })
+                    : t("trialEnded")}
+                </p>
+              )}
             </div>
 
             <ul className="mx-auto mt-8 max-w-md space-y-3">

@@ -4,7 +4,7 @@
   },
   "Pro": {
     "title": "PAWS PRO",
-    "subtitle": "Todo lo que necesitas para trabajar con tus clientes, por un precio fijo al mes.",
+    "subtitle": "Prueba gratis 30 días. Después, todo lo que necesitas para trabajar con tus clientes por un precio fijo al mes.",
     "backToDashboard": "Volver al panel",
     "loading": "Cargando...",
     "loginFirst": "Entra en tu cuenta para contratar PAWS PRO.",
@@ -14,7 +14,7 @@
     "founderPrice": "14,50 €",
     "perMonth": "/ mes",
     "taxIncluded": "Impuestos incluidos.",
-    "featureClients": "Clientes ilimitados: invítalos por WhatsApp con un enlace.",
+    "featureClients": "Invita a todos los clientes que quieras con un enlace por WhatsApp.",
     "featureHomework": "Deberes para casa y seguimiento de cuánto practica cada cliente.",
     "featureHuesitos": "300 huesitos al mes para las herramientas de IA (se renuevan cada mes).",
     "featureClientsFree": "Tus clientes usan PAWS gratis.",
@@ -31,7 +31,9 @@
     "endsOn": "Cancelada: seguirás siendo PRO hasta el {date}.",
     "manage": "Gestionar suscripción",
     "errorAlreadyPro": "Ya tienes PAWS PRO.",
-    "errorGeneric": "No se ha podido abrir Stripe. Inténtalo de nuevo."
+    "errorGeneric": "No se ha podido abrir Stripe. Inténtalo de nuevo.",
+    "trialActive": "{days, plural, one {Te queda # día de prueba gratis.} other {Te quedan # días de prueba gratis.}}",
+    "trialEnded": "Tu prueba gratis ha terminado."
   },
   "FounderInvite": {
     "title": "Invitación de fundador",
@@ -77,6 +79,12 @@
     "sendWhatsApp": "Enviar por WhatsApp",
     "delete": "Borrar",
     "confirmDelete": "¿Borrar este enlace? Dejará de funcionar.",
-    "whatsAppMessage": "Aquí tienes tu enlace personal de fundador de PAWS: {url}\n\nCon él tendrás PAWS PRO al 50% para siempre. Es solo para ti y funciona una única vez."
+    "whatsAppMessage": "¡Genial! 🐾 Aquí tienes tu enlace personal de fundador de PAWS:\n{url}\n\n1️⃣ Ábrelo y crea tu cuenta gratis (o entra si ya la tienes).\n2️⃣ Toca «Activar mi precio de fundador».\n3️⃣ Listo: tendrás PAWS PRO a mitad de precio para siempre.\n\nEl enlace es solo para ti y funciona una única vez. Cualquier duda, escríbeme por aquí."
+  },
+  "TrainerAccess": {
+    "trialDaysLeft": "{days, plural, one {Prueba gratis: te queda # día} other {Prueba gratis: te quedan # días}}",
+    "goPro": "Hazte PRO",
+    "expiredTitle": "Tu prueba gratis de 30 días ha terminado",
+    "expiredText": "Sigues viendo a tus clientes y cómo practican. Para invitar a clientes nuevos y mandar deberes, hazte PRO."
   }
 }

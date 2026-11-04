@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import PawsiLoading from "@/components/PawsiLoading";
+import TrainerAccessGate from "@/components/TrainerAccessGate";
 import {
   getWeekProgress,
   type HomeworkAssignment,
@@ -472,85 +473,87 @@ export default function ClientDogPage() {
         <section className="rounded-2xl bg-white p-6 shadow">
           <h2 className="mb-4 text-2xl font-bold text-[#1e3a5f]">{t("newHomework")}</h2>
 
-          <form onSubmit={handleCreate} className="space-y-4">
-            <label className="block">
-              <span className="mb-1 block font-semibold text-slate-700">{t("skill")}</span>
-              <select
-                value={skillId}
-                onChange={(e) => handleSkillChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900"
+          <TrainerAccessGate>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block font-semibold text-slate-700">{t("skill")}</span>
+                <select
+                  value={skillId}
+                  onChange={(e) => handleSkillChange(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900"
+                >
+                  <option value="">{t("noSkillOption")}</option>
+                  {skillOptions.map((skill) => (
+                    <option key={skill.id} value={skill.id}>
+                      {skillName(skill)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-semibold text-slate-700">{t("titleLabel")}</span>
+                <input
+                  type="text"
+                  value={title}
+                  maxLength={120}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={t("titlePlaceholder")}
+                  className="w-full rounded-xl border border-slate-300 p-3 text-slate-900 placeholder:text-slate-400"
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block font-semibold text-slate-700">{t("attempts")}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={attempts}
+                    onChange={(e) => setAttempts(Number(e.target.value) || 1)}
+                    className="w-full rounded-xl border border-slate-300 p-3 text-slate-900"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block font-semibold text-slate-700">
+                    {t("sessionsPerWeek")}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={14}
+                    value={sessionsPerWeek}
+                    onChange={(e) => setSessionsPerWeek(Number(e.target.value) || 1)}
+                    className="w-full rounded-xl border border-slate-300 p-3 text-slate-900"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-1 block font-semibold text-slate-700">{t("instructions")}</span>
+                <textarea
+                  value={instructions}
+                  maxLength={2000}
+                  rows={3}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder={t("instructionsPlaceholder")}
+                  className="w-full rounded-xl border border-slate-300 p-3 text-slate-900 placeholder:text-slate-400"
+                />
+              </label>
+
+              {formError && <p className="text-sm font-semibold text-red-600">{formError}</p>}
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
-                <option value="">{t("noSkillOption")}</option>
-                {skillOptions.map((skill) => (
-                  <option key={skill.id} value={skill.id}>
-                    {skillName(skill)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block font-semibold text-slate-700">{t("titleLabel")}</span>
-              <input
-                type="text"
-                value={title}
-                maxLength={120}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={t("titlePlaceholder")}
-                className="w-full rounded-xl border border-slate-300 p-3 text-slate-900 placeholder:text-slate-400"
-              />
-            </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block font-semibold text-slate-700">{t("attempts")}</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={attempts}
-                  onChange={(e) => setAttempts(Number(e.target.value) || 1)}
-                  className="w-full rounded-xl border border-slate-300 p-3 text-slate-900"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block font-semibold text-slate-700">
-                  {t("sessionsPerWeek")}
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={14}
-                  value={sessionsPerWeek}
-                  onChange={(e) => setSessionsPerWeek(Number(e.target.value) || 1)}
-                  className="w-full rounded-xl border border-slate-300 p-3 text-slate-900"
-                />
-              </label>
-            </div>
-
-            <label className="block">
-              <span className="mb-1 block font-semibold text-slate-700">{t("instructions")}</span>
-              <textarea
-                value={instructions}
-                maxLength={2000}
-                rows={3}
-                onChange={(e) => setInstructions(e.target.value)}
-                placeholder={t("instructionsPlaceholder")}
-                className="w-full rounded-xl border border-slate-300 p-3 text-slate-900 placeholder:text-slate-400"
-              />
-            </label>
-
-            {formError && <p className="text-sm font-semibold text-red-600">{formError}</p>}
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? t("saving") : t("save")}
-            </button>
-          </form>
+                {saving ? t("saving") : t("save")}
+              </button>
+            </form>
+          </TrainerAccessGate>
         </section>
 
         {/* HABILIDADES DEL PERRO */}
