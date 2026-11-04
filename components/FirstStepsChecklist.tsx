@@ -23,7 +23,11 @@ const HIDDEN_PATHS = [
 
 // La invitación de un adiestrador tampoco muestra la lista
 function isHiddenPath(pathname: string): boolean {
-  return HIDDEN_PATHS.includes(pathname) || pathname.startsWith("/invite/");
+  return (
+    HIDDEN_PATHS.includes(pathname) ||
+    pathname.startsWith("/invite/") ||
+    pathname.startsWith("/legal/")
+  );
 }
 
 // Espera tras cerrarse el tutorial antes de mostrar la lista, para que no

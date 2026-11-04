@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import { LEGAL_LINKS } from "@/lib/legal";
 
 // Pantallas donde NO se muestra el menú (sin sesión iniciada)
 const HIDDEN_PATHS = [
@@ -18,7 +19,7 @@ const HIDDEN_PATHS = [
 
 // Pantallas que empiezan así tampoco muestran el menú
 // (la invitación se abre muchas veces sin sesión iniciada)
-const HIDDEN_PREFIXES = ["/invite/"];
+const HIDDEN_PREFIXES = ["/invite/", "/legal/"];
 
 type NavKey =
   | "dashboard"
@@ -54,6 +55,7 @@ export default function Sidebar() {
   // Reutilizamos los textos de la ficha del perro (Habilidades, Progreso, Historial, Editar)
   const tPet = useTranslations("PetProfile");
   const tHealth = useTranslations("Health");
+  const tLegal = useTranslations("Legal");
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -418,6 +420,21 @@ export default function Sidebar() {
         </nav>
 
         <div className="border-t border-gray-200 p-3">
+          {/* Textos legales */}
+          <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 px-3 text-xs">
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                tabIndex={open ? 0 : -1}
+                className="text-gray-500 hover:text-gray-800 hover:underline"
+              >
+                {tLegal(link.key)}
+              </Link>
+            ))}
+          </div>
+
           <button
             type="button"
             onClick={handleLogout}

@@ -15,9 +15,12 @@ export default function RegisterPage() {
   const router = useRouter();
   const t = useTranslations("Register");
   const tErrors = useTranslations("AuthErrors");
+  const tLegal = useTranslations("Legal");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Aceptación de las condiciones y la política de privacidad
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +42,11 @@ export default function RegisterPage() {
 
     if (password.length < 6) {
       alert(t("alertPasswordTooShort"));
+      return;
+    }
+
+    if (!acceptedTerms) {
+      alert(tLegal("mustAccept"));
       return;
     }
 
@@ -92,9 +100,40 @@ export default function RegisterPage() {
           {t("passwordHint")}
         </p>
 
+        <label className="mb-6 flex items-start gap-3 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0"
+          />
+          <span>
+            {tLegal.rich("accept", {
+              terms: (chunks) => (
+                <Link
+                  href="/legal/condiciones"
+                  target="_blank"
+                  className="font-semibold text-blue-600 hover:underline"
+                >
+                  {chunks}
+                </Link>
+              ),
+              privacy: (chunks) => (
+                <Link
+                  href="/legal/privacidad"
+                  target="_blank"
+                  className="font-semibold text-blue-600 hover:underline"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </span>
+        </label>
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !acceptedTerms}
           className="w-full rounded-lg bg-green-600 py-3 text-white transition hover:bg-green-700 disabled:opacity-50"
         >
           {loading ? t("creating") : t("submit")}

@@ -1,0 +1,12 @@
+{
+  "Legal": {
+    "back": "Volver a PAWS",
+    "updatedAt": "Última actualización: {date}",
+    "spanishOnly": "Los textos legales de PAWS están disponibles en español.",
+    "terms": "Condiciones de uso",
+    "privacy": "Política de privacidad",
+    "notice": "Aviso legal",
+    "accept": "He leído y acepto las <terms>Condiciones de uso</terms> y la <privacy>Política de privacidad</privacy>.",
+    "mustAccept": "Para crear la cuenta tienes que aceptar las Condiciones de uso y la Política de privacidad."
+  }
+}
