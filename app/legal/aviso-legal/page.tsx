@@ -15,7 +15,7 @@ const DOCUMENT: LegalDocument = {
       bullets: [
         `Titular: ${LEGAL_OWNER.name}`,
         `NIF: ${LEGAL_OWNER.taxId}`,
-        `Domicilio: ${LEGAL_OWNER.address}`,
+        ...(LEGAL_OWNER.address ? [`Domicilio: ${LEGAL_OWNER.address}`] : []),
         `Correo electrónico: ${LEGAL_OWNER.email}`,
         `Nombre comercial: ${LEGAL_OWNER.brand}`,
         `Sitio web: ${LEGAL_OWNER.website}`,

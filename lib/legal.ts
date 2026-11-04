@@ -6,8 +6,11 @@ export const LEGAL_OWNER = {
   name: "Francisco José Navarro Molina",
   // NIF / CIF
   taxId: "28481154R",
-  // Domicilio
-  address: "Calle Marinero Sebastián Ortíz, 54, 41120 Gelves (Sevilla), España",
+  // Domicilio que se publica en el aviso legal. Vacío = no se muestra.
+  // OJO: la LSSI (art. 10) pide publicar un domicilio. Consultar con la
+  // gestoría una dirección que no sea la de casa (gestoría u oficina virtual)
+  // y ponerla aquí.
+  address: "",
   // Correo para consultas legales y de privacidad
   email: "pawsadiestramiento@gmail.com",
   // Nombre comercial
