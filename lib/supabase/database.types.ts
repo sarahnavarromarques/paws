@@ -257,6 +257,7 @@ export type Database = {
           feature: string | null
           id: number
           kind: string
+          reference: string | null
           user_id: string
         }
         Insert: {
@@ -265,6 +266,7 @@ export type Database = {
           feature?: string | null
           id?: never
           kind: string
+          reference?: string | null
           user_id: string
         }
         Update: {
@@ -273,6 +275,7 @@ export type Database = {
           feature?: string | null
           id?: never
           kind?: string
+          reference?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1111,6 +1114,10 @@ export type Database = {
         }[]
       }
       get_trainer_invite: { Args: { p_token: string }; Returns: Json }
+      grant_purchased_huesitos: {
+        Args: { p_amount: number; p_reference: string; p_user_id: string }
+        Returns: boolean
+      }
       grant_subscription_huesitos: {
         Args: { p_amount: number; p_expires: string; p_user_id: string }
         Returns: undefined

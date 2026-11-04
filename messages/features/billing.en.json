@@ -33,7 +33,44 @@
     "errorAlreadyPro": "You already have PAWS PRO.",
     "errorGeneric": "Stripe couldn't be opened. Please try again.",
     "trialActive": "{days, plural, one {You have # day of free trial left.} other {You have # days of free trial left.}}",
-    "trialEnded": "Your free trial has ended."
+    "trialEnded": "Your free trial has ended.",
+    "infoTitle": "Everything about PAWS PRO",
+    "includesTitle": "What's included",
+    "includes": [
+      "Unlimited trainer tools, also after the 30-day trial: invite as many clients as you want with a WhatsApp link.",
+      "Send homework to your clients and pause, resume or change it whenever you want.",
+      "See how much each client practices at home: weekly sessions, success rate and history.",
+      "300 bones every month for the AI tools.",
+      "Your clients use PAWS for free: they don't pay anything to get your homework."
+    ],
+    "huesitosTitle": "Your 300 bones each month",
+    "huesitos": [
+      "They're added every time the month is charged.",
+      "They expire at the end of that subscription month and don't roll over: each month you have 300 again, not 300 plus what you had left.",
+      "They're used before purchased or welcome bones, so the ones that expire go first.",
+      "If you run out before the end of the month, you can buy a pack. Purchased bones never expire.",
+      "Only your account can use them: they can't be given to your clients."
+    ],
+    "notTitle": "What's NOT included",
+    "not": [
+      "Unlimited bones: it's 300 a month.",
+      "Bones for your clients: each client has their 20 welcome bones and can buy packs if they want.",
+      "Features that are already free for everyone (dogs, trainings, calendar, progress…): those don't change."
+    ],
+    "billingTitle": "Payment, renewal and cancellation",
+    "billing": [
+      "Charged monthly and renewed automatically until you cancel.",
+      "Cancel anytime from “Manage subscription”. You stay PRO until the end of the month you've paid for and you won't be charged again.",
+      "If you're a founder, your 50% off stays as long as you're subscribed, even if you cancel and come back later.",
+      "Secure payment with Stripe. Receipts and invoices are sent to your email."
+    ],
+    "withoutTitle": "Without PAWS PRO (after the trial)",
+    "without": [
+      "You can still see your clients, their dogs and how they practice.",
+      "You can't invite new clients or send or change homework.",
+      "You can keep using AI with the bones you have or by buying packs."
+    ],
+    "seeHuesitos": "See bone packs and everything you can do with them →"
   },
   "FounderInvite": {
     "title": "Founder invitation",
@@ -86,5 +123,84 @@
     "goPro": "Go PRO",
     "expiredTitle": "Your 30-day free trial has ended",
     "expiredText": "You can still see your clients and how they practice. To invite new clients and send homework, go PRO."
+  },
+  "HuesitoShop": {
+    "title": "Buy bones",
+    "subtitle": "Bones for PAWS AI tools. One-time payment, no subscription.",
+    "back": "Back to my bones",
+    "featured": "Most popular",
+    "huesitos": "bones",
+    "buy": "Buy",
+    "redirecting": "Opening Stripe...",
+    "successTitle": "Purchase complete! 🎉",
+    "successText": "Your bones will show up in your balance in a few seconds.",
+    "noExpiry": "Purchased bones never expire.",
+    "taxIncluded": "Taxes included. Secure payment with Stripe.",
+    "proTip": "Are you a trainer? PAWS PRO includes 300 bones every month.",
+    "legal": "By buying you accept the <terms>Terms of use</terms>. Bones can be used from the moment of purchase.",
+    "errorGeneric": "Stripe couldn't be opened. Please try again.",
+    "infoTitle": "Everything about bones",
+    "whatTitle": "What are they?",
+    "what": [
+      "Bones are the currency of PAWS artificial intelligence (AI) tools. Every time you use an AI feature, bones are taken from your balance.",
+      "They are not money: they can't be exchanged for money or refunded once used."
+    ],
+    "usesTitle": "What you can do with them",
+    "usesIntro": "They're only for AI features. This is what each one costs:",
+    "cost": "{count, plural, one {# bone} other {# bones}}",
+    "features": {
+      "group-name": {
+        "name": "Group name",
+        "desc": "The AI suggests a name for a group of skills."
+      },
+      "session-progress": {
+        "name": "Session progress",
+        "desc": "When you finish a session, the AI works out how much each skill has improved."
+      },
+      "session-chat": {
+        "name": "Chat question",
+        "desc": "Each question you ask the AI during a training session."
+      },
+      "analyze-progress": {
+        "name": "Progress analysis",
+        "desc": "The AI analyzes your dog's progress and gives you recommendations."
+      },
+      "session-guide": {
+        "name": "Session prep",
+        "desc": "The AI prepares a step-by-step guide for the session."
+      },
+      "training-order": {
+        "name": "Recommended order",
+        "desc": "The AI recommends the order in which to work on skills."
+      },
+      "pet-questionnaire": {
+        "name": "Initial questionnaire",
+        "desc": "The AI analyzes your dog's questionnaire to personalize its plan."
+      }
+    },
+    "usesExample": "For example, 100 bones give you 100 chat questions, or 50 prepared sessions, or 25 recommended orders.",
+    "whoTitle": "Who can use them",
+    "who": [
+      "Any PAWS account can buy them: dog owners and trainers.",
+      "Only the account that buys them can use them. They can't be moved to another account (for example, from a trainer to their client)."
+    ],
+    "expiryTitle": "Expiry: how long you can use them",
+    "expiry": [
+      "Bones bought in a pack: they never expire. Use them whenever you want while you have your account.",
+      "20 welcome bones: given once when you create your account, and they don't expire either.",
+      "PAWS PRO bones (300 a month): these do expire at the end of each subscription month and don't roll over.",
+      "If you have PAWS PRO bones and purchased bones, PRO bones (the ones that expire) are used first and then purchased ones, so you don't lose any.",
+      "If you delete your account, any bones you have left are lost."
+    ],
+    "notTitle": "What they DON'T include",
+    "not": [
+      "They're not a subscription: you pay once and it doesn't renew.",
+      "They don't unlock trainer tools (inviting clients and sending homework after the 30-day trial). That's what PAWS PRO is for.",
+      "They aren't refunded once used."
+    ],
+    "emptyTitle": "If you run out of bones",
+    "empty": [
+      "PAWS keeps working with its basic version, without AI: dogs, trainings, calendar, progress, homework… Only the session chat needs bones."
+    ]
   }
 }

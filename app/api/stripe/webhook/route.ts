@@ -11,6 +11,7 @@ import {
   huesitosExpiryFrom,
   idOf,
 } from "@/lib/stripe";
+import { findHuesitoPack } from "@/lib/huesito-packs";
 
 // Avisos que Stripe envía a PAWS cuando alguien paga, renueva o cancela.
 // Aquí se guarda el estado de PAWS PRO y se dan los huesitos del mes.
@@ -141,10 +142,43 @@ async function syncSubscription(
   await saveSubscription(admin, userId, sub, isFounder);
 }
 
+// Compra de un pack de huesitos: se suman cuando el pago está cobrado
+async function handleHuesitoPurchase(admin: AdminClient, session: Record<string, unknown>) {
+  if (asString(session.payment_status) !== "paid") return;
+
+  const metadata = asObject(session.metadata);
+  const pack = findHuesitoPack(metadata?.pack);
+  const userId = asString(session.client_reference_id) ?? asString(metadata?.user_id);
+  const sessionId = asString(session.id);
+
+  if (!pack || !userId || !sessionId) {
+    console.warn("[stripe/webhook] Compra de huesitos incompleta:", sessionId);
+    return;
+  }
+
+  const { error } = await admin.rpc("grant_purchased_huesitos", {
+    p_user_id: userId,
+    p_amount: pack.huesitos,
+    p_reference: sessionId,
+  });
+
+  if (error) throw error;
+}
+
 // 1) Ha terminado el pago en la página de Stripe
 async function handleCheckoutCompleted(stripe: Stripe, admin: AdminClient, object: unknown) {
   const session = asObject(object);
-  if (!session || asString(session.mode) !== "subscription") return;
+  if (!session) return;
+
+  if (
+    asString(session.mode) === "payment" &&
+    asString(asObject(session.metadata)?.kind) === "huesitos"
+  ) {
+    await handleHuesitoPurchase(admin, session);
+    return;
+  }
+
+  if (asString(session.mode) !== "subscription") return;
 
   const subscriptionId = idOf(session.subscription);
   if (!subscriptionId) return;
@@ -253,6 +287,8 @@ export async function POST(request: Request) {
 
     switch (event.type) {
       case "checkout.session.completed":
+      // Pagos que se confirman un rato después (algunos métodos de pago)
+      case "checkout.session.async_payment_succeeded":
         await handleCheckoutCompleted(stripe, admin, object);
         break;
       case "invoice.paid":

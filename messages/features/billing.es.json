@@ -33,7 +33,44 @@
     "errorAlreadyPro": "Ya tienes PAWS PRO.",
     "errorGeneric": "No se ha podido abrir Stripe. Inténtalo de nuevo.",
     "trialActive": "{days, plural, one {Te queda # día de prueba gratis.} other {Te quedan # días de prueba gratis.}}",
-    "trialEnded": "Tu prueba gratis ha terminado."
+    "trialEnded": "Tu prueba gratis ha terminado.",
+    "infoTitle": "Todo sobre PAWS PRO",
+    "includesTitle": "Qué incluye",
+    "includes": [
+      "Herramientas de adiestrador sin límite, también después de la prueba de 30 días: invitar a todos los clientes que quieras con un enlace por WhatsApp.",
+      "Mandar deberes a tus clientes y pausarlos, reactivarlos o cambiarlos cuando quieras.",
+      "Ver cuánto practica cada cliente en casa: sesiones de la semana, aciertos e historial.",
+      "300 huesitos cada mes para las herramientas de IA.",
+      "Tus clientes usan PAWS gratis: no tienen que pagar nada para recibir tus deberes."
+    ],
+    "huesitosTitle": "Los 300 huesitos de cada mes",
+    "huesitos": [
+      "Se cargan cada vez que se cobra el mes.",
+      "Caducan al final de ese mes de suscripción y no se acumulan: cada mes vuelves a tener 300, no 300 más lo que te sobró.",
+      "Se gastan antes que los huesitos comprados o de bienvenida, para que aproveches primero los que caducan.",
+      "Si te quedas sin huesitos antes de fin de mes, puedes comprar un pack. Los huesitos comprados no caducan.",
+      "Solo los puede usar tu cuenta: no se pueden pasar a tus clientes."
+    ],
+    "notTitle": "Qué NO incluye",
+    "not": [
+      "Huesitos ilimitados: son 300 al mes.",
+      "Huesitos para tus clientes: cada cliente tiene sus 20 huesitos de bienvenida y puede comprar packs si quiere.",
+      "Las funciones que ya son gratis para todos (perros, entrenamientos, calendario, progreso…): esas no cambian."
+    ],
+    "billingTitle": "Pago, renovación y cancelación",
+    "billing": [
+      "Se cobra cada mes y se renueva automáticamente hasta que canceles.",
+      "Puedes cancelar cuando quieras desde «Gestionar suscripción». Sigues siendo PRO hasta el final del mes ya pagado y no se te vuelve a cobrar.",
+      "Si eres fundador, el 50% se mantiene mientras sigas suscrito, también si cancelas y vuelves más adelante.",
+      "Pago seguro con Stripe. Los recibos y facturas te llegan por correo."
+    ],
+    "withoutTitle": "Sin PAWS PRO (cuando termina la prueba)",
+    "without": [
+      "Sigues viendo a tus clientes, sus perros y cómo practican.",
+      "No puedes invitar a clientes nuevos ni mandar o cambiar deberes.",
+      "Puedes seguir usando la IA con los huesitos que tengas o comprando packs."
+    ],
+    "seeHuesitos": "Ver los packs de huesitos y todo lo que puedes hacer con ellos →"
   },
   "FounderInvite": {
     "title": "Invitación de fundador",
@@ -86,5 +123,84 @@
     "goPro": "Hazte PRO",
     "expiredTitle": "Tu prueba gratis de 30 días ha terminado",
     "expiredText": "Sigues viendo a tus clientes y cómo practican. Para invitar a clientes nuevos y mandar deberes, hazte PRO."
+  },
+  "HuesitoShop": {
+    "title": "Comprar huesitos",
+    "subtitle": "Huesitos para las herramientas de IA de PAWS. Pago único, sin suscripción.",
+    "back": "Volver a mis huesitos",
+    "featured": "Más elegido",
+    "huesitos": "huesitos",
+    "buy": "Comprar",
+    "redirecting": "Abriendo Stripe...",
+    "successTitle": "¡Compra hecha! 🎉",
+    "successText": "Tus huesitos aparecerán en tu saldo en unos segundos.",
+    "noExpiry": "Los huesitos comprados no caducan.",
+    "taxIncluded": "Impuestos incluidos. Pago seguro con Stripe.",
+    "proTip": "¿Eres adiestrador? PAWS PRO incluye 300 huesitos cada mes.",
+    "legal": "Al comprar aceptas las <terms>Condiciones de uso</terms>. Los huesitos se pueden usar desde el momento de la compra.",
+    "errorGeneric": "No se ha podido abrir Stripe. Inténtalo de nuevo.",
+    "infoTitle": "Todo sobre los huesitos",
+    "whatTitle": "¿Qué son?",
+    "what": [
+      "Los huesitos son la moneda de las herramientas de inteligencia artificial (IA) de PAWS. Cada vez que usas una función de IA, se descuentan huesitos de tu saldo.",
+      "No son dinero: no se pueden cambiar por dinero ni devolver una vez usados."
+    ],
+    "usesTitle": "Qué puedes hacer con ellos",
+    "usesIntro": "Solo sirven para las funciones de IA. Esto es lo que cuesta cada una:",
+    "cost": "{count, plural, one {# huesito} other {# huesitos}}",
+    "features": {
+      "group-name": {
+        "name": "Nombre de grupo",
+        "desc": "La IA propone un nombre para un grupo de habilidades."
+      },
+      "session-progress": {
+        "name": "Progreso de una sesión",
+        "desc": "Al terminar una sesión, la IA calcula cuánto ha avanzado cada habilidad."
+      },
+      "session-chat": {
+        "name": "Pregunta en el chat",
+        "desc": "Cada pregunta que haces a la IA durante una sesión de entrenamiento."
+      },
+      "analyze-progress": {
+        "name": "Análisis de progreso",
+        "desc": "La IA analiza la evolución de tu perro y te da recomendaciones."
+      },
+      "session-guide": {
+        "name": "Preparar sesión",
+        "desc": "La IA prepara una guía paso a paso para la sesión."
+      },
+      "training-order": {
+        "name": "Orden recomendado",
+        "desc": "La IA recomienda en qué orden trabajar las habilidades."
+      },
+      "pet-questionnaire": {
+        "name": "Cuestionario inicial",
+        "desc": "La IA analiza el cuestionario de tu perro para personalizar su plan."
+      }
+    },
+    "usesExample": "Por ejemplo, con 100 huesitos puedes hacer 100 preguntas en el chat, o 50 sesiones preparadas, o 25 órdenes recomendados.",
+    "whoTitle": "Quién puede usarlos",
+    "who": [
+      "Cualquier cuenta de PAWS puede comprarlos: dueños de perros y adiestradores.",
+      "Solo los puede usar la cuenta que los compra. No se pueden pasar a otra cuenta (por ejemplo, de un adiestrador a su cliente)."
+    ],
+    "expiryTitle": "Caducidad: hasta cuándo puedes usarlos",
+    "expiry": [
+      "Huesitos comprados en un pack: no caducan. Puedes usarlos cuando quieras mientras tengas la cuenta.",
+      "20 huesitos de bienvenida: se regalan una sola vez al crear la cuenta y tampoco caducan.",
+      "Huesitos de PAWS PRO (300 al mes): esos sí caducan al final de cada mes de suscripción y no se acumulan.",
+      "Si tienes huesitos de PAWS PRO y huesitos comprados, se gastan primero los de PRO (los que caducan) y después los comprados, para que no pierdas ninguno.",
+      "Si borras tu cuenta, se pierden todos los huesitos que te queden."
+    ],
+    "notTitle": "Qué NO incluyen",
+    "not": [
+      "No son una suscripción: pagas una vez y no se renueva.",
+      "No desbloquean las herramientas de adiestrador (invitar clientes y mandar deberes después de la prueba de 30 días). Para eso está PAWS PRO.",
+      "No se devuelven una vez usados."
+    ],
+    "emptyTitle": "Si te quedas sin huesitos",
+    "empty": [
+      "PAWS sigue funcionando con su versión básica, sin IA: perros, entrenamientos, calendario, progreso, deberes… Solo el chat de la sesión necesita huesitos."
+    ]
   }
 }

@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import InfoSection from "@/components/InfoSection";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
 import {
@@ -306,6 +307,24 @@ export default function ProPage() {
               {error && <p className="mt-4 font-semibold text-red-600">{error}</p>}
             </div>
           </div>
+        )}
+        {/* TODO SOBRE PAWS PRO */}
+        {!loading && loggedIn && (
+          <>
+            <h2 className="mt-12 text-3xl font-extrabold text-[#1e3a5f]">{t("infoTitle")}</h2>
+            <div className="mt-6 space-y-4">
+              <InfoSection title={t("includesTitle")} items={t.raw("includes")} icon="✅" />
+              <InfoSection title={t("huesitosTitle")} items={t.raw("huesitos")} icon="🦴" />
+              <InfoSection title={t("notTitle")} items={t.raw("not")} icon="❌" />
+              <InfoSection title={t("billingTitle")} items={t.raw("billing")} icon="💳" />
+              <InfoSection title={t("withoutTitle")} items={t.raw("without")} icon="⏳" />
+            </div>
+            <p className="mt-6 text-center text-sm text-slate-500">
+              <Link href="/huesitos" className="font-semibold text-blue-600 hover:underline">
+                {t("seeHuesitos")}
+              </Link>
+            </p>
+          </>
         )}
       </div>
     </main>

@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
+import type { HuesitoPackId } from "@/lib/huesito-packs";
 
 // PAWS PRO con Stripe. SOLO para usar en el servidor (rutas de API):
 // usa claves secretas que nunca deben llegar al navegador.
@@ -34,6 +35,17 @@ export function getProPriceId(): string | null {
 // ha usado un enlace de fundador (tabla founder_invites).
 export function getFounderCouponId(): string | null {
   return process.env.STRIPE_FOUNDER_COUPON || null;
+}
+
+// Precio de Stripe de cada pack de huesitos (null si falta la variable)
+const HUESITO_PACK_PRICE_ENV: Record<HuesitoPackId, string> = {
+  pack100: "STRIPE_PRICE_HUESITOS_100",
+  pack300: "STRIPE_PRICE_HUESITOS_300",
+  pack1000: "STRIPE_PRICE_HUESITOS_1000",
+};
+
+export function getHuesitoPackPriceId(packId: HuesitoPackId): string | null {
+  return process.env[HUESITO_PACK_PRICE_ENV[packId]] || null;
 }
 
 // Cliente de Supabase con permisos de administrador (para el webhook,

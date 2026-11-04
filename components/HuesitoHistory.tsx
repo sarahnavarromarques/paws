@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useLocale } from "next-intl";
 
 import BoneIcon from "@/components/BoneIcon";
@@ -32,7 +33,6 @@ type Texts = {
   unlimited: string;
   explanation: string;
   buyButton: string;
-  soon: string;
   pricesTitle: string;
   historyTitle: string;
   historyButton: string;
@@ -57,7 +57,6 @@ const TEXTS: Record<Language, Texts> = {
     explanation:
       "Los huesitos se usan para las funciones de IA. Si te quedas sin ellos, PAWS sigue funcionando con su versión básica (salvo el chat de la sesión).",
     buyButton: "Comprar huesitos",
-    soon: "Próximamente",
     pricesTitle: "Cuánto cuesta cada función",
     historyTitle: "Movimientos",
     historyButton: "Ver movimientos",
@@ -95,7 +94,6 @@ const TEXTS: Record<Language, Texts> = {
     explanation:
       "Bones are used for AI features. If you run out, PAWS keeps working with its basic version (except the session chat).",
     buyButton: "Buy bones",
-    soon: "Coming soon",
     pricesTitle: "What each feature costs",
     historyTitle: "Activity",
     historyButton: "View activity",
@@ -333,14 +331,13 @@ export default function HuesitoHistory() {
 
           <p className="mb-4 text-sm text-slate-500">{text.explanation}</p>
 
-          {/* Comprar (llegará con las apps) */}
-          <button
-            type="button"
-            disabled
-            className="mb-6 w-full cursor-not-allowed rounded-xl bg-slate-100 px-4 py-3 font-semibold text-slate-400"
+          {/* Comprar packs de huesitos */}
+          <Link
+            href="/huesitos"
+            className="mb-6 block w-full rounded-xl bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700"
           >
-            {text.buyButton} · {text.soon}
-          </button>
+            {text.buyButton}
+          </Link>
 
           {/* Precios */}
           <h3 className="mb-3 font-bold text-slate-800">{text.pricesTitle}</h3>

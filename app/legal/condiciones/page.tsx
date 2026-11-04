@@ -52,7 +52,8 @@ const DOCUMENT: LegalDocument = {
         "Los huesitos son unidades de uso de las herramientas de inteligencia artificial de PAWS. No son dinero, no se pueden canjear por dinero ni transferir a otra cuenta.",
         "Cada cuenta recibe 20 huesitos de bienvenida.",
         "Los 300 huesitos mensuales de PAWS PRO caducan al final de cada mes de suscripción y no se acumulan.",
-        "Si se ofrecen packs de huesitos de compra única, sus condiciones se indicarán en el momento de la compra.",
+        "Los huesitos comprados en packs (compra única) no caducan mientras la cuenta exista. Se pierden si se borra la cuenta.",
+        "Los huesitos se pueden usar desde el momento de la compra. Los huesitos ya usados no son reembolsables.",
       ],
     },
     {
