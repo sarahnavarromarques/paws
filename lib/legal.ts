@@ -16,7 +16,7 @@ export const LEGAL_OWNER = {
   // Nombre comercial
   brand: "PAWS",
   // Dirección web
-  website: "https://paws-lemon.vercel.app",
+  website: "https://pawscoach.app",
 };
 
 // Fecha de la última actualización de los textos legales
