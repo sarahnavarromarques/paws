@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { createServerClient } from "@supabase/ssr";
 
+import WaitlistForm, { type WaitlistTexts } from "@/components/WaitlistForm";
 import type { Database } from "@/lib/supabase/database.types";
 
 const CONTACT_EMAIL = "soporte@pawscoach.app";
@@ -13,11 +14,10 @@ type Item = { icon: string; title: string; text: string };
 
 type LandingTexts = {
   login: string;
+  badge: string;
   heroTitle: string;
   heroSubtitle: string;
-  ctaPrimary: string;
-  ctaSecondary: string;
-  heroNote: string;
+  waitlist: WaitlistTexts;
   pawsiGreeting: string;
   pawsiAlt: string;
   howTitle: string;
@@ -39,12 +39,22 @@ type LandingTexts = {
 const texts: Record<"es" | "en", LandingTexts> = {
   es: {
     login: "Iniciar sesión",
+    badge: "🚀 Próximamente",
     heroTitle: "El entrenador inteligente para tu perro",
     heroSubtitle:
       "PAWS organiza los entrenamientos, mide el progreso y te dice qué practicar cada día. La IA aprende de cada sesión y adapta el plan a tu perro.",
-    ctaPrimary: "Empezar gratis",
-    ctaSecondary: "Ya tengo cuenta",
-    heroNote: "Sin tarjeta. Con huesitos de regalo para probar la IA.",
+    waitlist: {
+      placeholder: "Tu correo electrónico",
+      button: "Avisarme",
+      sending: "Enviando...",
+      success: "¡Listo! Te avisaremos en cuanto PAWS esté disponible. 🐾",
+      already: "Ya estabas en la lista. Te avisaremos en cuanto salga. 🐾",
+      invalid: "Revisa el correo: parece que no es válido.",
+      error: "No se ha podido guardar. Inténtalo de nuevo en un momento.",
+      privacyNote:
+        "Solo usaremos tu correo para avisarte del lanzamiento. Más información en",
+      privacyLink: "Privacidad",
+    },
     pawsiGreeting: "¡Hola! Soy Pawsi",
     pawsiAlt: "Pawsi, la mascota de PAWS, saludando",
     howTitle: "Cómo funciona",
@@ -100,16 +110,16 @@ const texts: Record<"es" | "en", LandingTexts> = {
     ],
     trainersTitle: "¿Eres adiestrador?",
     trainersText:
-      "PAWS también es tu herramienta de trabajo. Lleva a todos los perros de tus clientes en un solo lugar.",
+      "PAWS también será tu herramienta de trabajo. Lleva a todos los perros de tus clientes en un solo lugar.",
     trainersBullets: [
       "Gestiona clientes y perros",
       "Invita a los dueños con un enlace",
       "Los dueños apuntan los deberes entre sesiones",
       "La IA te ayuda a preparar cada sesión",
     ],
-    trainersCta: "Prueba 30 días gratis",
-    finalTitle: "Empieza hoy con tu perro",
-    finalText: "Crea tu cuenta en un minuto.",
+    trainersCta: "Avísame del lanzamiento",
+    finalTitle: "Sé de los primeros en probar PAWS",
+    finalText: "Déjanos tu correo y te avisamos el día del lanzamiento.",
     contact: "Contacto",
     legalNotice: "Aviso legal",
     terms: "Condiciones",
@@ -117,12 +127,22 @@ const texts: Record<"es" | "en", LandingTexts> = {
   },
   en: {
     login: "Log in",
+    badge: "🚀 Coming soon",
     heroTitle: "The smart trainer for your dog",
     heroSubtitle:
       "PAWS organizes your training, measures progress and tells you what to practice each day. The AI learns from every session and adapts the plan to your dog.",
-    ctaPrimary: "Start for free",
-    ctaSecondary: "I already have an account",
-    heroNote: "No card needed. Free bones included to try the AI.",
+    waitlist: {
+      placeholder: "Your email",
+      button: "Notify me",
+      sending: "Sending...",
+      success: "Done! We'll let you know as soon as PAWS is available. 🐾",
+      already: "You were already on the list. We'll let you know when it's out. 🐾",
+      invalid: "Please check your email: it doesn't look valid.",
+      error: "We couldn't save it. Please try again in a moment.",
+      privacyNote:
+        "We'll only use your email to tell you about the launch. More info in",
+      privacyLink: "Privacy",
+    },
     pawsiGreeting: "Hi! I'm Pawsi",
     pawsiAlt: "Pawsi, the PAWS mascot, waving hello",
     howTitle: "How it works",
@@ -178,16 +198,16 @@ const texts: Record<"es" | "en", LandingTexts> = {
     ],
     trainersTitle: "Are you a dog trainer?",
     trainersText:
-      "PAWS is also your work tool. Keep all your clients' dogs in one place.",
+      "PAWS will also be your work tool. Keep all your clients' dogs in one place.",
     trainersBullets: [
       "Manage clients and dogs",
       "Invite owners with a link",
       "Owners log homework between sessions",
       "The AI helps you prepare every session",
     ],
-    trainersCta: "Try 30 days free",
-    finalTitle: "Start today with your dog",
-    finalText: "Create your account in a minute.",
+    trainersCta: "Notify me at launch",
+    finalTitle: "Be among the first to try PAWS",
+    finalText: "Leave us your email and we'll let you know on launch day.",
     contact: "Contact",
     legalNotice: "Legal notice",
     terms: "Terms",
@@ -228,8 +248,9 @@ export default async function HomePage() {
     redirect("/dashboard");
   }
 
-  const locale = await getLocale();
-  const t = locale.startsWith("en") ? texts.en : texts.es;
+  const currentLocale = await getLocale();
+  const locale: "es" | "en" = currentLocale.startsWith("en") ? "en" : "es";
+  const t = texts[locale];
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -245,28 +266,22 @@ export default async function HomePage() {
       </header>
 
       {/* Portada */}
-      <section className="mx-auto max-w-4xl px-4 pb-10 pt-10 text-center sm:pt-16">
-        <h1 className="text-4xl font-extrabold leading-tight text-[#1e3a5f] sm:text-5xl">
+      <section
+        id="avisarme"
+        className="mx-auto max-w-4xl scroll-mt-6 px-4 pb-10 pt-10 text-center sm:pt-16"
+      >
+        <span className="inline-block rounded-full bg-blue-100 px-4 py-1 text-sm font-semibold text-blue-700">
+          {t.badge}
+        </span>
+        <h1 className="mt-5 text-4xl font-extrabold leading-tight text-[#1e3a5f] sm:text-5xl">
           {t.heroTitle}
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
           {t.heroSubtitle}
         </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
-            href="/register"
-            className="w-full rounded-xl bg-blue-600 px-8 py-3 text-center font-semibold text-white shadow hover:bg-blue-700 sm:w-auto"
-          >
-            {t.ctaPrimary}
-          </Link>
-          <Link
-            href="/login"
-            className="w-full rounded-xl border border-slate-300 bg-white px-8 py-3 text-center font-semibold text-slate-700 hover:bg-slate-100 sm:w-auto"
-          >
-            {t.ctaSecondary}
-          </Link>
+        <div className="mt-8">
+          <WaitlistForm locale={locale} texts={t.waitlist} />
         </div>
-        <p className="mt-4 text-sm text-slate-500">{t.heroNote}</p>
       </section>
 
       {/* Pawsi */}
@@ -343,26 +358,23 @@ export default async function HomePage() {
               </li>
             ))}
           </ul>
-          <Link
-            href="/register"
+          <a
+            href="#avisarme"
             className="mt-8 inline-block rounded-xl bg-white px-8 py-3 font-semibold text-[#1e3a5f] hover:bg-blue-50"
           >
             {t.trainersCta}
-          </Link>
+          </a>
         </div>
       </section>
 
-      {/* Llamada final */}
+      {/* Llamada final con segundo formulario */}
       <section className="py-16 text-center">
         <div className="mx-auto max-w-3xl px-4">
           <h2 className="text-3xl font-bold text-[#1e3a5f]">{t.finalTitle}</h2>
           <p className="mt-3 text-slate-600">{t.finalText}</p>
-          <Link
-            href="/register"
-            className="mt-6 inline-block rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white shadow hover:bg-blue-700"
-          >
-            {t.ctaPrimary}
-          </Link>
+          <div className="mt-6">
+            <WaitlistForm locale={locale} texts={t.waitlist} />
+          </div>
         </div>
       </section>
 
