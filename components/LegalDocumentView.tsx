@@ -1,18 +1,31 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
-import { LEGAL_LINKS, LEGAL_UPDATED_AT, type LegalDocument } from "@/lib/legal";
+import {
+  LEGAL_LINKS,
+  LEGAL_UPDATED_AT,
+  LEGAL_UPDATED_AT_EN,
+  type LegalDocument,
+} from "@/lib/legal";
 
 type Props = {
+  // Texto en español (siempre obligatorio)
   document: LegalDocument;
+  // Texto en inglés (opcional). Si no existe, se muestra el español con un aviso.
+  documentEn?: LegalDocument;
   // Ruta de esta página, para resaltarla en los enlaces de abajo
   currentHref: string;
 };
 
 // Muestra un texto legal (aviso legal, privacidad, condiciones)
-export default async function LegalDocumentView({ document, currentHref }: Props) {
+export default async function LegalDocumentView({ document, documentEn, currentHref }: Props) {
   const t = await getTranslations("Legal");
   const locale = await getLocale();
+
+  const useEnglish = locale !== "es" && documentEn !== undefined;
+  const shown: LegalDocument = useEnglish && documentEn ? documentEn : document;
+  const showSpanishOnlyNotice = locale !== "es" && !documentEn;
+  const updatedAt = useEnglish ? LEGAL_UPDATED_AT_EN : LEGAL_UPDATED_AT;
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
@@ -22,21 +35,19 @@ export default async function LegalDocumentView({ document, currentHref }: Props
         </Link>
 
         <h1 className="mt-4 text-3xl font-extrabold text-[#1e3a5f] md:text-4xl">
-          {document.title}
+          {shown.title}
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          {t("updatedAt", { date: LEGAL_UPDATED_AT })}
-        </p>
+        <p className="mt-2 text-sm text-slate-500">{t("updatedAt", { date: updatedAt })}</p>
 
-        {locale !== "es" && (
+        {showSpanishOnlyNotice && (
           <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
             {t("spanishOnly")}
           </p>
         )}
 
-        {document.intro && <p className="mt-6 text-slate-700">{document.intro}</p>}
+        {shown.intro && <p className="mt-6 text-slate-700">{shown.intro}</p>}
 
-        {document.sections.map((section) => (
+        {shown.sections.map((section) => (
           <section key={section.title} className="mt-8">
             <h2 className="text-xl font-bold text-[#1e3a5f]">{section.title}</h2>
             {section.paragraphs?.map((paragraph) => (

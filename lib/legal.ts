@@ -12,15 +12,16 @@ export const LEGAL_OWNER = {
   // y ponerla aquí.
   address: "",
   // Correo para consultas legales y de privacidad
-  email: "pawsadiestramiento@gmail.com",
+  email: "soporte@pawscoach.app",
   // Nombre comercial
   brand: "PAWS",
   // Dirección web
   website: "https://pawscoach.app",
 };
 
-// Fecha de la última actualización de los textos legales
-export const LEGAL_UPDATED_AT = "4 de noviembre de 2026";
+// Fecha de la última actualización de los textos legales (cambiar las dos a la vez)
+export const LEGAL_UPDATED_AT = "17 de noviembre de 2026";
+export const LEGAL_UPDATED_AT_EN = "17 November 2026";
 
 export type LegalSection = {
   title: string;
