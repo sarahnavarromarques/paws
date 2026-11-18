@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
+import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
 // Por eso la clave de la API queda oculta y segura aquí.
@@ -24,6 +25,11 @@ export async function POST(request: Request) {
   }
 
   const { supabase, userId } = aiUser;
+
+  // Sin permiso del usuario no se envía nada a la IA.
+  if (!(await hasAiConsent(supabase, userId))) {
+    return aiConsentRequiredResponse();
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 

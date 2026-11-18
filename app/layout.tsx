@@ -7,6 +7,7 @@ import OnboardingTour from "@/components/OnboardingTour";
 import FirstStepsChecklist from "@/components/FirstStepsChecklist";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import HuesitoBalance from "@/components/HuesitoBalance";
+import AiConsentGate from "@/components/AiConsentGate";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -58,6 +59,10 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider locale={locale} messages={messages}>
+          {/* Va la primera: vigila las peticiones a la IA desde el principio
+              y pide permiso al usuario antes de enviar nada. */}
+          <AiConsentGate />
+
           <Sidebar />
 
           {/* Arriba a la derecha, en todas las páginas: saldo de huesitos

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
 import {
@@ -57,6 +58,12 @@ export async function POST(request: Request) {
   }
 
   const { supabase, userId } = aiUser;
+
+  // Sin permiso del usuario no se envía nada a la IA.
+  // El chat no tiene versión local, así que siempre se pide el permiso.
+  if (!(await hasAiConsent(supabase, userId))) {
+    return aiConsentRequiredResponse();
+  }
 
   // El chat no tiene versión local: sin huesitos no se puede preguntar.
   if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {

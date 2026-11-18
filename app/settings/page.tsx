@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { startOnboardingTour } from "@/components/OnboardingTour";
 import HuesitoHistory from "@/components/HuesitoHistory";
+import AiConsentSettings from "@/components/AiConsentSettings";
 
 const supabase = createClient();
 
@@ -862,6 +863,9 @@ export default function SettingsPage() {
 
         {/* HUESITOS (saldo, precios e historial) */}
         <HuesitoHistory />
+
+        {/* INTELIGENCIA ARTIFICIAL (dar o retirar el permiso) */}
+        <AiConsentSettings />
 
         {/* IDIOMA */}
         <section data-tour="settings-language" className={CARD_CLASS}>

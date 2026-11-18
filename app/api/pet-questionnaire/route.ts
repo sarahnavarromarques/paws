@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
+import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
@@ -321,6 +323,16 @@ export async function POST(request: Request) {
 
   const { supabase, userId } = aiUser;
 
+  // Permiso para usar la IA:
+  // - Si no lo ha dado y aún no ha decidido, se pide (la app muestra la ventana).
+  // - Si lo ha rechazado, se usa la propuesta local sin enviar nada a la IA.
+  const aiConsent = await hasAiConsent(supabase, userId);
+  const aiDeclined = request.headers.get(AI_CONSENT_DECLINED_HEADER) === "1";
+
+  if (!aiConsent && !aiDeclined) {
+    return aiConsentRequiredResponse();
+  }
+
   const { data: pet } = await supabase
     .from("pets")
     .select("id, name, breed, birth_date, sex, weight")
@@ -369,9 +381,10 @@ export async function POST(request: Request) {
   let usedFallback = true;
   let huesitos: SpendResult | null = null;
 
-  // Sin huesitos suficientes: se usa directamente la propuesta local.
-  const canPay = await hasHuesitosFor(supabase, userId, FEATURE);
-  const noHuesitos = !canPay;
+  // Sin permiso o sin huesitos suficientes: se usa directamente la propuesta local.
+  const canPay = aiConsent && (await hasHuesitosFor(supabase, userId, FEATURE));
+  const noHuesitos = aiConsent && !canPay;
+  const noAiConsent = !aiConsent;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -464,6 +477,7 @@ export async function POST(request: Request) {
     skills,
     usedFallback,
     noHuesitos,
+    noAiConsent,
     huesitos,
     saved: !saveError,
   });

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
 
@@ -44,6 +45,11 @@ export async function POST(request: Request) {
   }
 
   const { supabase, userId } = aiUser;
+
+  // Sin permiso del usuario no se envía nada a la IA.
+  if (!(await hasAiConsent(supabase, userId))) {
+    return aiConsentRequiredResponse();
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 

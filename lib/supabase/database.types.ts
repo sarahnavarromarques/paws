@@ -566,6 +566,7 @@ export type Database = {
       profiles: {
         Row: {
           account_type: string
+          ai_consent_at: string | null
           avatar_url: string | null
           calendar_token: string
           clicker_settings: Json | null
@@ -582,6 +583,7 @@ export type Database = {
         }
         Insert: {
           account_type?: string
+          ai_consent_at?: string | null
           avatar_url?: string | null
           calendar_token?: string
           clicker_settings?: Json | null
@@ -598,6 +600,7 @@ export type Database = {
         }
         Update: {
           account_type?: string
+          ai_consent_at?: string | null
           avatar_url?: string | null
           calendar_token?: string
           clicker_settings?: Json | null

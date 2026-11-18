@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
+import { hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
 import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
 
@@ -90,6 +91,12 @@ export async function POST(request: Request) {
   }
 
   const { supabase, userId } = aiUser;
+
+  // Sin permiso para la IA: no se pregunta (completar un entrenamiento no es
+  // un botón de IA). La pantalla usa su cálculo local y no se envía nada.
+  if (!(await hasAiConsent(supabase, userId))) {
+    return NextResponse.json({ error: "no_ai_consent" }, { status: 403 });
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
