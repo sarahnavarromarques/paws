@@ -13,7 +13,6 @@ const CONTACT_EMAIL = "soporte@pawscoach.app";
 type Item = { icon: string; title: string; text: string };
 
 type LandingTexts = {
-  login: string;
   badge: string;
   heroTitle: string;
   heroSubtitle: string;
@@ -38,7 +37,6 @@ type LandingTexts = {
 
 const texts: Record<"es" | "en", LandingTexts> = {
   es: {
-    login: "Iniciar sesión",
     badge: "🚀 Próximamente",
     heroTitle: "El entrenador inteligente para tu perro",
     heroSubtitle:
@@ -126,7 +124,6 @@ const texts: Record<"es" | "en", LandingTexts> = {
     privacy: "Privacidad",
   },
   en: {
-    login: "Log in",
     badge: "🚀 Coming soon",
     heroTitle: "The smart trainer for your dog",
     heroSubtitle:
@@ -254,15 +251,11 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Cabecera (deja hueco a la derecha para la bandera de idioma) */}
+      {/* Cabecera (deja hueco a la derecha para la bandera de idioma).
+          Sin enlace a "Iniciar sesión" mientras PAWS está en "Próximamente":
+          quien ya tiene cuenta entra escribiendo /login. */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 pr-24">
         <span className="text-xl font-bold">🐾 PAWS</span>
-        <Link
-          href="/login"
-          className="text-sm font-semibold text-blue-600 hover:underline"
-        >
-          {t.login}
-        </Link>
       </header>
 
       {/* Portada */}
