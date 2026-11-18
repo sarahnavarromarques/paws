@@ -20,8 +20,8 @@ export const LEGAL_OWNER = {
 };
 
 // Fecha de la última actualización de los textos legales (cambiar las dos a la vez)
-export const LEGAL_UPDATED_AT = "17 de noviembre de 2026";
-export const LEGAL_UPDATED_AT_EN = "17 November 2026";
+export const LEGAL_UPDATED_AT = "18 de noviembre de 2026";
+export const LEGAL_UPDATED_AT_EN = "18 November 2026";
 
 export type LegalSection = {
   title: string;
