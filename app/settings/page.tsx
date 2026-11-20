@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { startOnboardingTour } from "@/components/OnboardingTour";
 import HuesitoHistory from "@/components/HuesitoHistory";
 import AiConsentSettings from "@/components/AiConsentSettings";
+import PasswordInput from "@/components/PasswordInput";
 
 const supabase = createClient();
 
@@ -109,6 +110,55 @@ const CALENDAR_TEXT: Record<Language, CalendarText> = {
   },
 };
 
+// Índice de bloques de Ajustes (para saltar directamente a cada uno)
+const SECTION_IDS = [
+  "profile",
+  "huesitos",
+  "ai",
+  "language",
+  "calendar",
+  "tutorial",
+  "account",
+] as const;
+type SectionId = (typeof SECTION_IDS)[number];
+
+function isSectionId(value: string): value is SectionId {
+  return (SECTION_IDS as readonly string[]).includes(value);
+}
+
+const SECTION_TEXT: Record<
+  Language,
+  { navLabel: string; labels: Record<SectionId, string> }
+> = {
+  es: {
+    navLabel: "Secciones de Ajustes",
+    labels: {
+      profile: "👤 Perfil",
+      huesitos: "🦴 Huesitos",
+      ai: "🤖 Inteligencia artificial",
+      language: "🌐 Idioma",
+      calendar: "📅 Calendario",
+      tutorial: "🐾 Tutorial",
+      account: "🔐 Cuenta",
+    },
+  },
+  en: {
+    navLabel: "Settings sections",
+    labels: {
+      profile: "👤 Profile",
+      huesitos: "🦴 Bones",
+      ai: "🤖 Artificial intelligence",
+      language: "🌐 Language",
+      calendar: "📅 Calendar",
+      tutorial: "🐾 Tutorial",
+      account: "🔐 Account",
+    },
+  },
+};
+
+// Separación al saltar a un bloque, para que no quede tapado por la barra superior
+const SECTION_SCROLL_CLASS = "scroll-mt-24";
+
 type Feedback = { type: "success" | "error"; text: string } | null;
 
 // Error mínimo que devuelven Supabase Auth y la base de datos
@@ -154,6 +204,10 @@ export default function SettingsPage() {
   const locale = useLocale();
   const tutorialText = TUTORIAL_TEXT[locale === "en" ? "en" : "es"];
   const calendarText = CALENDAR_TEXT[locale === "en" ? "en" : "es"];
+  const sectionText = SECTION_TEXT[locale === "en" ? "en" : "es"];
+
+  // Bloque que se está viendo (se resalta en el índice)
+  const [activeSection, setActiveSection] = useState<SectionId>("profile");
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -257,6 +311,38 @@ export default function SettingsPage() {
 
     void loadProfile();
   }, [router]);
+
+  // Resalta en el índice el bloque que se está viendo al hacer scroll
+  useEffect(() => {
+    if (loading) return;
+
+    const elements = SECTION_IDS.map((id) =>
+      document.getElementById(`settings-${id}`)
+    ).filter((element): element is HTMLElement => element !== null);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const first = visible[0];
+        if (!first) return;
+        const id = first.target.id.replace("settings-", "");
+        if (isSectionId(id)) setActiveSection(id);
+      },
+      { rootMargin: "-20% 0px -70% 0px" }
+    );
+
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [loading]);
+
+  function scrollToSection(id: SectionId) {
+    setActiveSection(id);
+    document
+      .getElementById(`settings-${id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function authErrorMessage(error: SupabaseLikeError): string {
     switch (error.code) {
@@ -688,420 +774,492 @@ export default function SettingsPage() {
 
   return (
     <main data-tour-section="settings" className="min-h-screen bg-slate-50 p-6 md:p-10">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-5xl">
         {/* Para volver se usa la flecha de la barra superior */}
         <h1 className="mb-6 text-3xl font-extrabold tracking-tight">
           {t("title")}
         </h1>
 
-        {/* PERFIL */}
-        <section data-tour="settings-profile" className={CARD_CLASS}>
-          <h2 className="mb-6 text-xl font-bold">{t("profileTitle")}</h2>
+        {/* ÍNDICE EN MÓVIL: fila deslizable */}
+        <nav
+          aria-label={sectionText.navLabel}
+          className="-mx-6 mb-6 flex gap-2 overflow-x-auto px-6 pb-2 md:hidden"
+        >
+          {SECTION_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => scrollToSection(id)}
+              aria-current={activeSection === id ? "true" : undefined}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeSection === id
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-slate-600 shadow-sm hover:bg-slate-100"
+              }`}
+            >
+              {sectionText.labels[id]}
+            </button>
+          ))}
+        </nav>
 
-          {/* Foto */}
-          <p className={LABEL_CLASS}>{t("photoLabel")}</p>
-          <div className="mb-2 flex flex-wrap items-center gap-4">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={t("photoLabel")}
-                className="h-20 w-20 rounded-full border-4 border-slate-100 object-cover"
-              />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-3xl font-bold text-slate-500">
-                {avatarInitial || "🙂"}
+        <div className="md:flex md:items-start md:gap-8">
+          {/* ÍNDICE EN ORDENADOR: a la izquierda y fijo al hacer scroll */}
+          <nav
+            aria-label={sectionText.navLabel}
+            className="sticky top-24 hidden w-56 shrink-0 md:block"
+          >
+            <ul className="space-y-1 rounded-2xl bg-white p-3 shadow-sm">
+              {SECTION_IDS.map((id) => (
+                <li key={id}>
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection(id)}
+                    aria-current={activeSection === id ? "true" : undefined}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+                      activeSection === id
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {sectionText.labels[id]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="min-w-0 max-w-2xl flex-1">
+            {/* PERFIL */}
+            <section
+              id="settings-profile"
+              data-tour="settings-profile"
+              className={`${CARD_CLASS} ${SECTION_SCROLL_CLASS}`}
+            >
+              <h2 className="mb-6 text-xl font-bold">{t("profileTitle")}</h2>
+
+              {/* Foto */}
+              <p className={LABEL_CLASS}>{t("photoLabel")}</p>
+              <div className="mb-2 flex flex-wrap items-center gap-4">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={t("photoLabel")}
+                    className="h-20 w-20 rounded-full border-4 border-slate-100 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-3xl font-bold text-slate-500">
+                    {avatarInitial || "🙂"}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <label
+                    className={`cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 ${
+                      uploadingPhoto ? "pointer-events-none opacity-50" : ""
+                    }`}
+                  >
+                    {uploadingPhoto
+                      ? t("uploadingPhoto")
+                      : avatarUrl
+                      ? t("changePhoto")
+                      : t("uploadPhoto")}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={uploadingPhoto}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          void handlePhotoChange(file);
+                        }
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => void handleRemovePhoto()}
+                      disabled={uploadingPhoto}
+                      className="rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                    >
+                      {t("removePhoto")}
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+              <p className="text-xs text-slate-400">{t("photoHint")}</p>
+              <FeedbackMessage feedback={photoFeedback} />
 
-            <div className="flex flex-wrap gap-2">
-              <label
-                className={`cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 ${
-                  uploadingPhoto ? "pointer-events-none opacity-50" : ""
-                }`}
-              >
-                {uploadingPhoto
-                  ? t("uploadingPhoto")
-                  : avatarUrl
-                  ? t("changePhoto")
-                  : t("uploadPhoto")}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  disabled={uploadingPhoto}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      void handlePhotoChange(file);
+              <hr className="my-6 border-slate-100" />
+
+              {/* Usuario */}
+              <div className="mb-4">
+                <label className={LABEL_CLASS} htmlFor="username">
+                  {t("usernameLabel")}
+                </label>
+                <div className="flex items-center rounded-xl border border-slate-300 bg-white transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                  <span className="pl-3 font-semibold text-slate-400">@</span>
+                  <input
+                    id="username"
+                    type="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={username}
+                    onChange={(e) =>
+                      setUsername(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9_]/g, "")
+                          .slice(0, 20)
+                      )
                     }
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+                    disabled={savingProfile}
+                    placeholder={t("usernamePlaceholder")}
+                    className="w-full rounded-xl bg-transparent p-3 pl-1 outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-slate-400">{t("usernameHint")}</p>
+              </div>
 
-              {avatarUrl && (
+              {/* Nombre y apellidos */}
+              <div className="mb-4 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className={LABEL_CLASS} htmlFor="firstName">
+                    {t("firstNameLabel")}
+                  </label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={savingProfile}
+                    placeholder={t("firstNamePlaceholder")}
+                    className={INPUT_CLASS}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLASS} htmlFor="lastName">
+                    {t("lastNameLabel")}
+                  </label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={savingProfile}
+                    placeholder={t("lastNamePlaceholder")}
+                    className={INPUT_CLASS}
+                  />
+                </div>
+              </div>
+
+              {/* Tipo de cuenta */}
+              <div className="mb-6">
+                <label className={LABEL_CLASS} htmlFor="accountType">
+                  {t("accountTypeLabel")}
+                </label>
+                <select
+                  id="accountType"
+                  value={accountType}
+                  onChange={(e) => {
+                    if (isAccountType(e.target.value)) {
+                      setAccountType(e.target.value);
+                    }
+                  }}
+                  disabled={savingProfile}
+                  className={INPUT_CLASS}
+                >
+                  <option value="particular">{t("accountTypeParticular")}</option>
+                  <option value="profesional">{t("accountTypeProfesional")}</option>
+                  <option value="centro">{t("accountTypeCentro")}</option>
+                  <option value="refugio">{t("accountTypeRefugio")}</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleSaveProfile()}
+                disabled={savingProfile}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                {savingProfile ? t("savingProfile") : t("saveProfile")}
+              </button>
+              <FeedbackMessage feedback={profileFeedback} />
+            </section>
+
+            {/* HUESITOS (saldo, precios e historial) */}
+            <div id="settings-huesitos" className={SECTION_SCROLL_CLASS}>
+              <HuesitoHistory />
+            </div>
+
+            {/* INTELIGENCIA ARTIFICIAL (dar o retirar el permiso) */}
+            <div id="settings-ai" className={SECTION_SCROLL_CLASS}>
+              <AiConsentSettings />
+            </div>
+
+            {/* IDIOMA */}
+            <section
+              id="settings-language"
+              data-tour="settings-language"
+              className={`${CARD_CLASS} ${SECTION_SCROLL_CLASS}`}
+            >
+              <h2 className="mb-4 text-xl font-bold">{t("languageLabel")}</h2>
+
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => void handleRemovePhoto()}
-                  disabled={uploadingPhoto}
-                  className="rounded-xl bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                  disabled={savingLanguage}
+                  onClick={() => void handleSaveLanguage("es")}
+                  className={`rounded-xl border-2 p-4 text-center font-semibold transition ${
+                    language === "es"
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
                 >
-                  {t("removePhoto")}
+                  🇪🇸 {t("spanish")}
                 </button>
-              )}
-            </div>
-          </div>
-          <p className="text-xs text-slate-400">{t("photoHint")}</p>
-          <FeedbackMessage feedback={photoFeedback} />
 
-          <hr className="my-6 border-slate-100" />
-
-          {/* Usuario */}
-          <div className="mb-4">
-            <label className={LABEL_CLASS} htmlFor="username">
-              {t("usernameLabel")}
-            </label>
-            <div className="flex items-center rounded-xl border border-slate-300 bg-white transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
-              <span className="pl-3 font-semibold text-slate-400">@</span>
-              <input
-                id="username"
-                type="text"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                value={username}
-                onChange={(e) =>
-                  setUsername(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9_]/g, "")
-                      .slice(0, 20)
-                  )
-                }
-                disabled={savingProfile}
-                placeholder={t("usernamePlaceholder")}
-                className="w-full rounded-xl bg-transparent p-3 pl-1 outline-none"
-              />
-            </div>
-            <p className="mt-1 text-xs text-slate-400">{t("usernameHint")}</p>
-          </div>
-
-          {/* Nombre y apellidos */}
-          <div className="mb-4 grid gap-4 md:grid-cols-2">
-            <div>
-              <label className={LABEL_CLASS} htmlFor="firstName">
-                {t("firstNameLabel")}
-              </label>
-              <input
-                id="firstName"
-                type="text"
-                autoComplete="given-name"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                disabled={savingProfile}
-                placeholder={t("firstNamePlaceholder")}
-                className={INPUT_CLASS}
-              />
-            </div>
-            <div>
-              <label className={LABEL_CLASS} htmlFor="lastName">
-                {t("lastNameLabel")}
-              </label>
-              <input
-                id="lastName"
-                type="text"
-                autoComplete="family-name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                disabled={savingProfile}
-                placeholder={t("lastNamePlaceholder")}
-                className={INPUT_CLASS}
-              />
-            </div>
-          </div>
-
-          {/* Tipo de cuenta */}
-          <div className="mb-6">
-            <label className={LABEL_CLASS} htmlFor="accountType">
-              {t("accountTypeLabel")}
-            </label>
-            <select
-              id="accountType"
-              value={accountType}
-              onChange={(e) => {
-                if (isAccountType(e.target.value)) {
-                  setAccountType(e.target.value);
-                }
-              }}
-              disabled={savingProfile}
-              className={INPUT_CLASS}
-            >
-              <option value="particular">{t("accountTypeParticular")}</option>
-              <option value="profesional">{t("accountTypeProfesional")}</option>
-              <option value="centro">{t("accountTypeCentro")}</option>
-              <option value="refugio">{t("accountTypeRefugio")}</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void handleSaveProfile()}
-            disabled={savingProfile}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {savingProfile ? t("savingProfile") : t("saveProfile")}
-          </button>
-          <FeedbackMessage feedback={profileFeedback} />
-        </section>
-
-        {/* HUESITOS (saldo, precios e historial) */}
-        <HuesitoHistory />
-
-        {/* INTELIGENCIA ARTIFICIAL (dar o retirar el permiso) */}
-        <AiConsentSettings />
-
-        {/* IDIOMA */}
-        <section data-tour="settings-language" className={CARD_CLASS}>
-          <h2 className="mb-4 text-xl font-bold">{t("languageLabel")}</h2>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled={savingLanguage}
-              onClick={() => void handleSaveLanguage("es")}
-              className={`rounded-xl border-2 p-4 text-center font-semibold transition ${
-                language === "es"
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
-            >
-              🇪🇸 {t("spanish")}
-            </button>
-
-            <button
-              type="button"
-              disabled={savingLanguage}
-              onClick={() => void handleSaveLanguage("en")}
-              className={`rounded-xl border-2 p-4 text-center font-semibold transition ${
-                language === "en"
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
-            >
-              🇬🇧 {t("english")}
-            </button>
-          </div>
-        </section>
-
-        {/* CALENDARIO DEL MÓVIL */}
-        <section data-tour="settings-calendar" className={CARD_CLASS}>
-          <h2 className="mb-2 text-xl font-bold">📅 {calendarText.title}</h2>
-          <p className="mb-4 text-sm text-slate-500">
-            {calendarText.description}
-          </p>
-
-          {calendarHttpsUrl ? (
-            <>
-              <div className="mb-4 flex flex-col gap-3">
-                <a href={calendarWebcalUrl} className={`${PRIMARY_BUTTON_CLASS} text-center`}>
-                  🍎 {calendarText.appleButton}
-                </a>
-                <a
-                  href={calendarGoogleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${PRIMARY_BUTTON_CLASS} text-center`}
+                <button
+                  type="button"
+                  disabled={savingLanguage}
+                  onClick={() => void handleSaveLanguage("en")}
+                  className={`rounded-xl border-2 p-4 text-center font-semibold transition ${
+                    language === "en"
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
                 >
-                  🤖 {calendarText.googleButton}
-                </a>
+                  🇬🇧 {t("english")}
+                </button>
               </div>
+            </section>
 
-              <label className={LABEL_CLASS} htmlFor="calendarLink">
-                {calendarText.linkLabel}
-              </label>
-              <input
-                id="calendarLink"
-                type="text"
-                readOnly
-                value={calendarHttpsUrl}
-                onFocus={(e) => e.target.select()}
-                className={`${INPUT_CLASS} mb-1 text-xs text-slate-600`}
-              />
-              <p className="mb-4 text-xs text-slate-400">
-                🔒 {calendarText.privateHint}
+            {/* CALENDARIO DEL MÓVIL */}
+            <section
+              id="settings-calendar"
+              data-tour="settings-calendar"
+              className={`${CARD_CLASS} ${SECTION_SCROLL_CLASS}`}
+            >
+              <h2 className="mb-2 text-xl font-bold">📅 {calendarText.title}</h2>
+              <p className="mb-4 text-sm text-slate-500">
+                {calendarText.description}
               </p>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => void handleCopyCalendarLink()}
-                  disabled={calendarBusy}
-                  className={SECONDARY_BUTTON_CLASS}
-                >
-                  {calendarText.copyButton}
-                </button>
+              {calendarHttpsUrl ? (
+                <>
+                  <div className="mb-4 flex flex-col gap-3">
+                    <a href={calendarWebcalUrl} className={`${PRIMARY_BUTTON_CLASS} text-center`}>
+                      🍎 {calendarText.appleButton}
+                    </a>
+                    <a
+                      href={calendarGoogleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${PRIMARY_BUTTON_CLASS} text-center`}
+                    >
+                      🤖 {calendarText.googleButton}
+                    </a>
+                  </div>
+
+                  <label className={LABEL_CLASS} htmlFor="calendarLink">
+                    {calendarText.linkLabel}
+                  </label>
+                  <input
+                    id="calendarLink"
+                    type="text"
+                    readOnly
+                    value={calendarHttpsUrl}
+                    onFocus={(e) => e.target.select()}
+                    className={`${INPUT_CLASS} mb-1 text-xs text-slate-600`}
+                  />
+                  <p className="mb-4 text-xs text-slate-400">
+                    🔒 {calendarText.privateHint}
+                  </p>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyCalendarLink()}
+                      disabled={calendarBusy}
+                      className={SECONDARY_BUTTON_CLASS}
+                    >
+                      {calendarText.copyButton}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleNewCalendarToken()}
+                      disabled={calendarBusy}
+                      className={SECONDARY_BUTTON_CLASS}
+                    >
+                      {calendarBusy ? calendarText.working : calendarText.regenerateButton}
+                    </button>
+                  </div>
+                </>
+              ) : (
                 <button
                   type="button"
                   onClick={() => void handleNewCalendarToken()}
                   disabled={calendarBusy}
-                  className={SECONDARY_BUTTON_CLASS}
+                  className={PRIMARY_BUTTON_CLASS}
                 >
-                  {calendarBusy ? calendarText.working : calendarText.regenerateButton}
+                  {calendarBusy ? calendarText.working : calendarText.activateButton}
                 </button>
+              )}
+
+              <FeedbackMessage feedback={calendarFeedback} />
+            </section>
+
+            {/* TUTORIAL */}
+            <section
+              id="settings-tutorial"
+              data-tour="replay-tour"
+              className={`${CARD_CLASS} ${SECTION_SCROLL_CLASS}`}
+            >
+              <h2 className="mb-2 text-xl font-bold">🐾 {tutorialText.title}</h2>
+              <p className="mb-4 text-sm text-slate-500">
+                {tutorialText.description}
+              </p>
+              <button
+                type="button"
+                onClick={() => startOnboardingTour()}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                {tutorialText.button}
+              </button>
+            </section>
+
+            {/* CUENTA */}
+            <section
+              id="settings-account"
+              data-tour="settings-account"
+              className={`${CARD_CLASS} ${SECTION_SCROLL_CLASS}`}
+            >
+              <h2 className="mb-6 text-xl font-bold">{t("accountTitle")}</h2>
+
+              {/* Correo */}
+              <h3 className="mb-3 font-bold text-slate-800">
+                {t("emailSectionTitle")}
+              </h3>
+              <p className="mb-4 text-sm text-slate-500">
+                {t("currentEmailLabel")}:{" "}
+                <span className="font-semibold text-slate-700">{currentEmail}</span>
+              </p>
+              <div className="mb-4">
+                <label className={LABEL_CLASS} htmlFor="newEmail">
+                  {t("newEmailLabel")}
+                </label>
+                <input
+                  id="newEmail"
+                  type="email"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  disabled={changingEmail}
+                  placeholder={t("newEmailPlaceholder")}
+                  className={INPUT_CLASS}
+                />
               </div>
-            </>
-          ) : (
+              <button
+                type="button"
+                onClick={() => void handleChangeEmail()}
+                disabled={changingEmail}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                {changingEmail ? t("changingEmail") : t("changeEmailButton")}
+              </button>
+              <FeedbackMessage feedback={emailFeedback} />
+
+              <hr className="my-6 border-slate-100" />
+
+              {/* Contraseña */}
+              <h3 className="mb-3 font-bold text-slate-800">
+                {t("passwordSectionTitle")}
+              </h3>
+              <div className="mb-4">
+                <label className={LABEL_CLASS} htmlFor="currentPassword">
+                  {t("currentPasswordLabel")}
+                </label>
+                <PasswordInput
+                  id="currentPassword"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  disabled={changingPassword}
+                  className={INPUT_CLASS}
+                />
+              </div>
+              <div className="mb-4">
+                <label className={LABEL_CLASS} htmlFor="newPassword">
+                  {t("newPasswordLabel")}
+                </label>
+                <PasswordInput
+                  id="newPassword"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={changingPassword}
+                  className={INPUT_CLASS}
+                />
+              </div>
+              <div className="mb-4">
+                <label className={LABEL_CLASS} htmlFor="confirmPassword">
+                  {t("confirmPasswordLabel")}
+                </label>
+                <PasswordInput
+                  id="confirmPassword"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={changingPassword}
+                  className={INPUT_CLASS}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleChangePassword()}
+                disabled={changingPassword}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                {changingPassword ? t("changingPassword") : t("changePasswordButton")}
+              </button>
+              <FeedbackMessage feedback={passwordFeedback} />
+            </section>
+
+            {/* CERRAR SESIÓN */}
             <button
               type="button"
-              onClick={() => void handleNewCalendarToken()}
-              disabled={calendarBusy}
-              className={PRIMARY_BUTTON_CLASS}
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+              className="mb-6 w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
             >
-              {calendarBusy ? calendarText.working : calendarText.activateButton}
+              {loggingOut ? t("loggingOut") : t("logoutButton")}
             </button>
-          )}
 
-          <FeedbackMessage feedback={calendarFeedback} />
-        </section>
-
-        {/* TUTORIAL */}
-        <section data-tour="replay-tour" className={CARD_CLASS}>
-          <h2 className="mb-2 text-xl font-bold">🐾 {tutorialText.title}</h2>
-          <p className="mb-4 text-sm text-slate-500">
-            {tutorialText.description}
-          </p>
-          <button
-            type="button"
-            onClick={() => startOnboardingTour()}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {tutorialText.button}
-          </button>
-        </section>
-
-        {/* CUENTA */}
-        <section data-tour="settings-account" className={CARD_CLASS}>
-          <h2 className="mb-6 text-xl font-bold">{t("accountTitle")}</h2>
-
-          {/* Correo */}
-          <h3 className="mb-3 font-bold text-slate-800">
-            {t("emailSectionTitle")}
-          </h3>
-          <p className="mb-4 text-sm text-slate-500">
-            {t("currentEmailLabel")}:{" "}
-            <span className="font-semibold text-slate-700">{currentEmail}</span>
-          </p>
-          <div className="mb-4">
-            <label className={LABEL_CLASS} htmlFor="newEmail">
-              {t("newEmailLabel")}
-            </label>
-            <input
-              id="newEmail"
-              type="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              disabled={changingEmail}
-              placeholder={t("newEmailPlaceholder")}
-              className={INPUT_CLASS}
-            />
+            {/* ZONA PELIGROSA */}
+            <section className="mb-10 rounded-2xl border-2 border-red-200 bg-white p-6 md:p-8">
+              <h2 className="mb-2 text-xl font-bold text-red-700">
+                {t("dangerTitle")}
+              </h2>
+              <p className="mb-4 text-sm text-slate-600">
+                {t("deleteAccountDescription")}
+              </p>
+              <button
+                type="button"
+                onClick={openDeleteModal}
+                className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700"
+              >
+                {t("deleteAccountButton")}
+              </button>
+            </section>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleChangeEmail()}
-            disabled={changingEmail}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {changingEmail ? t("changingEmail") : t("changeEmailButton")}
-          </button>
-          <FeedbackMessage feedback={emailFeedback} />
-
-          <hr className="my-6 border-slate-100" />
-
-          {/* Contraseña */}
-          <h3 className="mb-3 font-bold text-slate-800">
-            {t("passwordSectionTitle")}
-          </h3>
-          <div className="mb-4">
-            <label className={LABEL_CLASS} htmlFor="currentPassword">
-              {t("currentPasswordLabel")}
-            </label>
-            <input
-              id="currentPassword"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              disabled={changingPassword}
-              className={INPUT_CLASS}
-            />
-          </div>
-          <div className="mb-4">
-            <label className={LABEL_CLASS} htmlFor="newPassword">
-              {t("newPasswordLabel")}
-            </label>
-            <input
-              id="newPassword"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              disabled={changingPassword}
-              className={INPUT_CLASS}
-            />
-          </div>
-          <div className="mb-4">
-            <label className={LABEL_CLASS} htmlFor="confirmPassword">
-              {t("confirmPasswordLabel")}
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={changingPassword}
-              className={INPUT_CLASS}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => void handleChangePassword()}
-            disabled={changingPassword}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {changingPassword ? t("changingPassword") : t("changePasswordButton")}
-          </button>
-          <FeedbackMessage feedback={passwordFeedback} />
-        </section>
-
-        {/* CERRAR SESIÓN */}
-        <button
-          type="button"
-          onClick={() => void handleLogout()}
-          disabled={loggingOut}
-          className="mb-6 w-full rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
-        >
-          {loggingOut ? t("loggingOut") : t("logoutButton")}
-        </button>
-
-        {/* ZONA PELIGROSA */}
-        <section className="mb-10 rounded-2xl border-2 border-red-200 bg-white p-6 md:p-8">
-          <h2 className="mb-2 text-xl font-bold text-red-700">
-            {t("dangerTitle")}
-          </h2>
-          <p className="mb-4 text-sm text-slate-600">
-            {t("deleteAccountDescription")}
-          </p>
-          <button
-            type="button"
-            onClick={openDeleteModal}
-            className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700"
-          >
-            {t("deleteAccountButton")}
-          </button>
-        </section>
+        </div>
       </div>
 
       {/* MODAL BORRAR CUENTA */}
@@ -1125,9 +1283,8 @@ export default function SettingsPage() {
               <label className={LABEL_CLASS} htmlFor="deletePassword">
                 {t("deletePasswordLabel")}
               </label>
-              <input
+              <PasswordInput
                 id="deletePassword"
-                type="password"
                 autoComplete="current-password"
                 value={deletePassword}
                 onChange={(e) => setDeletePassword(e.target.value)}

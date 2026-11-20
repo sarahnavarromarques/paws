@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorKey } from "@/lib/auth-errors";
 import { safeNextPath } from "@/lib/homework";
+import PasswordInput from "@/components/PasswordInput";
 
 const supabase = createClient();
 
@@ -74,10 +75,10 @@ export default function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <input
-          type="password"
+        <PasswordInput
           autoComplete="current-password"
-          className="mb-6 w-full rounded-lg border p-3 text-slate-900 placeholder:text-slate-400"
+          wrapperClassName="mb-6"
+          className="w-full rounded-lg border p-3 text-slate-900 placeholder:text-slate-400"
           placeholder={t("passwordPlaceholder")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
