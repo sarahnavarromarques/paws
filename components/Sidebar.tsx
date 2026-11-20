@@ -15,6 +15,7 @@ const HIDDEN_PATHS = [
   "/register",
   "/reset-password",
   "/update-password",
+  "/soporte",
 ];
 
 // Pantallas que empiezan así tampoco muestran el menú
