@@ -255,6 +255,7 @@ export type Database = {
           amount: number
           created_at: string
           feature: string | null
+          from_subscription: number
           id: number
           kind: string
           reference: string | null
@@ -264,6 +265,7 @@ export type Database = {
           amount: number
           created_at?: string
           feature?: string | null
+          from_subscription?: number
           id?: never
           kind: string
           reference?: string | null
@@ -273,6 +275,7 @@ export type Database = {
           amount?: number
           created_at?: string
           feature?: string | null
+          from_subscription?: number
           id?: never
           kind?: string
           reference?: string | null
@@ -1149,6 +1152,7 @@ export type Database = {
       has_trainer_access: { Args: { p_user_id: string }; Returns: boolean }
       is_trainer_of_pet: { Args: { p_pet_id: number }; Returns: boolean }
       paws_display_name: { Args: { p_user_id: string }; Returns: string }
+      refund_huesitos: { Args: { p_transaction_id: number }; Returns: Json }
       spend_huesitos: {
         Args: { p_amount: number; p_feature: string }
         Returns: Json

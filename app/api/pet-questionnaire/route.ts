@@ -6,7 +6,7 @@ import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
-import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
+import { refundHuesitos, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   MAX_PROPOSAL_GROUPS,
   MAX_SKILLS_PER_GROUP,
@@ -380,71 +380,77 @@ export async function POST(request: Request) {
   let proposal: QuestionnaireProposal = buildLocalProposal(answers, catalog, locale);
   let usedFallback = true;
   let huesitos: SpendResult | null = null;
-
-  // Sin permiso o sin huesitos suficientes: se usa directamente la propuesta local.
-  const canPay = aiConsent && (await hasHuesitosFor(supabase, userId, FEATURE));
-  const noHuesitos = aiConsent && !canPay;
+  let noHuesitos = false;
   const noAiConsent = !aiConsent;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     console.error("[pet-questionnaire] Falta ANTHROPIC_API_KEY.");
-  } else if (canPay) {
-    const accountType = await getCurrentAccountType();
-    const audience = getAudienceInstructions(accountType, false);
+  } else if (aiConsent) {
+    // Se cobran los huesitos ANTES de llamar a la IA (una sola vez).
+    // Sin saldo suficiente: se usa directamente la propuesta local.
+    const charge = await spendHuesitos(supabase, FEATURE);
 
-    const prompt = buildPrompt(
-      {
-        name: pet.name,
-        breed: pet.breed ?? null,
-        birthDate: pet.birth_date ?? null,
-        sex: pet.sex ?? null,
-        weight: pet.weight ?? null,
-      },
-      answers,
-      catalog,
-      existingGroupNames,
-      locale,
-      audience
-    );
-
-    // Hasta 2 intentos: si la primera respuesta no se puede usar, se repite
-    // avisando a la IA del problema. Solo se cobra una vez, si sale bien.
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        const raw = await askAI(
-          apiKey,
-          attempt === 1 ? prompt : `${prompt}${RETRY_NOTE}`,
-          aiUser
-        );
-
-        const sanitized = raw ? sanitizeProposal(raw, catalog, locale) : null;
-
-        if (sanitized) {
-          proposal = sanitized;
-          usedFallback = false;
-          break;
-        }
-
-        console.error(
-          `[pet-questionnaire] Intento ${attempt}: la respuesta de la IA no se pudo usar.`
-        );
-      } catch (error) {
-        console.error(
-          `[pet-questionnaire] Intento ${attempt}: error llamando a la IA:`,
-          error
-        );
-      }
-    }
-
-    if (!usedFallback) {
-      // La IA ha respondido bien: se cobran los huesitos (una sola vez).
-      huesitos = await spendHuesitos(supabase, FEATURE);
+    if (!charge.ok) {
+      noHuesitos = true;
     } else {
-      console.error(
-        "[pet-questionnaire] Ningún intento funcionó; se usa la propuesta de respaldo."
+      const accountType = await getCurrentAccountType();
+      const audience = getAudienceInstructions(accountType, false);
+
+      const prompt = buildPrompt(
+        {
+          name: pet.name,
+          breed: pet.breed ?? null,
+          birthDate: pet.birth_date ?? null,
+          sex: pet.sex ?? null,
+          weight: pet.weight ?? null,
+        },
+        answers,
+        catalog,
+        existingGroupNames,
+        locale,
+        audience
       );
+
+      // Hasta 2 intentos: si la primera respuesta no se puede usar, se repite
+      // avisando a la IA del problema. Solo se cobra una vez.
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const raw = await askAI(
+            apiKey,
+            attempt === 1 ? prompt : `${prompt}${RETRY_NOTE}`,
+            aiUser
+          );
+
+          const sanitized = raw ? sanitizeProposal(raw, catalog, locale) : null;
+
+          if (sanitized) {
+            proposal = sanitized;
+            usedFallback = false;
+            break;
+          }
+
+          console.error(
+            `[pet-questionnaire] Intento ${attempt}: la respuesta de la IA no se pudo usar.`
+          );
+        } catch (error) {
+          console.error(
+            `[pet-questionnaire] Intento ${attempt}: error llamando a la IA:`,
+            error
+          );
+        }
+      }
+
+      if (usedFallback) {
+        // Ningún intento funcionó: se devuelven los huesitos y se usa la propuesta local.
+        console.error(
+          "[pet-questionnaire] Ningún intento funcionó; se usa la propuesta de respaldo."
+        );
+        await refundHuesitos(charge, FEATURE);
+      } else {
+        huesitos = charge;
+      }
     }
   }
 

@@ -5,7 +5,7 @@ import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
-import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
+import { refundHuesitos, spendHuesitos } from "@/lib/huesitos";
 
 // Se ejecuta en el servidor de Next.js. La clave queda oculta aquí.
 export const runtime = "nodejs";
@@ -122,8 +122,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_data" }, { status: 400 });
   }
 
-  // Sin huesitos suficientes: la pantalla usa su cálculo local.
-  if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {
+  // Se cobran los huesitos ANTES de llamar a la IA.
+  // Sin saldo suficiente: la pantalla usa su cálculo local.
+  const huesitos = await spendHuesitos(supabase, FEATURE);
+  if (!huesitos.ok) {
     return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
   }
 
@@ -254,15 +256,14 @@ Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
     }
 
     if (!parsed || typeof parsed.newProgress !== "number") {
+      // Respuesta inservible: se devuelven los huesitos y la pantalla usa su cálculo local.
+      await refundHuesitos(huesitos, FEATURE);
       return NextResponse.json({ error: "bad_ai_response" }, { status: 502 });
     }
 
     let newProgress = Math.round(parsed.newProgress);
     if (newProgress < 0) newProgress = 0;
     if (newProgress > 100) newProgress = 100;
-
-    // La IA ha respondido bien: se cobran los huesitos.
-    const huesitos = await spendHuesitos(supabase, FEATURE);
 
     return NextResponse.json({
       result: {
@@ -274,6 +275,8 @@ Escribe el comentario en español, dirigiéndote de tú a quien lo lee.`;
     });
   } catch (error) {
     console.error("Error llamando a la IA (session-progress):", error);
+    // La IA ha fallado: se devuelven los huesitos.
+    await refundHuesitos(huesitos, FEATURE);
     return NextResponse.json({ error: "ai_error" }, { status: 502 });
   }
 }

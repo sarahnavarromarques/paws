@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
-import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
+import { refundHuesitos, spendHuesitos } from "@/lib/huesitos";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
@@ -54,8 +54,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "no_skills" }, { status: 400 });
   }
 
-  // Sin huesitos suficientes: el frontend usa su generador local.
-  if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {
+  // Se cobran los huesitos ANTES de llamar a la IA.
+  // Sin saldo suficiente: el frontend usa su generador local.
+  const huesitos = await spendHuesitos(supabase, FEATURE);
+  if (!huesitos.ok) {
     return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
   }
 
@@ -114,15 +116,16 @@ Devuelve SOLO un nombre para este grupo, en español, de 1 a 3 palabras, sin com
       .replace(/\.$/, "");
 
     if (!text) {
+      // La IA no ha dado un nombre: se devuelven los huesitos.
+      await refundHuesitos(huesitos, FEATURE);
       return NextResponse.json({ error: "empty" }, { status: 502 });
     }
-
-    // La IA ha respondido bien: se cobran los huesitos.
-    const huesitos = await spendHuesitos(supabase, FEATURE);
 
     return NextResponse.json({ name: text, huesitos });
   } catch (error) {
     console.error("Error llamando a la IA:", error);
+    // La IA ha fallado: se devuelven los huesitos.
+    await refundHuesitos(huesitos, FEATURE);
     return NextResponse.json({ error: "ai_error" }, { status: 502 });
   }
 }

@@ -6,7 +6,7 @@ import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
-import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
+import { refundHuesitos, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   MASTERED_THRESHOLD,
   buildLocalOrder,
@@ -385,17 +385,28 @@ export async function POST(request: Request) {
   let order: TrainingOrderData = buildLocalOrder(inputGroups);
   let usedFallback = true;
   let huesitos: SpendResult | null = null;
-
-  // Sin permiso, o sin huesitos suficientes (y sin ser el primero gratis): orden local.
-  const canPay =
-    aiConsent &&
-    (isFirstAiOrder || (await hasHuesitosFor(supabase, userId, FEATURE)));
-  const noHuesitos = aiConsent && !canPay;
+  let noHuesitos = false;
   const noAiConsent = !aiConsent;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (apiKey && canPay) {
+  // ¿Se puede usar la IA? Hace falta clave y permiso. Si no es el primer orden
+  // (gratis), se cobran los huesitos ANTES de llamar a la IA.
+  let canUseAi = Boolean(apiKey) && aiConsent;
+  let charge: SpendResult | null = null;
+
+  if (canUseAi && !isFirstAiOrder) {
+    charge = await spendHuesitos(supabase, FEATURE);
+
+    if (!charge.ok) {
+      // Sin saldo suficiente: orden local.
+      canUseAi = false;
+      noHuesitos = true;
+      charge = null;
+    }
+  }
+
+  if (canUseAi && apiKey) {
     const accountType = await getCurrentAccountType();
     const audience = getAudienceInstructions(accountType, false);
 
@@ -411,7 +422,7 @@ export async function POST(request: Request) {
     );
 
     // Hasta 2 intentos: si la primera respuesta no se puede usar, se repite
-    // avisando a la IA del problema. Solo se cobra una vez, si sale bien.
+    // avisando a la IA del problema. Solo se cobra una vez.
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         const raw = await askAI(
@@ -439,10 +450,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // La IA ha respondido bien: se cobran los huesitos (una sola vez),
-    // salvo que sea el primer orden de este perro, que es gratis.
-    if (!usedFallback && !isFirstAiOrder) {
-      huesitos = await spendHuesitos(supabase, FEATURE);
+    if (usedFallback) {
+      // Ningún intento sirvió: se devuelven los huesitos (si se cobraron).
+      await refundHuesitos(charge, FEATURE);
+    } else {
+      huesitos = charge;
     }
   }
 

@@ -5,7 +5,7 @@ import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
-import { hasHuesitosFor, spendHuesitos } from "@/lib/huesitos";
+import { hasHuesitosFor, refundHuesitos, spendHuesitos } from "@/lib/huesitos";
 import {
   CHAT_MAX_LENGTH,
   guideToPlainText,
@@ -65,7 +65,8 @@ export async function POST(request: Request) {
     return aiConsentRequiredResponse();
   }
 
-  // El chat no tiene versión local: sin huesitos no se puede preguntar.
+  // Comprobación rápida antes de cargar datos: sin saldo no se puede preguntar.
+  // (El cobro de verdad se hace justo antes de llamar a la IA.)
   if (!(await hasHuesitosFor(supabase, userId, FEATURE))) {
     return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
   }
@@ -184,6 +185,12 @@ Reglas:
 - Si la duda es de salud, dolor o agresividad seria, recomienda acudir al veterinario o a un profesional cualificado.
 - Si no sabes algo o no está en los datos, dilo; no lo inventes.`;
 
+  // Se cobran los huesitos ANTES de llamar a la IA.
+  const huesitos = await spendHuesitos(supabase, FEATURE);
+  if (!huesitos.ok) {
+    return NextResponse.json({ error: "no_huesitos" }, { status: 402 });
+  }
+
   let answer = "";
 
   try {
@@ -214,15 +221,16 @@ Reglas:
       .trim();
   } catch (error) {
     console.error("Error llamando a la IA (session-chat):", error);
+    // La IA ha fallado: se devuelven los huesitos.
+    await refundHuesitos(huesitos, FEATURE);
     return NextResponse.json({ error: "ai_error" }, { status: 502 });
   }
 
   if (!answer) {
+    // La IA no ha respondido nada: se devuelven los huesitos.
+    await refundHuesitos(huesitos, FEATURE);
     return NextResponse.json({ error: "empty_answer" }, { status: 502 });
   }
-
-  // La IA ha respondido bien: se cobran los huesitos.
-  const huesitos = await spendHuesitos(supabase, FEATURE);
 
   // --- Guardar la pregunta y la respuesta (solo si la IA ha respondido) ---
 

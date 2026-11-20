@@ -6,7 +6,7 @@ import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
-import { hasHuesitosFor, spendHuesitos, type SpendResult } from "@/lib/huesitos";
+import { refundHuesitos, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   buildLocalGuide,
   sanitizeGuide,
@@ -162,21 +162,27 @@ export async function POST(request: Request) {
   );
   let usedFallback = true;
   let huesitos: SpendResult | null = null;
-
-  // Sin permiso o sin huesitos suficientes: se usa directamente la guía local.
-  const canPay = aiConsent && (await hasHuesitosFor(supabase, userId, FEATURE));
-  const noHuesitos = aiConsent && !canPay;
+  let noHuesitos = false;
   const noAiConsent = !aiConsent;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (apiKey && canPay) {
-    try {
-      const accountType = await getCurrentAccountType();
-      const audience = getAudienceInstructions(accountType, isEn);
+  if (!apiKey) {
+    console.error("[session-guide] Falta ANTHROPIC_API_KEY.");
+  } else if (aiConsent) {
+    // Se cobran los huesitos ANTES de llamar a la IA.
+    // Sin saldo suficiente: se usa la guía local.
+    const charge = await spendHuesitos(supabase, FEATURE);
 
-      const prompt = isEn
-        ? `You are an expert dog trainer in positive reinforcement and obedience (including FCI regulations). Prepare TODAY's session for this dog.
+    if (!charge.ok) {
+      noHuesitos = true;
+    } else {
+      try {
+        const accountType = await getCurrentAccountType();
+        const audience = getAudienceInstructions(accountType, isEn);
+
+        const prompt = isEn
+          ? `You are an expert dog trainer in positive reinforcement and obedience (including FCI regulations). Prepare TODAY's session for this dog.
 
 Dog: ${pet.name}
 Breed: ${pet.breed ?? noData}
@@ -202,7 +208,7 @@ Save the guide with the ${TOOL_NAME} tool. Rules:
 - Positive reinforcement only: no punishment or physical corrections.
 - Short, practical sentences, addressing the reader as "you". Write in English.
 - Don't invent data that isn't listed above.`
-        : `Eres un adiestrador canino experto en refuerzo positivo y en obediencia (incluido el reglamento FCI). Prepara la sesión de HOY para este perro.
+          : `Eres un adiestrador canino experto en refuerzo positivo y en obediencia (incluido el reglamento FCI). Prepara la sesión de HOY para este perro.
 
 Perro: ${pet.name}
 Raza: ${pet.breed ?? noData}
@@ -229,98 +235,103 @@ Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
 - Frases cortas y prácticas, dirigiéndote de tú. Escribe en español.
 - No inventes datos que no aparezcan arriba.`;
 
-      const anthropic = new Anthropic({ apiKey });
+        const anthropic = new Anthropic({ apiKey });
 
-      const message = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 2000,
-        tools: [
-          {
-            name: TOOL_NAME,
-            description: "Saves today's training session guide.",
-            input_schema: {
-              type: "object",
-              properties: {
-                objective: {
-                  type: "string",
-                  description: "Today's goal for this skill, in one sentence.",
-                },
-                warmup: {
-                  type: "string",
-                  description: "Short warm-up, in one or two sentences.",
-                },
-                steps: {
-                  type: "array",
-                  description: "Between 3 and 5 steps, in order.",
-                  items: {
-                    type: "object",
-                    properties: {
-                      title: { type: "string" },
-                      detail: { type: "string" },
-                      reps: {
-                        type: "string",
-                        description: "Concrete repetitions or time.",
+        const message = await anthropic.messages.create({
+          model: MODEL,
+          max_tokens: 2000,
+          tools: [
+            {
+              name: TOOL_NAME,
+              description: "Saves today's training session guide.",
+              input_schema: {
+                type: "object",
+                properties: {
+                  objective: {
+                    type: "string",
+                    description: "Today's goal for this skill, in one sentence.",
+                  },
+                  warmup: {
+                    type: "string",
+                    description: "Short warm-up, in one or two sentences.",
+                  },
+                  steps: {
+                    type: "array",
+                    description: "Between 3 and 5 steps, in order.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        title: { type: "string" },
+                        detail: { type: "string" },
+                        reps: {
+                          type: "string",
+                          description: "Concrete repetitions or time.",
+                        },
                       },
+                      required: ["title", "detail", "reps"],
                     },
-                    required: ["title", "detail", "reps"],
+                  },
+                  level_up: {
+                    type: "string",
+                    description: "When and how to make it harder.",
+                  },
+                  level_down: {
+                    type: "string",
+                    description: "When and how to make it easier.",
+                  },
+                  finish: {
+                    type: "string",
+                    description: "How to end the session.",
                   },
                 },
-                level_up: {
-                  type: "string",
-                  description: "When and how to make it harder.",
-                },
-                level_down: {
-                  type: "string",
-                  description: "When and how to make it easier.",
-                },
-                finish: {
-                  type: "string",
-                  description: "How to end the session.",
-                },
+                required: [
+                  "objective",
+                  "warmup",
+                  "steps",
+                  "level_up",
+                  "level_down",
+                  "finish",
+                ],
               },
-              required: [
-                "objective",
-                "warmup",
-                "steps",
-                "level_up",
-                "level_down",
-                "finish",
-              ],
             },
-          },
-        ],
-        tool_choice: { type: "tool", name: TOOL_NAME },
-        messages: [{ role: "user", content: prompt }],
-      });
+          ],
+          tool_choice: { type: "tool", name: TOOL_NAME },
+          messages: [{ role: "user", content: prompt }],
+        });
 
-      // Registramos el coste real de esta llamada, aunque luego la respuesta no sirva.
-      await recordAiUsage({
-        supabase,
-        userId,
-        feature: FEATURE,
-        model: MODEL,
-        usage: message.usage,
-      });
+        // Registramos el coste real de esta llamada, aunque luego la respuesta no sirva.
+        await recordAiUsage({
+          supabase,
+          userId,
+          feature: FEATURE,
+          model: MODEL,
+          usage: message.usage,
+        });
 
-      const toolBlock = message.content.find((block) => block.type === "tool_use");
+        const toolBlock = message.content.find((block) => block.type === "tool_use");
 
-      if (IS_DEV) {
-        console.log("[session-guide] stop_reason:", message.stop_reason);
-      }
-
-      if (toolBlock && toolBlock.type === "tool_use") {
-        const sanitized = sanitizeGuide(toolBlock.input);
-
-        if (sanitized) {
-          guide = sanitized;
-          usedFallback = false;
-
-          // La IA ha respondido bien: se cobran los huesitos.
-          huesitos = await spendHuesitos(supabase, FEATURE);
+        if (IS_DEV) {
+          console.log("[session-guide] stop_reason:", message.stop_reason);
         }
+
+        if (toolBlock && toolBlock.type === "tool_use") {
+          const sanitized = sanitizeGuide(toolBlock.input);
+
+          if (sanitized) {
+            guide = sanitized;
+            usedFallback = false;
+          }
+        }
+      } catch (error) {
+        console.error("Error llamando a la IA (session-guide):", error);
       }
-    } catch (error) {
-      console.error("Error llamando a la IA (session-guide):", error);
+
+      if (usedFallback) {
+        // La IA no ha servido: se devuelven los huesitos y se usa la guía local.
+        await refundHuesitos(charge, FEATURE);
+      } else {
+        huesitos = charge;
+      }
     }
   }
 
