@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -39,7 +38,8 @@ const ASSIGNMENT_COLUMNS =
   "id, pet_id, trainer_id, skill_id, title, instructions, attempts_per_session, sessions_per_week, active, created_at";
 
 // Pantalla del adiestrador para un perro de un cliente:
-// sus habilidades y los deberes que le manda
+// sus habilidades y los deberes que le manda.
+// Para volver se usa la flecha de la barra superior.
 export default function ClientDogPage() {
   const t = useTranslations("ClientDetail");
   const locale = useLocale();
@@ -313,10 +313,7 @@ export default function ClientDogPage() {
     return (
       <main className="min-h-screen bg-slate-100 p-6 md:p-10">
         <div className="mx-auto max-w-4xl">
-          <Link href="/clients" className="font-semibold text-blue-600 hover:underline">
-            {t("back")}
-          </Link>
-          <div className="mt-6 rounded-2xl bg-white p-8 text-center text-slate-600 shadow">
+          <div className="rounded-2xl bg-white p-8 text-center text-slate-600 shadow">
             {t("notFound")}
           </div>
         </div>
@@ -327,10 +324,6 @@ export default function ClientDogPage() {
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-4xl space-y-6">
-        <Link href="/clients" className="font-semibold text-blue-600 hover:underline">
-          {t("back")}
-        </Link>
-
         {/* CABECERA DEL PERRO */}
 
         <section className="flex items-center gap-5 rounded-2xl bg-white p-6 shadow">

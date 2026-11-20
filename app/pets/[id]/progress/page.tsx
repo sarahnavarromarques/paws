@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations, getLocale } from "next-intl/server";
 
@@ -118,17 +117,10 @@ export default async function PetProgressPage({ params }: PageProps) {
     <main data-tour-section="progress" className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-6xl">
 
-        {/* CABECERA */}
+        {/* CABECERA (para volver se usa la flecha de la barra superior) */}
 
         <div className="mb-8">
-          <Link
-            href={`/pets/${pet.id}`}
-            className="inline-block rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            {t("backToPet")}
-          </Link>
-
-          <h1 className="mt-6 text-4xl font-extrabold text-blue-700 md:text-5xl">
+          <h1 className="text-4xl font-extrabold text-blue-700 md:text-5xl">
             {t("title", { name: pet.name })}
           </h1>
 

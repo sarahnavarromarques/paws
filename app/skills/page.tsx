@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
@@ -730,15 +729,9 @@ export default function SkillsPage() {
     >
       <div className="mx-auto max-w-6xl">
 
-        {/* CABECERA */}
-        <div className="mb-6 flex flex-wrap gap-3">
-          <Link
-            href="/dashboard"
-            className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            {locale === "en" ? "← Dashboard" : "← Panel"}
-          </Link>
-          {activeTab === "skills" && (
+        {/* CABECERA (para volver se usa la flecha de la barra superior) */}
+        {activeTab === "skills" && (
+          <div className="mb-6 flex flex-wrap gap-3">
             <button
               type="button"
               data-tour="skill-create"
@@ -750,8 +743,8 @@ export default function SkillsPage() {
             >
               {t("createSkillButton")}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* SELECTOR DE PERRO: fila de fotos redondas */}
         <div className="mb-6 flex gap-4 overflow-x-auto p-3">

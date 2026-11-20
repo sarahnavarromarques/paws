@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -91,17 +90,10 @@ export default async function PetHealthPage({
     >
       <div className="mx-auto max-w-4xl">
 
-        {/* CABECERA */}
+        {/* CABECERA (para volver se usa la flecha de la barra superior) */}
 
         <div className="mb-6">
-          <Link
-            href={`/pets/${pet.id}`}
-            className="inline-block rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            {tVaccines("backToPet")}
-          </Link>
-
-          <h1 className="mt-6 text-4xl font-extrabold text-blue-700 md:text-5xl">
+          <h1 className="text-4xl font-extrabold text-blue-700 md:text-5xl">
             {t("title")}
           </h1>
 

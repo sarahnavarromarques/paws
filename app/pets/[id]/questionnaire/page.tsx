@@ -556,17 +556,12 @@ export default function PetQuestionnairePage() {
   }
 
   if (stage === "notFound") {
+    // Para volver se usa la flecha de la barra superior
     return (
       <main className="min-h-screen bg-slate-100 p-6 md:p-10">
         <div className="mx-auto flex max-w-xl flex-col items-center rounded-2xl bg-white p-8 text-center shadow">
           <Pawsi pose="triste" size={120} />
-          <p className="mb-6 mt-4 text-slate-600">{tx("noPet")}</p>
-          <Link
-            href="/pets"
-            className="rounded-xl bg-slate-700 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
-          >
-            {tx("backToPets")}
-          </Link>
+          <p className="mt-4 text-slate-600">{tx("noPet")}</p>
         </div>
       </main>
     );

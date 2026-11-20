@@ -142,14 +142,8 @@ export default async function PetProfile({ params }: PageProps) {
     <main data-tour-section="pet-profile" className="min-h-screen bg-slate-100 p-10">
       <div className="mx-auto max-w-6xl">
 
+        {/* Para volver a la lista se usa la flecha de la barra superior */}
         <div data-tour="pet-buttons" className="mb-6 flex flex-wrap gap-4">
-          <Link
-            href="/pets"
-            className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            {t("backToPets")}
-          </Link>
-
           {/* Habilidades, grupos y orden recomendado están en la misma página (pestañas) */}
           <Link
             href={`/skills?pet=${pet.id}`}

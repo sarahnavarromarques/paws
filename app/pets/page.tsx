@@ -173,25 +173,16 @@ export default function PetsPage() {
     >
       <div className="mx-auto max-w-6xl">
 
-        {/* CABECERA */}
+        {/* CABECERA (para volver se usa la flecha de la barra superior) */}
 
-        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-5xl font-extrabold text-blue-700">
-              {t("title")}
-            </h1>
+        <div className="mb-8">
+          <h1 className="text-5xl font-extrabold text-blue-700">
+            {t("title")}
+          </h1>
 
-            <p className="mt-3 text-lg text-slate-600">
-              {t("subtitle")}
-            </p>
-          </div>
-
-          <Link
-            href="/dashboard"
-            className="rounded-xl bg-slate-700 px-5 py-3 text-center font-semibold text-white transition hover:bg-slate-800"
-          >
-            {t("backToDashboard")}
-          </Link>
+          <p className="mt-3 text-lg text-slate-600">
+            {t("subtitle")}
+          </p>
         </div>
 
         {/* MASCOTAS */}

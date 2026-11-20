@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
@@ -536,14 +535,9 @@ export default function ClickerPage() {
   return (
     <main data-tour-section="clicker" className="min-h-screen bg-gray-50 px-4 py-6">
       <div className="mx-auto flex max-w-md flex-col gap-6">
+        {/* Para volver se usa la flecha de la barra superior */}
         <div>
-          <Link
-            href="/dashboard"
-            className="text-sm font-medium text-[#1e3a5f] hover:underline"
-          >
-            {t("backToDashboard")}
-          </Link>
-          <h1 className="mt-3 text-2xl font-bold text-[#1e3a5f]">
+          <h1 className="text-2xl font-bold text-[#1e3a5f]">
             {t("title")}
           </h1>
           <p className="mt-1 text-sm text-gray-600">{t("subtitle")}</p>

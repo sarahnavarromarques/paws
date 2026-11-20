@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -690,13 +689,7 @@ export default function SettingsPage() {
   return (
     <main data-tour-section="settings" className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-2xl">
-        <Link
-          href="/dashboard"
-          className="mb-6 inline-block text-sm font-semibold text-slate-400 hover:text-slate-600"
-        >
-          {t("back")}
-        </Link>
-
+        {/* Para volver se usa la flecha de la barra superior */}
         <h1 className="mb-6 text-3xl font-extrabold tracking-tight">
           {t("title")}
         </h1>

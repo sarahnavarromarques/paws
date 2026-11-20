@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { LEGAL_LINKS } from "@/lib/legal";
@@ -20,6 +20,10 @@ const HIDDEN_PATHS = [
 // Pantallas que empiezan así tampoco muestran el menú
 // (la invitación se abre muchas veces sin sesión iniciada)
 const HIDDEN_PREFIXES = ["/invite/", "/legal/"];
+
+// Pantallas donde NO se muestra la flecha de volver:
+// el panel (es el inicio) y las que ya tienen su propio "volver"
+const NO_BACK_PATHS = ["/dashboard"];
 
 type NavKey =
   | "dashboard"
@@ -56,6 +60,8 @@ export default function Sidebar() {
   const tPet = useTranslations("PetProfile");
   const tHealth = useTranslations("Health");
   const tLegal = useTranslations("Legal");
+  const locale = useLocale();
+  const backLabel = locale === "en" ? "Back" : "Volver";
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -174,6 +180,18 @@ export default function Sidebar() {
   // En el panel no hace falta el botón de volver al panel
   const onDashboard = pathname === "/dashboard";
 
+  // Flecha de volver: en todas las pantallas interiores salvo las de la lista
+  const showBack = !NO_BACK_PATHS.includes(pathname);
+
+  // Vuelve a la pantalla anterior; si no hay (enlace directo), va al panel
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
   // "Mascotas" solo se resalta en la lista general;
   // dentro de la ficha de un perro se resalta esa página del perro.
   const isActive = (href: string) => {
@@ -211,7 +229,29 @@ export default function Sidebar() {
   return (
     <>
       {/* Barra superior */}
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-gray-200 bg-white px-4 sm:gap-3">
+        {/* Flecha de volver a la pantalla anterior */}
+        {showBack && (
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label={backLabel}
+            title={backLabel}
+            className="rounded-lg p-2 text-[#1e3a5f] hover:bg-gray-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              className="h-6 w-6"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+        )}
+
         <button
           type="button"
           data-tour="menu-button"

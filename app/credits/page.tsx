@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 export default async function CreditsPage() {
@@ -8,16 +7,9 @@ export default async function CreditsPage() {
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-4xl">
 
-        {/* CABECERA */}
+        {/* CABECERA (para volver se usa la flecha de la barra superior) */}
         <header className="mb-8">
-          <Link
-            href="/dashboard"
-            className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-          >
-            {t("back")}
-          </Link>
-
-          <h1 className="mt-2 text-4xl font-extrabold tracking-tight">
+          <h1 className="text-4xl font-extrabold tracking-tight">
             {t("title")}
           </h1>
 

@@ -80,21 +80,12 @@ export default function HuesitosShopPage() {
   return (
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-3xl">
-        {/* CABECERA */}
-        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-4xl font-extrabold text-blue-700 md:text-5xl">
-              {t("title")}
-            </h1>
-            <p className="mt-3 text-lg text-slate-600">{t("subtitle")}</p>
-          </div>
-
-          <Link
-            href="/settings#huesitos"
-            className="rounded-xl bg-slate-700 px-5 py-3 text-center font-semibold text-white transition hover:bg-slate-800"
-          >
-            {t("back")}
-          </Link>
+        {/* CABECERA (para volver se usa la flecha de la barra superior) */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-extrabold text-blue-700 md:text-5xl">
+            {t("title")}
+          </h1>
+          <p className="mt-3 text-lg text-slate-600">{t("subtitle")}</p>
         </div>
 
         {justPaid && (

@@ -495,16 +495,7 @@ export default function EditTrainingPage() {
     <main className="min-h-screen bg-slate-100 p-6 md:p-10">
       <div className="mx-auto max-w-3xl">
 
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-xl bg-slate-600 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            {t("back")}
-          </button>
-        </div>
-
+        {/* Para volver se usa la flecha de la barra superior */}
         <div className="rounded-3xl bg-white p-6 shadow-xl md:p-10">
 
           <h1 className="mb-2 text-4xl font-bold">{t("title")}</h1>
