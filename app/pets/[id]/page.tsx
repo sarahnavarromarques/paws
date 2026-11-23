@@ -57,6 +57,24 @@ function calculateAge(birthDate: string | null, t: TFunction): string {
   return t("ageYearsMonths", { years, months });
 }
 
+// Fecha legible: "15/02/2023" en español y "15 Feb 2023" en inglés
+function formatDate(isoDate: string, locale: string): string {
+  const date = new Date(`${isoDate.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return isoDate;
+
+  return locale === "en"
+    ? new Intl.DateTimeFormat("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(date)
+    : new Intl.DateTimeFormat("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(date);
+}
+
 export default async function PetProfile({ params }: PageProps) {
   const { id } = await params;
 
@@ -102,20 +120,24 @@ export default async function PetProfile({ params }: PageProps) {
     (training) => training.status === "completed"
   );
 
-  const totalMinutes = allTrainings.reduce(
+  // Solo cuentan los entrenamientos completados (los pendientes aún no se han hecho)
+  const totalMinutes = completedTrainings.reduce(
     (total, training) => total + (training.duration ?? 0),
     0
   );
 
+  // Último entrenamiento completado (la lista ya viene ordenada del más reciente al más antiguo)
   const latestTraining =
-    allTrainings.length > 0 ? allTrainings[0] : null;
+    completedTrainings.length > 0 ? completedTrainings[0] : null;
 
   function formatLatestTraining() {
     if (!latestTraining) {
       return t("noData");
     }
 
-    const date = latestTraining.date ?? "";
+    const date = latestTraining.date
+      ? formatDate(latestTraining.date, locale)
+      : "";
 
     const time = latestTraining.time
       ? latestTraining.time.substring(0, 5)
@@ -168,10 +190,10 @@ export default async function PetProfile({ params }: PageProps) {
             {t("history")}
           </Link>
 
-          {/* Salud: vacunas y desparasitaciones (rosa claro, texto oscuro para que se lea) */}
+          {/* Salud: vacunas y desparasitaciones (mismo estilo que los demás botones) */}
           <Link
             href={`/pets/${pet.id}/vaccines`}
-            className="rounded-xl bg-rose-200 px-5 py-3 font-semibold text-rose-800 transition hover:bg-rose-300"
+            className="rounded-xl bg-rose-600 px-5 py-3 font-semibold text-white transition hover:bg-rose-700"
           >
             {tHealth("navLabel")}
           </Link>
@@ -254,7 +276,9 @@ export default async function PetProfile({ params }: PageProps) {
 
                 <p>
                   <strong>{t("birthDateLabel")}</strong>{" "}
-                  {pet.birth_date ?? t("noData")}
+                  {pet.birth_date
+                    ? formatDate(pet.birth_date, locale)
+                    : t("noData")}
                 </p>
 
                 <p>

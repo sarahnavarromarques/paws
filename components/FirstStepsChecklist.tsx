@@ -21,14 +21,21 @@ const HIDDEN_PATHS = [
   "/update-password",
 ];
 
-// La invitación de un adiestrador tampoco muestra la lista
+// La invitación de un adiestrador tampoco muestra la lista,
+// ni el cuestionario (estás en medio de algo y molestaría)
 function isHiddenPath(pathname: string): boolean {
   return (
     HIDDEN_PATHS.includes(pathname) ||
     pathname.startsWith("/invite/") ||
-    pathname.startsWith("/legal/")
+    pathname.startsWith("/legal/") ||
+    pathname.endsWith("/questionnaire")
   );
 }
+
+// Espacio que se deja al final de la página para que la lista no tape
+// los últimos botones (px): plegada y desplegada
+const BOTTOM_SPACE_COLLAPSED = 96;
+const BOTTOM_SPACE_EXPANDED = 400;
 
 // Espera tras cerrarse el tutorial antes de mostrar la lista, para que no
 // asome entre la bienvenida y la guía de la pantalla siguiente (ms)
@@ -216,7 +223,22 @@ export default function FirstStepsChecklist() {
       .eq("id", userId);
   };
 
-  if (!visible || tourRunning || isHiddenPath(pathname)) return null;
+  const shown = visible && !tourRunning && !isHiddenPath(pathname);
+
+  // Mientras se ve la lista, la página deja espacio abajo para poder
+  // desplazarse hasta los últimos botones sin que queden tapados
+  useEffect(() => {
+    if (!shown) return;
+    const previous = document.body.style.paddingBottom;
+    document.body.style.paddingBottom = `${
+      expanded ? BOTTOM_SPACE_EXPANDED : BOTTOM_SPACE_COLLAPSED
+    }px`;
+    return () => {
+      document.body.style.paddingBottom = previous;
+    };
+  }, [shown, expanded]);
+
+  if (!shown) return null;
 
   const petBase = firstPetId !== null ? `/pets/${firstPetId}` : "/pets";
 

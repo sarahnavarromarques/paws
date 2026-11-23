@@ -731,9 +731,13 @@ export default function PetQuestionnairePage() {
   }
 
   // --- Preguntas ---
+  // data-tour-section: la guía de Pawsi del cuestionario sale en esta pantalla
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-10">
+    <main
+      data-tour-section="questionnaire"
+      className="min-h-screen bg-slate-100 p-4 md:p-10"
+    >
       <div className="mx-auto max-w-xl">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>

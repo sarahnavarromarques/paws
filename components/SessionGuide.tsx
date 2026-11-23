@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
 import BoneIcon from "@/components/BoneIcon";
+import SimpleMarkdown from "@/components/SimpleMarkdown";
 import { HUESITO_COSTS } from "@/lib/huesitos-shared";
 import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 import {
@@ -504,7 +505,12 @@ export default function SessionGuide({ trainingId, hasSkill, skillChanged }: Pro
                   >
                     {message.role === "user" ? t("you") : t("assistant")}
                   </p>
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {/* Las respuestas de la IA se muestran con negritas y listas */}
+                  {message.role === "assistant" ? (
+                    <SimpleMarkdown text={message.content} />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
                 </div>
               </div>
             ))
