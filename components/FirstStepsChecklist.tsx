@@ -55,7 +55,7 @@ const TEXT = {
   go: { es: "Ir", en: "Go" },
   close: { es: "Cerrar lista", en: "Close list" },
   collapse: { es: "Plegar", en: "Collapse" },
-  taskPet: { es: "Añade tu mascota", en: "Add your pet" },
+  taskPet: { es: "Añade tu primer perro", en: "Add your first dog" },
   taskGroup: {
     es: "Crea un grupo de habilidades",
     en: "Create a skill group",

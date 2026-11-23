@@ -229,7 +229,7 @@ export default function DashboardPage() {
   const lang: "es" | "en" = locale === "en" ? "en" : "es";
   const tx = DASH_TEXT[lang];
 
-  // Nombre para el saludo: nombre → usuario → parte del correo
+  // Nombre para el saludo: nombre → usuario (si no hay ninguno, solo "Hola")
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [petCount, setPetCount] = useState(0);
@@ -264,11 +264,11 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .maybeSingle();
 
-      const emailPrefix = user.email ? user.email.split("@")[0] : "";
+      // No se usa el correo: quedaría largo y poco natural en el saludo
       const nameFromProfile =
         profile?.first_name?.trim() || profile?.username?.trim() || "";
 
-      setDisplayName(nameFromProfile || emailPrefix);
+      setDisplayName(nameFromProfile);
       setAvatarUrl(profile?.avatar_url ?? null);
 
       // --- Perros ---

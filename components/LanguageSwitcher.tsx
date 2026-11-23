@@ -62,7 +62,8 @@ const OPTIONS: { value: AppLanguage; name: string }[] = [
   { value: "en", name: "English" },
 ];
 
-function Flag({
+// Se exporta para usar las mismas banderas en el tutorial
+export function Flag({
   language,
   className,
 }: {

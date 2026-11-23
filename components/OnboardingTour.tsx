@@ -7,6 +7,7 @@ import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { saveUserLanguage, type AppLanguage } from "@/lib/language";
 import Pawsi from "@/components/Pawsi";
+import { Flag } from "@/components/LanguageSwitcher";
 import {
   DEFAULT_ACCOUNT_TYPE,
   isAccountType,
@@ -37,7 +38,7 @@ const WELCOME_ID = "welcome";
 const WELCOME_ROUTE = "/dashboard";
 
 // Guía de los huesitos: va dentro de la bienvenida y, además, como guía
-// propia (enganchada a la pastilla del saldo) para quien ya vio la bienvenida
+// propia (enganchada al contador de huesitos) para quien ya vio la bienvenida
 const HUESITOS_ID = "huesitos";
 
 // Llamar a esta función (por ejemplo desde Ajustes) vuelve a lanzar
@@ -109,8 +110,8 @@ const HUESITO_STEPS: TourStep[] = [
     icon: "👆",
     title: { es: "Tu saldo y tus movimientos", en: "Your balance and activity" },
     body: {
-      es: "Pulsa la pastilla cuando quieras para ver tu saldo, los precios y tus movimientos.",
-      en: "Tap the badge any time to see your balance, the prices and your activity.",
+      es: "Pulsa el contador de huesitos cuando quieras para ver tu saldo, los precios y tus movimientos.",
+      en: "Tap the bones counter any time to see your balance, the prices and your activity.",
     },
   },
 ];
@@ -164,8 +165,8 @@ const WELCOME_STEPS: TourStep[] = [
     icon: "🧭",
     title: { es: "Todo a mano", en: "Everything at hand" },
     body: {
-      es: "Inicio, Mascotas, Calendario, Clicker, Ajustes y Créditos. Debajo de Mascotas aparecen tus perros: despliega cada uno para ir a sus Habilidades, su Progreso, su Historial o su Salud.",
-      en: "Home, Pets, Calendar, Clicker, Settings and Credits. Under Pets you'll find your dogs: expand each one to reach its Skills, its Progress, its History or its Health.",
+      es: "Aquí tienes todas las secciones de PAWS. Cuando añadas perros, aparecerán en el menú: despliega cada uno para ir a sus Habilidades, su Progreso, su Historial o su Salud.",
+      en: "Here are all the sections of PAWS. Once you add dogs, they'll show up in the menu: expand each one to reach its Skills, its Progress, its History or its Health.",
     },
   },
   ...HUESITO_STEPS,
@@ -185,7 +186,7 @@ const WELCOME_STEPS: TourStep[] = [
 
 const SECTIONS: SectionTour[] = [
   {
-    // Enganchada a la pastilla del saldo, que está en todas las páginas
+    // Enganchada al contador de huesitos, que está en todas las páginas
     id: HUESITOS_ID,
     name: { es: "Huesitos", en: "Bones" },
     steps: HUESITO_STEPS,
@@ -247,8 +248,8 @@ const SECTIONS: SectionTour[] = [
         icon: "🧭",
         title: { es: "Accesos rápidos", en: "Quick access" },
         body: {
-          es: "Mascotas, Calendario, Clicker y Ajustes, cada uno con un dato al día para que veas de un vistazo cómo vas.",
-          en: "Pets, Calendar, Clicker and Settings, each with a live figure so you can see how you're doing at a glance.",
+          es: "Atajos a tus perros, las habilidades, el calendario, el clicker y los ajustes, cada uno con un dato al día para que veas de un vistazo cómo vas.",
+          en: "Shortcuts to your dogs, skills, calendar, clicker and settings, each with a live figure so you can see how you're doing at a glance.",
         },
       },
       {
@@ -785,10 +786,11 @@ const LOOP_NODES: { icon: string; label: Text }[] = [
   { icon: "🤖", label: { es: "IA", en: "AI" } },
 ];
 
-// Opciones de la pantalla "Elige tu idioma" (se muestran en su propio idioma)
-const LANGUAGE_OPTIONS: { value: AppLanguage; flag: string; name: string }[] = [
-  { value: "es", flag: "🇪🇸", name: "Español" },
-  { value: "en", flag: "🇬🇧", name: "English" },
+// Opciones de la pantalla "Elige tu idioma" (se muestran en su propio idioma).
+// Las banderas son dibujos (Windows no muestra los emojis de banderas)
+const LANGUAGE_OPTIONS: { value: AppLanguage; name: string }[] = [
+  { value: "es", name: "Español" },
+  { value: "en", name: "English" },
 ];
 
 const UI = {
@@ -1739,9 +1741,12 @@ export default function OnboardingTour() {
               type="button"
               disabled={savingLanguage}
               onClick={() => void chooseLanguage(option.value)}
-              className="rounded-xl bg-[#1e3a5f] px-6 py-4 text-lg font-bold text-white shadow-[0_4px_0_#0f2540] transition active:translate-y-1 active:shadow-none disabled:opacity-60"
+              className="flex items-center justify-center gap-3 rounded-xl bg-[#1e3a5f] px-6 py-4 text-lg font-bold text-white shadow-[0_4px_0_#0f2540] transition active:translate-y-1 active:shadow-none disabled:opacity-60"
             >
-              <span className="mr-2">{option.flag}</span>
+              <Flag
+                language={option.value}
+                className="h-5 w-7 overflow-hidden rounded-[3px] ring-1 ring-white/30"
+              />
               {option.name}
             </button>
           ))}
