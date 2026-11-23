@@ -6,6 +6,7 @@ import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { getWritingStyle } from "@/lib/ai-style";
 import { refundHuesitos, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   MAX_PROPOSAL_GROUPS,
@@ -180,6 +181,8 @@ Formato de la herramienta:
 - "skill_ids" es una lista de números enteros.
 
 A quién te diriges: ${audience}
+
+${getWritingStyle(locale)}
 
 Idioma: ${languageRule}
 

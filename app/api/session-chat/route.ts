@@ -5,6 +5,7 @@ import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { getWritingStyle } from "@/lib/ai-style";
 import { hasHuesitosFor, refundHuesitos, spendHuesitos } from "@/lib/huesitos";
 import {
   CHAT_MAX_LENGTH,
@@ -159,6 +160,8 @@ ${guide ? guideToPlainText(guide) : "No guide generated yet."}
 
 Who you are writing for: ${audience}
 
+${getWritingStyle("en")}
+
 Rules:
 - Short, practical answers (maximum about 120 words), addressing the reader as "you". Write in English.
 - Positive reinforcement only: never recommend punishment or physical corrections.
@@ -178,6 +181,8 @@ Guía de la sesión de hoy:
 ${guide ? guideToPlainText(guide) : "Todavía no se ha generado la guía."}
 
 A quién te diriges: ${audience}
+
+${getWritingStyle("es")}
 
 Reglas:
 - Respuestas cortas y prácticas (máximo unas 120 palabras), dirigiéndote de tú. Escribe en español.

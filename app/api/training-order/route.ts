@@ -6,6 +6,7 @@ import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { getWritingStyle } from "@/lib/ai-style";
 import { refundHuesitos, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   MASTERED_THRESHOLD,
@@ -130,6 +131,12 @@ Criterios, por orden de importancia:
 Ordena los grupos con la misma lógica: primero el grupo con lo que el perro necesita aprender antes.
 
 A quién te diriges: ${audience}
+
+Para los textos en español (reason_es y summary_es):
+${getWritingStyle("es")}
+
+Para los textos en inglés (reason_en y summary_en):
+${getWritingStyle("en")}
 
 Guarda el resultado con la herramienta ${TOOL_NAME}. Reglas:
 - Incluye TODOS los grupos y TODAS sus habilidades, usando solo los ids de arriba.

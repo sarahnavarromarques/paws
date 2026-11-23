@@ -5,6 +5,7 @@ import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { getWritingStyle } from "@/lib/ai-style";
 import { refundHuesitos, spendHuesitos } from "@/lib/huesitos";
 
 // Se ejecuta en el servidor de Next.js. La clave queda oculta aquí.
@@ -185,6 +186,8 @@ Rules:
 Who you are writing the comment for: ${audience}
 This only affects how the comment is written, never how progress is calculated.
 
+${getWritingStyle("en")}
+
 Respond ONLY with a valid JSON object, no extra text or code blocks. Exact format:
 {"newProgress": integer between 0 and 100, "comentario": "a short sentence with the next step to work on"}
 
@@ -211,6 +214,8 @@ Reglas:
 
 Para quién escribes el comentario: ${audience}
 Esto solo afecta a cómo está escrito el comentario, nunca a cómo se calcula el progreso.
+
+${getWritingStyle("es")}
 
 Responde SOLO con un objeto JSON válido, sin texto adicional ni bloques de código. Formato exacto:
 {"newProgress": número entero entre 0 y 100, "comentario": "una frase corta con el siguiente paso a trabajar"}

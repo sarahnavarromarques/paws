@@ -6,6 +6,7 @@ import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { AI_CONSENT_DECLINED_HEADER } from "@/lib/ai-consent-shared";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { getWritingStyle } from "@/lib/ai-style";
 import { refundHuesitos, spendHuesitos, type SpendResult } from "@/lib/huesitos";
 import {
   buildLocalGuide,
@@ -201,6 +202,8 @@ ${recentLines}
 
 Who you are writing for: ${audience}
 
+${getWritingStyle(locale)}
+
 Save the guide with the ${TOOL_NAME} tool. Rules:
 - Adapt the difficulty to the progress: if it's low, very easy steps in a quiet place; if it's high, add distance, duration or distractions.
 - Between 3 and 5 steps, in order, that fit in the planned duration.
@@ -226,6 +229,8 @@ Notas del entrenamiento: ${training.notes ?? noData}
 ${recentLines}
 
 A quién te diriges: ${audience}
+
+${getWritingStyle(locale)}
 
 Guarda la guía con la herramienta ${TOOL_NAME}. Reglas:
 - Adapta la dificultad al progreso: si es bajo, pasos muy fáciles en un lugar tranquilo; si es alto, añade distancia, duración o distracciones.

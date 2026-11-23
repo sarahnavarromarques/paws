@@ -5,6 +5,7 @@ import { getAudienceInstructions } from "@/lib/account-type";
 import { getCurrentAccountType } from "@/lib/account-type-server";
 import { aiConsentRequiredResponse, hasAiConsent } from "@/lib/ai-consent";
 import { getAiUser, recordAiUsage } from "@/lib/ai-usage";
+import { getWritingStyle } from "@/lib/ai-style";
 import { refundHuesitos, spendHuesitos } from "@/lib/huesitos";
 
 // Esta ruta se ejecuta en el servidor de Next.js, nunca en el navegador.
@@ -155,6 +156,8 @@ ${trainingLines}
 
 A quién te diriges: ${audience}
 
+${getWritingStyle("es")}
+
 Responde SOLO con un objeto JSON válido, sin texto adicional y sin bloques de código. Formato exacto:
 {"resumen":"2-3 frases sobre el estado general del progreso","patrones":"qué está funcionando y qué se resiste, según los datos","recomendacion":"el siguiente paso concreto a trabajar"}
 
@@ -174,6 +177,8 @@ Recent sessions (newest to oldest):
 ${trainingLines}
 
 Who you are writing for: ${audience}
+
+${getWritingStyle("en")}
 
 Reply ONLY with a valid JSON object, no extra text and no code blocks. Exact format:
 {"resumen":"2-3 sentences on the overall state of progress","patrones":"what's working and what's resisting, based on the data","recomendacion":"the concrete next step to work on"}
