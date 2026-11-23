@@ -267,7 +267,7 @@ const SECTIONS: SectionTour[] = [
   },
   {
     id: "pets",
-    name: { es: "Mis mascotas", en: "My pets" },
+    name: { es: "Perros", en: "Dogs" },
     steps: [
       {
         id: "pets-list",
@@ -307,10 +307,10 @@ const SECTIONS: SectionTour[] = [
         kind: "spot",
         target: "add-pet",
         icon: "➕",
-        title: { es: "Añade una mascota", en: "Add a pet" },
+        title: { es: "Añade un perro", en: "Add a dog" },
         body: {
-          es: "Al crear una mascota te propongo un cuestionario rápido. Con tus respuestas, la IA prepara su objetivo, sus grupos de habilidades y el orden para entrenarlas.",
-          en: "When you add a pet I'll offer you a quick questionnaire. With your answers, the AI prepares its goal, its skill groups and the order to train them.",
+          es: "Al añadir un perro te propongo un cuestionario rápido. Con tus respuestas, la IA prepara su objetivo, sus grupos de habilidades y el orden para entrenarlas.",
+          en: "When you add a dog I'll offer you a quick questionnaire. With your answers, the AI prepares its goal, its skill groups and the order to train them.",
         },
       },
     ],
@@ -470,8 +470,8 @@ const SECTIONS: SectionTour[] = [
         icon: "🪜",
         title: { es: "Sigue el camino", en: "Follow the path" },
         body: {
-          es: "La primera habilidad es la siguiente que conviene trabajar. También la verás en Mis mascotas.",
-          en: "The first skill is the next one to work on. You'll also see it in My pets.",
+          es: "La primera habilidad es la siguiente que conviene trabajar. También la verás en la lista de tus perros.",
+          en: "The first skill is the next one to work on. You'll also see it in your dogs list.",
         },
       },
     ],
@@ -866,6 +866,9 @@ const POLL_MS = 100;
 // Máximo de comprobaciones antes de mostrar la tarjeta centrada
 const MAX_TRIES_WELCOME = 60; // ≈ 6 s
 const MAX_TRIES_SECTION = 25; // ≈ 2,5 s
+// Si la pantalla ya ha cargado (se ve otro elemento de la misma guía) y el de
+// este paso no está (por ejemplo, aún no hay perros), se salta mucho antes
+const QUICK_SKIP_TRIES = 4; // ≈ 0,4 s
 // Cada cuánto se busca una pantalla con guía pendiente (ms)
 const SECTION_SCAN_MS = 400;
 // Para saber si el elemento ya dejó de moverse (la página terminó de cargar)
@@ -1489,11 +1492,24 @@ export default function OnboardingTour() {
         `[data-tour="${step.target}"]`
       );
 
+      // ¿La pantalla ya cargó? (se ve algún otro elemento de esta guía)
+      const pageLoaded =
+        !!sectionId &&
+        steps.some(
+          (other) =>
+            other.target !== undefined &&
+            other.target !== step.target &&
+            document.querySelector(`[data-tour="${other.target}"]`) !== null
+        );
+
       if (el) {
         window.clearInterval(interval);
         targetRef.current = el;
         waitUntilStable(el, pagePosition(el), 0, 0);
-      } else if (tries >= maxTries) {
+      } else if (
+        tries >= maxTries ||
+        (pageLoaded && tries >= QUICK_SKIP_TRIES)
+      ) {
         // No se encontró el elemento: saltar al siguiente paso
         window.clearInterval(interval);
         if (sectionId) {

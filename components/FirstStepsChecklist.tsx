@@ -374,13 +374,9 @@ export default function FirstStepsChecklist() {
               const done = progress[task.key];
               const isNext = nextTask?.key === task.key;
 
-              return (
-                <li
-                  key={task.key}
-                  className={`flex items-center gap-3 px-4 py-3 ${
-                    isNext ? "bg-sky-50" : ""
-                  }`}
-                >
+              // Círculo, texto y botón "Ir" de cada tarea
+              const content = (
+                <>
                   <span
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                       done
@@ -419,12 +415,30 @@ export default function FirstStepsChecklist() {
                   </span>
 
                   {!done && isNext && (
+                    <span className="shrink-0 rounded-lg bg-[#1e3a5f] px-3 py-1.5 text-xs font-bold text-white">
+                      {TEXT.go[lang]}
+                    </span>
+                  )}
+                </>
+              );
+
+              return (
+                <li key={task.key}>
+                  {done ? (
+                    // Tarea hecha: no se puede pulsar
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      {content}
+                    </div>
+                  ) : (
+                    // Tarea pendiente: se puede pulsar entera
                     <Link
                       href={task.href}
                       onClick={() => setExpanded(false)}
-                      className="shrink-0 rounded-lg bg-[#1e3a5f] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
+                      className={`flex items-center gap-3 px-4 py-3 transition hover:bg-sky-100 ${
+                        isNext ? "bg-sky-50" : ""
+                      }`}
                     >
-                      {TEXT.go[lang]}
+                      {content}
                     </Link>
                   )}
                 </li>
