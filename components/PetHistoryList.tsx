@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import Pawsi from "@/components/Pawsi";
+import { formatDate } from "@/lib/format-date";
 import {
   buildHistoryHref,
   type HistoryQuery,
@@ -47,6 +48,7 @@ export default function PetHistoryList({
 }: Props) {
   const t = useTranslations("PetHistory");
   const tProfile = useTranslations("PetProfile");
+  const locale = useLocale();
 
   const [query, setQuery] = useState<HistoryQuery>(initialQuery);
 
@@ -235,7 +237,12 @@ export default function PetHistoryList({
                     )}
 
                     <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-slate-600">
-                      <span>📅 {training.date ?? tProfile("noDate")}</span>
+                      <span>
+                        📅{" "}
+                        {training.date
+                          ? formatDate(training.date, locale)
+                          : tProfile("noDate")}
+                      </span>
                       <span>
                         🕒{" "}
                         {training.time ? training.time.substring(0, 5) : "--:--"}

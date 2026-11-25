@@ -5,6 +5,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import AddTrainingForm from "@/components/AddTrainingForm";
 import { getBreedLabel, getColorLabel } from "@/lib/breeds";
+import { formatDate } from "@/lib/format-date";
 import {
   questionnaireText,
   toQuestionnaireLocale,
@@ -55,24 +56,6 @@ function calculateAge(birthDate: string | null, t: TFunction): string {
   }
 
   return t("ageYearsMonths", { years, months });
-}
-
-// Fecha legible: "15/02/2023" en español y "15 Feb 2023" en inglés
-function formatDate(isoDate: string, locale: string): string {
-  const date = new Date(`${isoDate.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return isoDate;
-
-  return locale === "en"
-    ? new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }).format(date)
-    : new Intl.DateTimeFormat("es-ES", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).format(date);
 }
 
 export default async function PetProfile({ params }: PageProps) {

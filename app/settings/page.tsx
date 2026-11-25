@@ -9,6 +9,7 @@ import { startOnboardingTour } from "@/components/OnboardingTour";
 import HuesitoHistory from "@/components/HuesitoHistory";
 import AiConsentSettings from "@/components/AiConsentSettings";
 import PasswordInput from "@/components/PasswordInput";
+import { Flag } from "@/components/LanguageSwitcher";
 
 const supabase = createClient();
 
@@ -1016,26 +1017,36 @@ export default function SettingsPage() {
                   type="button"
                   disabled={savingLanguage}
                   onClick={() => void handleSaveLanguage("es")}
-                  className={`rounded-xl border-2 p-4 text-center font-semibold transition ${
+                  className={`flex items-center justify-center gap-3 rounded-xl border-2 p-4 text-center font-semibold transition ${
                     language === "es"
                       ? "border-blue-600 bg-blue-50 text-blue-700"
                       : "border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
-                  🇪🇸 {t("spanish")}
+                  {/* Banderas dibujadas (Windows no muestra los emojis de banderas).
+                      Cada idioma se escribe en su propio idioma. */}
+                  <Flag
+                    language="es"
+                    className="h-5 w-7 overflow-hidden rounded-[3px] ring-1 ring-black/10"
+                  />
+                  Español
                 </button>
 
                 <button
                   type="button"
                   disabled={savingLanguage}
                   onClick={() => void handleSaveLanguage("en")}
-                  className={`rounded-xl border-2 p-4 text-center font-semibold transition ${
+                  className={`flex items-center justify-center gap-3 rounded-xl border-2 p-4 text-center font-semibold transition ${
                     language === "en"
                       ? "border-blue-600 bg-blue-50 text-blue-700"
                       : "border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
-                  🇬🇧 {t("english")}
+                  <Flag
+                    language="en"
+                    className="h-5 w-7 overflow-hidden rounded-[3px] ring-1 ring-black/10"
+                  />
+                  English
                 </button>
               </div>
             </section>

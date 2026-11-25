@@ -1868,9 +1868,10 @@ export default function OnboardingTour() {
   const cardPosition = rect
     ? computeCardPosition(rect, step.cardAt === "top")
     : null;
+  // Espacios que no se parten: "1 / 2" nunca se divide en dos líneas
   const counter = currentSection
-    ? `${currentSection.name[lang]} · ${position} / ${total}`
-    : `${position} / ${total}`;
+    ? `${currentSection.name[lang]} · ${position}\u00a0/\u00a0${total}`
+    : `${position}\u00a0/\u00a0${total}`;
   const mustTap = Boolean(step.tap && rect);
 
   const card = (

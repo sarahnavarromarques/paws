@@ -542,10 +542,14 @@ export default function PetVaccinations({
 
       setVaccinations((current) => current.concat(data, boosterRows));
       setPlanPrompt(null);
+      // Cachorro: plan con fechas. Adulto o sin fecha de nacimiento: un
+      // refuerzo de cada vacuna sin fecha (cada caso con su propio texto)
       setInfo(
         plan.some((dose) => dose.dueDate)
           ? t("planPuppyInfo")
-          : t("planAdultInfo", { name: petName })
+          : birthDate
+          ? t("planAdultInfo", { name: petName })
+          : t("planNoBirthDateInfo", { name: petName })
       );
     } catch (planError) {
       console.error("[vacunas] Error al generar el plan:", planError);
