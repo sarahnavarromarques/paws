@@ -7,7 +7,14 @@ import { useLocale, useTranslations } from "next-intl";
 import BoneIcon from "@/components/BoneIcon";
 import InfoSection from "@/components/InfoSection";
 import Pawsi from "@/components/Pawsi";
-import { HUESITO_PACKS, type HuesitoPackId } from "@/lib/huesito-packs";
+import {
+  CUSTOM_HUESITOS_MAX,
+  CUSTOM_HUESITOS_MIN,
+  HUESITO_PACKS,
+  customHuesitosPriceCents,
+  formatEuros,
+  type HuesitoPackId,
+} from "@/lib/huesito-packs";
 import { notifyHuesitosChanged } from "@/lib/huesitos-client";
 import { HUESITO_COSTS } from "@/lib/huesitos-shared";
 import type { AiFeature } from "@/lib/ai-usage";
@@ -17,6 +24,31 @@ const AI_FEATURES = (Object.keys(HUESITO_COSTS) as AiFeature[]).sort(
   (a, b) => HUESITO_COSTS[a] - HUESITO_COSTS[b]
 );
 
+// Textos de la cantidad personalizada (español / inglés)
+const CUSTOM_TEXT = {
+  es: {
+    title: "Elige cuántos huesitos",
+    subtitle: "Cuantos más compras, más barato sale cada huesito.",
+    label: "Número de huesitos",
+    limits: `Entre ${CUSTOM_HUESITOS_MIN} y ${CUSTOM_HUESITOS_MAX}.`,
+    outOfRange: `Elige una cantidad entre ${CUSTOM_HUESITOS_MIN} y ${CUSTOM_HUESITOS_MAX}.`,
+    total: "Total",
+    buy: "Comprar",
+  },
+  en: {
+    title: "Choose how many bones",
+    subtitle: "The more you buy, the cheaper each bone.",
+    label: "Number of bones",
+    limits: `Between ${CUSTOM_HUESITOS_MIN} and ${CUSTOM_HUESITOS_MAX}.`,
+    outOfRange: `Choose an amount between ${CUSTOM_HUESITOS_MIN} and ${CUSTOM_HUESITOS_MAX}.`,
+    total: "Total",
+    buy: "Buy",
+  },
+};
+
+// Cantidad que aparece al principio en la caja
+const CUSTOM_DEFAULT = 200;
+
 // Tras pagar, Stripe avisa a PAWS en unos segundos: refrescamos el saldo
 // varias veces para que la pastilla de huesitos se actualice sola
 const REFRESH_TIMES_MS = [2000, 5000, 10000];
@@ -25,9 +57,18 @@ const REFRESH_TIMES_MS = [2000, 5000, 10000];
 export default function HuesitosShopPage() {
   const t = useTranslations("HuesitoShop");
   const locale = useLocale();
+  const customText = CUSTOM_TEXT[locale === "en" ? "en" : "es"];
 
   const [justPaid, setJustPaid] = useState(false);
-  const [buying, setBuying] = useState<HuesitoPackId | null>(null);
+  const [buying, setBuying] = useState<HuesitoPackId | "custom" | null>(null);
+  // Lo que hay escrito en la caja de cantidad personalizada
+  const [customInput, setCustomInput] = useState(String(CUSTOM_DEFAULT));
+
+  const customAmount = Number(customInput);
+  const customValid =
+    Number.isInteger(customAmount) &&
+    customAmount >= CUSTOM_HUESITOS_MIN &&
+    customAmount <= CUSTOM_HUESITOS_MAX;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,15 +83,20 @@ export default function HuesitosShopPage() {
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, []);
 
-  async function handleBuy(packId: HuesitoPackId) {
-    setBuying(packId);
+  // Compra de un pack o de una cantidad personalizada
+  async function handleBuy(choice: HuesitoPackId | "custom") {
+    if (choice === "custom" && !customValid) return;
+
+    setBuying(choice);
     setError(null);
 
     try {
       const response = await fetch("/api/stripe/huesitos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack: packId }),
+        body: JSON.stringify(
+          choice === "custom" ? { custom: customAmount } : { pack: choice }
+        ),
       });
       const result: unknown = await response.json().catch(() => null);
       const url =
@@ -132,6 +178,63 @@ export default function HuesitosShopPage() {
             </div>
           ))}
         </div>
+
+        {/* CANTIDAD PERSONALIZADA */}
+        <section className="mt-6 rounded-2xl bg-white p-6 shadow">
+          <h2 className="text-xl font-bold text-[#1e3a5f]">{customText.title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{customText.subtitle}</p>
+
+          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label
+                htmlFor="customHuesitos"
+                className="mb-2 block text-sm font-semibold text-slate-600"
+              >
+                {customText.label}
+              </label>
+              <div className="flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                <BoneIcon className="h-4 w-8 shrink-0" />
+                <input
+                  id="customHuesitos"
+                  type="number"
+                  inputMode="numeric"
+                  min={CUSTOM_HUESITOS_MIN}
+                  max={CUSTOM_HUESITOS_MAX}
+                  step={1}
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value.replace(/\D/g, ""))}
+                  disabled={buying !== null}
+                  className="w-full bg-transparent py-3 text-lg font-bold text-slate-900 outline-none"
+                />
+              </div>
+              <p
+                className={`mt-1 text-xs ${
+                  customValid || customInput === "" ? "text-slate-400" : "font-semibold text-red-600"
+                }`}
+              >
+                {customValid || customInput === "" ? customText.limits : customText.outOfRange}
+              </p>
+            </div>
+
+            <div className="text-center sm:w-40">
+              <p className="text-sm text-slate-500">{customText.total}</p>
+              <p className="text-3xl font-extrabold text-slate-800">
+                {customValid
+                  ? formatEuros(customHuesitosPriceCents(customAmount), locale)
+                  : "—"}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleBuy("custom")}
+              disabled={buying !== null || !customValid}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50 sm:w-40"
+            >
+              {buying === "custom" ? t("redirecting") : customText.buy}
+            </button>
+          </div>
+        </section>
 
         {error && <p className="mt-4 text-center font-semibold text-red-600">{error}</p>}
 

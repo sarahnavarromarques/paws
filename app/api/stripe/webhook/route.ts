@@ -11,7 +11,11 @@ import {
   huesitosExpiryFrom,
   idOf,
 } from "@/lib/stripe";
-import { findHuesitoPack } from "@/lib/huesito-packs";
+import {
+  CUSTOM_PACK_ID,
+  findHuesitoPack,
+  isValidCustomAmount,
+} from "@/lib/huesito-packs";
 
 // Avisos que Stripe envía a PAWS cuando alguien paga, renueva o cancela.
 // Aquí se guarda el estado de PAWS PRO y se dan los huesitos del mes.
@@ -142,23 +146,37 @@ async function syncSubscription(
   await saveSubscription(admin, userId, sub, isFounder);
 }
 
-// Compra de un pack de huesitos: se suman cuando el pago está cobrado
+// Cuántos huesitos se han comprado: el pack o la cantidad personalizada
+// (los datos los pone PAWS al crear el pago, el usuario no puede cambiarlos)
+function purchasedHuesitos(metadata: Record<string, unknown> | null): number | null {
+  const pack = findHuesitoPack(metadata?.pack);
+  if (pack) return pack.huesitos;
+
+  if (asString(metadata?.pack) === CUSTOM_PACK_ID) {
+    const amount = Number(asString(metadata?.huesitos));
+    return isValidCustomAmount(amount) ? amount : null;
+  }
+
+  return null;
+}
+
+// Compra de huesitos: se suman cuando el pago está cobrado
 async function handleHuesitoPurchase(admin: AdminClient, session: Record<string, unknown>) {
   if (asString(session.payment_status) !== "paid") return;
 
   const metadata = asObject(session.metadata);
-  const pack = findHuesitoPack(metadata?.pack);
+  const amount = purchasedHuesitos(metadata);
   const userId = asString(session.client_reference_id) ?? asString(metadata?.user_id);
   const sessionId = asString(session.id);
 
-  if (!pack || !userId || !sessionId) {
+  if (amount === null || !userId || !sessionId) {
     console.warn("[stripe/webhook] Compra de huesitos incompleta:", sessionId);
     return;
   }
 
   const { error } = await admin.rpc("grant_purchased_huesitos", {
     p_user_id: userId,
-    p_amount: pack.huesitos,
+    p_amount: amount,
     p_reference: sessionId,
   });
 
