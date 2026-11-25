@@ -803,8 +803,9 @@ export default function DashboardPage() {
                   <Pawsi pose="espera" size={100} />
                   <p className="text-xl font-semibold">{tx.nextNone}</p>
                 </div>
+                {/* Abre el calendario con la ventana de nuevo entrenamiento */}
                 <Link
-                  href="/calendar"
+                  href="/calendar?new=1"
                   className="shrink-0 rounded-xl bg-white px-6 py-3 text-center font-bold text-blue-700 shadow transition hover:bg-blue-50"
                 >
                   {tx.nextNoneCta} →

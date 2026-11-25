@@ -10,8 +10,25 @@ import PawsiLoading from "@/components/PawsiLoading";
 
 const supabase = createClient();
 
+// Entrenamiento recién guardado (se le pasa a quien usa el formulario)
+export type SavedTraining = {
+  id: number;
+  pet_id: number | null;
+  skill_id: number | null;
+  title: string | null;
+  date: string | null;
+  time: string | null;
+  duration: number | null;
+  status: string | null;
+  notes: string | null;
+};
+
 type Props = {
   petId: number;
+  // Fecha con la que empieza el formulario (por ejemplo, el día elegido en el calendario)
+  initialDate?: string;
+  // Si se indica, se llama al guardar en vez de recargar la página
+  onSaved?: (training: SavedTraining) => void;
 };
 
 type Skill = {
@@ -30,7 +47,7 @@ type Group = {
 
 const ALL_GROUPS_VALUE = "all";
 
-export default function AddTrainingForm({ petId }: Props) {
+export default function AddTrainingForm({ petId, initialDate, onSaved }: Props) {
   const router = useRouter();
   const t = useTranslations("AddTrainingForm");
   const locale = useLocale();
@@ -38,7 +55,7 @@ export default function AddTrainingForm({ petId }: Props) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(initialDate ?? "");
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState("");
   const [status, setStatus] = useState("pending");
@@ -216,7 +233,7 @@ export default function AddTrainingForm({ petId }: Props) {
 
     setSaving(true);
 
-    const { error } = await supabase.from("trainings").insert({
+    const { data: savedRow, error } = await supabase.from("trainings").insert({
       user_id: user.id,
       pet_id: petId,
       title: generatedTitle,
@@ -228,9 +245,11 @@ export default function AddTrainingForm({ petId }: Props) {
       skill_id: Number(skillId),
       skill_group_id:
         groupChoice === ALL_GROUPS_VALUE ? null : Number(groupChoice),
-    });
+    })
+      .select("id, pet_id, skill_id, title, date, time, duration, status, notes")
+      .single();
 
-    if (error) {
+    if (error || !savedRow) {
       console.error("Error guardando entrenamiento:", error);
       setSaving(false);
       alert(t("alertSaveError"));
@@ -239,7 +258,7 @@ export default function AddTrainingForm({ petId }: Props) {
 
     setSaving(false);
 
-    setDate("");
+    setDate(initialDate ?? "");
     setTime("");
     setDuration("");
     setStatus("pending");
@@ -247,7 +266,11 @@ export default function AddTrainingForm({ petId }: Props) {
     setGroupChoice(ALL_GROUPS_VALUE);
     setSkillId("");
 
-    router.refresh();
+    if (onSaved) {
+      onSaved(savedRow);
+    } else {
+      router.refresh();
+    }
   }
 
   if (loading) {

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 
 import { createClient } from "@/lib/supabase/client";
 import Pawsi from "@/components/Pawsi";
 import PawsiLoading from "@/components/PawsiLoading";
+import AddTrainingForm, { type SavedTraining } from "@/components/AddTrainingForm";
 import {
   getDueStatus,
   isDoseLabel,
@@ -105,6 +107,12 @@ const CAL_TEXT = {
     resultsLimited: "Se muestran los {n} más recientes",
     noResults: "No hay entrenamientos que coincidan.",
     goToDay: "Ir al día",
+    newTraining: "+ Nuevo entrenamiento",
+    newTrainingTitle: "Nuevo entrenamiento",
+    forDate: "Para el {date}",
+    dogLabel: "Perro",
+    noPetsText: "Para planificar un entrenamiento, primero añade un perro.",
+    addPet: "Añadir perro",
   },
   en: {
     pickMonth: "Choose month and year",
@@ -123,6 +131,12 @@ const CAL_TEXT = {
     resultsLimited: "Showing the {n} most recent",
     noResults: "No trainings match.",
     goToDay: "Go to day",
+    newTraining: "+ New training",
+    newTrainingTitle: "New training",
+    forDate: "For {date}",
+    dogLabel: "Dog",
+    noPetsText: "To plan a training, add a dog first.",
+    addPet: "Add dog",
   },
 };
 
@@ -189,6 +203,18 @@ export default function CalendarPage() {
 
   // Para bajar al detalle del día al elegir un resultado
   const dayDetailRef = useRef<HTMLDivElement | null>(null);
+
+  // Ventana para crear un entrenamiento en el día elegido
+  const [newTrainingOpen, setNewTrainingOpen] = useState(false);
+  const [newTrainingPetId, setNewTrainingPetId] = useState<number | null>(null);
+
+  // Desde el panel ("Planificar uno") se llega con ?new=1: se abre la ventana
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      setNewTrainingOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     async function loadCalendar() {
@@ -554,6 +580,46 @@ export default function CalendarPage() {
     setPickerOpen(false);
   }
 
+  function openNewTraining() {
+    setNewTrainingPetId((current) => current ?? pets[0]?.id ?? null);
+    setNewTrainingOpen(true);
+  }
+
+  // Entrenamiento recién creado: se añade al calendario sin recargar
+  async function handleTrainingSaved(row: SavedTraining) {
+    setNewTrainingOpen(false);
+
+    if (!row.date || row.pet_id === null) return;
+
+    const training: Training = {
+      id: row.id,
+      pet_id: row.pet_id,
+      skill_id: row.skill_id,
+      title: row.title,
+      date: row.date,
+      time: row.time,
+      duration: row.duration,
+      status: row.status,
+      notes: row.notes,
+    };
+
+    setTrainings((current) => current.concat(training));
+
+    // Nombre de la habilidad, si aún no estaba cargado
+    const skillId = row.skill_id;
+    if (skillId !== null && !skills.some((skill) => skill.id === skillId)) {
+      const { data } = await supabase
+        .from("skills")
+        .select("id, name, name_en")
+        .eq("id", skillId)
+        .maybeSingle();
+
+      if (data) {
+        setSkills((current) => current.concat(data as SkillName));
+      }
+    }
+  }
+
   function openTraining(trainingId: number) {
     router.push(`/trainings/${trainingId}/edit`);
   }
@@ -566,6 +632,8 @@ export default function CalendarPage() {
 
   const selectedTrainings = getTrainingsForDay(selectedDay);
   const selectedHealth = getHealthForDay(selectedDay);
+
+  const selectedDateString = toDateString(year, month, selectedDay);
 
   const selectedDateLabel = capitalizeFirst(
     new Date(year, month, selectedDay).toLocaleDateString(dateLocale, {
@@ -974,9 +1042,18 @@ export default function CalendarPage() {
               {/* DETALLE DEL DÍA SELECCIONADO */}
 
               <div ref={dayDetailRef} className="mt-6 scroll-mt-20 border-t border-slate-200 pt-4">
-                <h3 className="mb-3 text-lg font-bold text-slate-800">
-                  {selectedDateLabel}
-                </h3>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-800">
+                    {selectedDateLabel}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={openNewTraining}
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    {tx.newTraining}
+                  </button>
+                </div>
 
                 {selectedTrainings.length === 0 && selectedHealth.length === 0 ? (
                   // Día sin entrenamientos ni salud: Pawsi descansando
@@ -1103,6 +1180,88 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+
+      {/* VENTANA: NUEVO ENTRENAMIENTO EN EL DÍA ELEGIDO */}
+
+      {newTrainingOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          onClick={() => setNewTrainingOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {tx.newTrainingTitle}
+                </h2>
+                <p className="mt-1 text-slate-500">
+                  {/* En español, el día va en minúscula en mitad de la frase ("Para el miércoles…") */}
+                  {tx.forDate.replace(
+                    "{date}",
+                    lang === "es"
+                      ? selectedDateLabel.charAt(0).toLowerCase() + selectedDateLabel.slice(1)
+                      : selectedDateLabel
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewTrainingOpen(false)}
+                aria-label={tx.close}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {loading ? (
+              <PawsiLoading text={t("loading")} variant="card" />
+            ) : pets.length === 0 ? (
+              <div className="flex flex-col items-center gap-4 py-4 text-center">
+                <Pawsi pose="espera" size={90} />
+                <p className="text-slate-600">{tx.noPetsText}</p>
+                <Link
+                  href="/pets"
+                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                >
+                  {tx.addPet}
+                </Link>
+              </div>
+            ) : (
+              <>
+                {/* Perro (solo si hay más de uno) */}
+                {pets.length > 1 && (
+                  <label className="mb-5 block">
+                    <span className="mb-2 block font-semibold">{tx.dogLabel}</span>
+                    <select
+                      value={String(newTrainingPetId ?? pets[0].id)}
+                      onChange={(e) => setNewTrainingPetId(Number(e.target.value))}
+                      className="w-full rounded-xl border border-slate-300 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      {pets.map((pet) => (
+                        <option key={pet.id} value={String(pet.id)}>
+                          {pet.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {/* Formulario de siempre, con la fecha del día elegido */}
+                <AddTrainingForm
+                  key={`${newTrainingPetId ?? pets[0].id}-${selectedDateString}`}
+                  petId={newTrainingPetId ?? pets[0].id}
+                  initialDate={selectedDateString}
+                  onSaved={(row) => void handleTrainingSaved(row)}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
