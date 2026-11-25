@@ -19,7 +19,7 @@ type LineItem = {
   price?: string;
   price_data?: {
     currency: string;
-    product: string;
+    product_data: { name: string; tax_code?: string };
     unit_amount: number;
     tax_behavior?: "inclusive" | "exclusive";
   };
@@ -76,6 +76,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   const origin = new URL(request.url).origin;
+  const isEnglish = profile?.language === "en";
   const huesitos = pack ? pack.huesitos : (customAmount ?? 0);
 
   const metadata = {
@@ -91,11 +92,19 @@ export async function POST(request: Request) {
     if (pack) {
       lineItem = { price: priceId, quantity: 1 };
     } else {
-      const basePrice = await stripe.prices.retrieve(priceId);
-      const productId =
-        typeof basePrice.product === "string"
-          ? basePrice.product
-          : basePrice.product.id;
+      const basePrice = await stripe.prices.retrieve(priceId, {
+        expand: ["product"],
+      });
+
+      // Código de impuestos del producto de los packs (lo necesita Stripe
+      // para calcular el IVA); el nombre es la cantidad real comprada
+      const baseProduct = basePrice.product;
+      const rawTaxCode =
+        typeof baseProduct === "object" && "tax_code" in baseProduct
+          ? baseProduct.tax_code
+          : null;
+      const taxCode =
+        typeof rawTaxCode === "string" ? rawTaxCode : rawTaxCode?.id ?? undefined;
       // Mismo tratamiento del IVA que el pack (con o sin IVA incluido)
       const taxBehavior: "inclusive" | "exclusive" | undefined =
         basePrice.tax_behavior === "inclusive"
@@ -107,7 +116,10 @@ export async function POST(request: Request) {
       lineItem = {
         price_data: {
           currency: basePrice.currency,
-          product: productId,
+          product_data: {
+            name: isEnglish ? `${huesitos} bones` : `${huesitos} huesitos`,
+            ...(taxCode ? { tax_code: taxCode } : {}),
+          },
           unit_amount: customHuesitosPriceCents(huesitos),
           ...(taxBehavior ? { tax_behavior: taxBehavior } : {}),
         },
@@ -122,7 +134,7 @@ export async function POST(request: Request) {
       managed_payments: { enabled: true },
       client_reference_id: user.id,
       metadata,
-      locale: profile?.language === "en" ? "en" : "es",
+      locale: isEnglish ? "en" : "es",
       success_url: `${origin}/huesitos?status=success`,
       cancel_url: `${origin}/huesitos`,
       ...(billing?.stripe_customer_id
